@@ -13,12 +13,20 @@
   },
   "peerDependencies": {
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "react-native-reanimated": "4.5.1"
   },
   "devDependencies": {
+    "@types/react": "~19.2.2",
+    "nativewind": "5.0.0-rc.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "@types/react": "~19.2.2",
+    "react-native-css": "3.1.0-rc.0",
+    "react-native-reanimated": "4.5.1",
     "typescript": "~6.0.3"
+  },
+  "dependencies": {
+    "@wow/theme": "workspace:*",
+    "lucide-react-native": "^1.61.0"
   }
 }

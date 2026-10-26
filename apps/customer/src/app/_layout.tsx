@@ -1,18 +1,37 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+
+import '../global.css';
+
+import { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { ThemeProvider, wowFonts } from '@wow/theme';
 
-SplashScreen.preventAutoHideAsync();
+// Prevent the splash screen from hiding
+// before the fonts finish loading.
+void SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  const [loaded, error] = useFonts(wowFonts);
+
+  useEffect(() => {
+    if (loaded || error) {
+      void SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
+
+  if (!loaded && !error) {
+    return null;
+  }
+
+  if (error) {
+    console.error('Tajawal font loading failed:', error);
+  }
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
+    <ThemeProvider>
+      <Stack screenOptions={{ headerShown: false }} />
     </ThemeProvider>
   );
 }

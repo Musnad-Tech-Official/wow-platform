@@ -1,0 +1,27 @@
+@theme {
+  --color-primary: #f5b700;
+  --color-primary-foreground: #171717;
+  --color-background: #ffffff;
+  --color-surface: #f4f4f5;
+  --color-foreground: #18181b;
+  --color-muted-foreground: #71717a;
+  --color-border: #e4e4e7;
+
+  --font-tajawal-extralight: "Tajawal-ExtraLight";
+  --font-tajawal-light: "Tajawal-Light";
+  --font-tajawal: "Tajawal-Regular";
+  --font-tajawal-medium: "Tajawal-Medium";
+  --font-tajawal-bold: "Tajawal-Bold";
+  --font-tajawal-extrabold: "Tajawal-ExtraBold";
+  --font-tajawal-black: "Tajawal-Black";
+}
+
+:root {
+  --color-primary: #f5b700;
+  --color-primary-foreground: #171717;
+  --color-background: #ffffff;
+  --color-surface: #f4f4f5;
+  --color-foreground: #18181b;
+  --color-muted-foreground: #71717a;
+  --color-border: #e4e4e7;
+}

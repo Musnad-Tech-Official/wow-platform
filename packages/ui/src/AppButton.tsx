@@ -1,25 +1,47 @@
+
 import { Pressable, Text } from 'react-native';
+import type { ComponentProps } from 'react';
 
 type AppButtonProps = {
   title: string;
-  onPress: () => void;
-};
+  variant?: 'primary' | 'secondary';
+} & Omit<ComponentProps<typeof Pressable>, 'children'>;
 
 export function AppButton({
   title,
-  onPress,
+  variant = 'primary',
+  className,
+  disabled,
+  ...props
 }: AppButtonProps) {
+  const variantClasses =
+    variant === 'primary'
+      ? 'bg-primary'
+      : 'bg-surface border border-border';
+
+  const textClasses =
+    variant === 'primary'
+      ? 'text-primary-foreground'
+      : 'text-foreground';
+
   return (
     <Pressable
-      onPress={onPress}
-      style={{
-        padding: 14,
-        backgroundColor: '#F5B700',
-        borderRadius: 12,
-        alignItems: 'center',
-      }}
+      {...props}
+      disabled={disabled}
+      accessibilityRole="button"
+      className={[
+        'items-center justify-center rounded-xl px-6 py-4',
+        'active:opacity-80',
+        disabled ? 'opacity-50' : '',
+        variantClasses,
+        className ?? '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      <Text style={{ color: '#111', fontWeight: '600' }}>
+      <Text
+        className={`font-tajawal-bold text-base ${textClasses}`}
+      >
         {title}
       </Text>
     </Pressable>
