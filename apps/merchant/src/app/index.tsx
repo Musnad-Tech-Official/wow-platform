@@ -1,7 +1,7 @@
-
+import { router } from 'expo-router';
+import { useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Alert,
   Pressable,
@@ -14,6 +14,7 @@ import {
   BadgePercent,
   Plus,
   ArrowLeft,
+  X,
   ClipboardList,
   CheckCircle2,
   Truck,
@@ -22,6 +23,13 @@ import {
 
 import {
   AppButton,
+  AppText,
+  AppInput,
+  Badge,
+  Card,
+  Checkbox,
+  Divider,
+  IconButton,
   ThemeSwitcher,
 } from '@wow/ui';
 
@@ -81,6 +89,8 @@ const orders = [
 
 export default function MerchantHome() {
   const { resolvedTheme } = useTheme();
+  const [query, setQuery] = useState('');
+  const [notifications, setNotifications] = useState(false);
 
   const iconColor =
     resolvedTheme === 'dark' ? '#FAFAFA' : '#18181B';
@@ -88,33 +98,34 @@ export default function MerchantHome() {
   const primaryColor =
     resolvedTheme === 'dark' ? '#FFD23F' : '#F5B700';
 
+  const filteredItems = orders.filter((order) => (order.id + order.customer).includes(query.trim()));
+
   return (
     <ScrollView
       className="flex-1 bg-background"
       contentContainerClassName="pb-10"
     >
       <View className="gap-7 px-5 pt-10">
+        {__DEV__ && <AppButton title="Integration tests (development)" variant="secondary" onPress={() => router.push('/integration-test')} />}
 
         {/* Header */}
-        <View className="flex-row-reverse items-center justify-between gap-3">
-          <View className="flex-1 items-end gap-1">
-            <Text className="font-tajawal text-sm text-muted-foreground">
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="flex-1 items-start gap-1">
+            <AppText variant="label" muted className="font-tajawal">
               نظرة عامة على المتجر
-            </Text>
+            </AppText>
 
-            <Text
-              className="font-tajawal-bold text-3xl text-foreground"
+            <AppText variant="title"
               style={{ textAlign: 'right' }}
             >
               لوحة تحكم التاجر
-            </Text>
+            </AppText>
 
-            <Text
-              className="font-tajawal text-sm text-muted-foreground"
+            <AppText variant="label" muted className="font-tajawal"
               style={{ textAlign: 'right' }}
             >
               تابع مبيعاتك وأدر متجرك وطلباتك بسهولة.
-            </Text>
+            </AppText>
           </View>
 
           <View className="rounded-2xl bg-surface p-3">
@@ -123,34 +134,38 @@ export default function MerchantHome() {
         </View>
 
         {/* Theme Switcher */}
-        <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-          <Text
-            className="font-tajawal-bold text-base text-foreground"
+        <Card className="gap-3 p-4">
+          <AppText className="font-tajawal-bold"
             style={{ textAlign: 'right' }}
           >
             مظهر التطبيق
-          </Text>
+          </AppText>
 
           <ThemeSwitcher />
-        </View>
+          <Divider />
+          <Checkbox
+            label="تفعيل الإشعارات التجريبية"
+            checked={notifications}
+            onCheckedChange={setNotifications}
+          />
+        </Card>
 
         {/* Statistics */}
         <View className="gap-4">
-          <Text
-            className="font-tajawal-bold text-xl text-foreground"
+          <AppText variant="heading"
             style={{ textAlign: 'right' }}
           >
             إحصائيات المتجر
-          </Text>
+          </AppText>
 
-          <View className="flex-row-reverse flex-wrap gap-3">
+          <View className="flex-row flex-wrap gap-3">
             {stats.map((stat) => {
               const Icon = stat.icon;
 
               return (
-                <View
+                <Card
                   key={stat.id}
-                  className="min-w-36 flex-1 items-end gap-3 rounded-2xl border border-border bg-surface p-4"
+                  className="min-w-36 flex-1 items-start gap-3 p-4"
                 >
                   <View className="rounded-xl bg-background p-2.5">
                     <Icon
@@ -160,18 +175,18 @@ export default function MerchantHome() {
                     />
                   </View>
 
-                  <Text className="font-tajawal text-sm text-muted-foreground">
+                  <AppText variant="label" muted className="font-tajawal">
                     {stat.title}
-                  </Text>
+                  </AppText>
 
-                  <Text className="font-tajawal-bold text-2xl text-foreground">
+                  <AppText className="font-tajawal-bold text-2xl">
                     {stat.value}
-                  </Text>
+                  </AppText>
 
-                  <Text className="font-tajawal-medium text-xs text-muted-foreground">
+                  <AppText variant="caption" muted className="font-tajawal-medium">
                     {stat.unit}
-                  </Text>
-                </View>
+                  </AppText>
+                </Card>
               );
             })}
           </View>
@@ -179,12 +194,11 @@ export default function MerchantHome() {
 
         {/* Quick Actions */}
         <View className="gap-4">
-          <Text
-            className="font-tajawal-bold text-xl text-foreground"
+          <AppText variant="heading"
             style={{ textAlign: 'right' }}
           >
             إجراءات سريعة
-          </Text>
+          </AppText>
 
           <View className="gap-3">
             <AppButton
@@ -204,50 +218,72 @@ export default function MerchantHome() {
           </View>
 
           {/* Action Shortcuts */}
-          <View className="flex-row-reverse gap-3">
+          <View className="flex-row gap-3">
             <Pressable
               onPress={() => Alert.alert('المنتجات', 'إضافة منتج جديد')}
-              className="flex-1 flex-row-reverse items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4"
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4"
             >
               <Plus size={18} color={iconColor} />
 
-              <Text className="font-tajawal-medium text-sm text-foreground">
+              <AppText variant="label">
                 منتج جديد
-              </Text>
+              </AppText>
             </Pressable>
 
             <Pressable
               onPress={() => Alert.alert('الطلبات', 'عرض الطلبات')}
-              className="flex-1 flex-row-reverse items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4"
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4"
             >
               <ClipboardList size={18} color={iconColor} />
 
-              <Text className="font-tajawal-medium text-sm text-foreground">
+              <AppText variant="label">
                 الطلبات
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         </View>
 
+        <Card>
+          <AppText variant="heading" style={{ textAlign: 'right' }}>البحث في الطلبات</AppText>
+          <AppInput
+            label="البحث"
+            placeholder="ابحث برقم الطلب أو اسم العميل"
+            value={query}
+            onChangeText={setQuery}
+            style={{ textAlign: 'right' }}
+            returnKeyType="search"
+          />
+          <View className="flex-row items-center justify-between">
+            <Badge label="بيانات تجريبية" variant="secondary" />
+            <IconButton accessibilityLabel="مسح البحث" disabled={!query} onPress={() => setQuery('')}>
+              <X size={20} color={iconColor} />
+            </IconButton>
+          </View>
+        </Card>
+
         {/* Recent Orders */}
         <View className="gap-4">
-          <View className="flex-row-reverse items-center justify-between">
-            <Text className="font-tajawal-bold text-xl text-foreground">
+          <View className="flex-row items-center justify-between">
+            <AppText variant="heading">
               أحدث الطلبات
-            </Text>
+            </AppText>
 
             <Pressable
               onPress={() => Alert.alert('الطلبات', 'عرض جميع الطلبات')}
               className="flex-row items-center gap-1"
             >
               <ArrowLeft size={16} color={primaryColor} />
-              <Text className="font-tajawal-medium text-sm text-primary">
+              <AppText variant="label" className="text-primary">
                 عرض الكل
-              </Text>
+              </AppText>
             </Pressable>
           </View>
 
-          {orders.map((order) => {
+          {filteredItems.length === 0 ? (
+            <AppText muted style={{ textAlign: 'right' }}>لا توجد نتائج مطابقة للبحث.</AppText>
+          ) : null}
+
+          {filteredItems.map((order) => {
             const StatusIcon =
               order.type === 'completed'
                 ? CheckCircle2
@@ -261,16 +297,16 @@ export default function MerchantHome() {
                 onPress={() =>
                   Alert.alert('تفاصيل الطلب', `الطلب ${order.id}`)
                 }
-                className="flex-row-reverse items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4"
+                className="flex-row items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4"
               >
-                <View className="flex-1 items-end gap-1">
-                  <Text className="font-tajawal-bold text-base text-foreground">
+                <View className="flex-1 items-start gap-1">
+                  <AppText className="font-tajawal-bold">
                     طلب رقم {order.id}
-                  </Text>
+                  </AppText>
 
-                  <Text className="font-tajawal text-sm text-muted-foreground">
+                  <AppText variant="label" muted className="font-tajawal">
                     {order.customer}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View className="items-center gap-1.5">
@@ -279,9 +315,9 @@ export default function MerchantHome() {
                     color={primaryColor}
                   />
 
-                  <Text className="font-tajawal-medium text-xs text-primary">
+                  <AppText variant="caption" className="font-tajawal-medium text-primary">
                     {order.status}
-                  </Text>
+                  </AppText>
                 </View>
               </Pressable>
             );

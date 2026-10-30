@@ -1,5 +1,7 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useTheme, type ThemeMode } from '@wow/theme';
+import { AppText } from './AppText';
+import { rtlProps, rtlStyles } from './rtl';
 
 const modes: ThemeMode[] = ['light', 'dark', 'system'];
 
@@ -7,7 +9,7 @@ export function ThemeSwitcher() {
   const { mode, setMode } = useTheme();
 
   return (
-    <View className="flex-row gap-2">
+    <View {...rtlProps} style={rtlStyles.layout} className="flex-row gap-2">
       {modes.map((item) => (
         <Pressable
           key={item}
@@ -20,7 +22,8 @@ export function ThemeSwitcher() {
               : 'rounded-xl bg-surface px-4 py-3'
           }
         >
-          <Text
+          <AppText
+            style={{ textAlign: 'center' }}
             className={
               mode === item
                 ? 'font-semibold text-primary-foreground'
@@ -28,7 +31,7 @@ export function ThemeSwitcher() {
             }
           >
             {item}
-          </Text>
+          </AppText>
         </Pressable>
       ))}
     </View>

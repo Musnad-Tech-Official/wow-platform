@@ -350,6 +350,11 @@ Run the appropriate pnpm installation command from the workspace root and commit
 
 ## ✅ Type Checking and Verification
 
+The development-only integration screen in each app checks Clerk sessions,
+Supabase authentication, profile RLS, and merchant RPCs. See the
+[integration test guide](docs/integration-tests.md) for setup, account-switching
+steps, fixture handling, and the local verification commands.
+
 Check TypeScript in each application:
 
 ```bash

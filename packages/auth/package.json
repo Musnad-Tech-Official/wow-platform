@@ -1,0 +1,20 @@
+{
+  "name": "@wow/auth",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "peerDependencies": {
+    "@clerk/expo": "^4.0.0",
+    "expo-secure-store": "~57.0.4",
+    "react": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18"
+  },
+  "dependencies": {
+    "expo-auth-session": "~57.0.16",
+    "expo-crypto": "~57.0.4",
+    "expo-web-browser": "~57.0.3"
+  }
+}

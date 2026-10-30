@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import { styled } from 'nativewind';
+import { rtlProps, rtlStyles } from './rtl';
 
 import Animated, {
   useSharedValue,
@@ -35,7 +36,7 @@ export function AnimatedHeart({
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.get() }],
   }));
 
   function toggleLike() {
@@ -44,14 +45,16 @@ export function AnimatedHeart({
     setLiked(nextLiked);
     onChange?.(nextLiked);
 
-    scale.value = withSequence(
+    scale.set(withSequence(
       withSpring(1.35, { damping: 8 }),
       withSpring(1, { damping: 12 })
-    );
+    ));
   }
 
   return (
     <Pressable
+      {...rtlProps}
+      style={rtlStyles.layout}
       onPress={toggleLike}
       accessibilityRole="button"
       accessibilityLabel={

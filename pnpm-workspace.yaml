@@ -3,5 +3,8 @@ packages:
   - 'packages/*'
 allowBuilds:
   '@tailwindcss/oxide': false
+  browser-tabs-lock: false
+  core-js: false
+  unrs-resolver: false
 overrides:
   lightningcss: 1.30.1

@@ -1,7 +1,7 @@
-
+import { router } from 'expo-router';
+import { useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   Alert,
   Pressable,
@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   ShieldCheck,
   ArrowLeft,
+  X,
   UserRoundPlus,
   BadgePercent,
   MessageSquareWarning,
@@ -21,7 +22,7 @@ import {
   Settings,
 } from 'lucide-react-native';
 
-import { AppButton, ThemeSwitcher } from '@wow/ui';
+import { AppButton, AppText, AppInput, Badge, Card, Checkbox, Divider, IconButton, ThemeSwitcher } from '@wow/ui';
 import { useTheme } from '@wow/theme';
 
 const stats = [
@@ -74,6 +75,8 @@ const activities = [
 
 export default function AdminHome() {
   const { resolvedTheme } = useTheme();
+  const [query, setQuery] = useState('');
+  const [notifications, setNotifications] = useState(false);
 
   // Temporary bridge until icons use shared
   // NativeWind semantic classes directly.
@@ -83,33 +86,34 @@ export default function AdminHome() {
   const foregroundColor =
     resolvedTheme === 'dark' ? '#FAFAFA' : '#18181B';
 
+  const filteredItems = activities.filter((activity) => (activity.message).includes(query.trim()));
+
   return (
     <ScrollView
       className="flex-1 bg-background"
       contentContainerClassName="pb-10"
     >
       <View className="gap-7 px-5 pt-10">
+        {__DEV__ && <AppButton title="Integration tests (development)" variant="secondary" onPress={() => router.push('/integration-test')} />}
 
         {/* Header */}
-        <View className="flex-row-reverse items-center justify-between gap-3">
-          <View className="flex-1 items-end gap-1">
-            <Text className="font-tajawal text-sm text-muted-foreground">
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="flex-1 items-start gap-1">
+            <AppText variant="label" muted className="font-tajawal">
               نظرة عامة على المنصة
-            </Text>
+            </AppText>
 
-            <Text
-              className="font-tajawal-bold text-3xl text-foreground"
+            <AppText variant="title"
               style={{ textAlign: 'right' }}
             >
               لوحة تحكم الإدارة
-            </Text>
+            </AppText>
 
-            <Text
-              className="font-tajawal text-sm text-muted-foreground"
+            <AppText variant="label" muted className="font-tajawal"
               style={{ textAlign: 'right' }}
             >
               راقب أداء منصة واو وأدر جميع العمليات بسهولة.
-            </Text>
+            </AppText>
           </View>
 
           <View className="rounded-2xl bg-surface p-3">
@@ -122,41 +126,44 @@ export default function AdminHome() {
         </View>
 
         {/* Theme Switcher */}
-        <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-          <Text
-            className="font-tajawal-bold text-base text-foreground"
+        <Card className="gap-3 p-4">
+          <AppText className="font-tajawal-bold"
             style={{ textAlign: 'right' }}
           >
             مظهر التطبيق
-          </Text>
+          </AppText>
 
           <ThemeSwitcher />
+          <Divider />
+          <Checkbox
+            label="تفعيل الإشعارات التجريبية"
+            checked={notifications}
+            onCheckedChange={setNotifications}
+          />
 
-          <Text
-            className="font-tajawal text-xs text-muted-foreground"
+          <AppText variant="caption" muted
             style={{ textAlign: 'right' }}
           >
             الوضع الحالي: {resolvedTheme === 'dark' ? 'داكن' : 'فاتح'}
-          </Text>
-        </View>
+          </AppText>
+        </Card>
 
         {/* Platform Statistics */}
         <View className="gap-4">
-          <Text
-            className="font-tajawal-bold text-xl text-foreground"
+          <AppText variant="heading"
             style={{ textAlign: 'right' }}
           >
             إحصائيات المنصة
-          </Text>
+          </AppText>
 
-          <View className="flex-row-reverse flex-wrap gap-3">
+          <View className="flex-row flex-wrap gap-3">
             {stats.map((stat) => {
               const Icon = stat.icon;
 
               return (
-                <View
+                <Card
                   key={stat.id}
-                  className="min-w-36 flex-1 items-end gap-3 rounded-2xl border border-border bg-surface p-4"
+                  className="min-w-36 flex-1 items-start gap-3 p-4"
                 >
                   <View className="rounded-xl bg-background p-2.5">
                     <Icon
@@ -166,17 +173,16 @@ export default function AdminHome() {
                     />
                   </View>
 
-                  <Text
-                    className="font-tajawal text-sm text-muted-foreground"
+                  <AppText variant="label" muted className="font-tajawal"
                     style={{ textAlign: 'right' }}
                   >
                     {stat.title}
-                  </Text>
+                  </AppText>
 
-                  <Text className="font-tajawal-bold text-2xl text-foreground">
+                  <AppText className="font-tajawal-bold text-2xl">
                     {stat.value}
-                  </Text>
-                </View>
+                  </AppText>
+                </Card>
               );
             })}
           </View>
@@ -184,12 +190,11 @@ export default function AdminHome() {
 
         {/* Administrative Actions */}
         <View className="gap-4">
-          <Text
-            className="font-tajawal-bold text-xl text-foreground"
+          <AppText variant="heading"
             style={{ textAlign: 'right' }}
           >
             إدارة المنصة
-          </Text>
+          </AppText>
 
           <AppButton
             title="إدارة التجار"
@@ -207,41 +212,59 @@ export default function AdminHome() {
           />
 
           {/* Administrative Shortcuts */}
-          <View className="flex-row-reverse gap-3">
+          <View className="flex-row gap-3">
             <Pressable
               onPress={() =>
                 Alert.alert('المستخدمون', 'إدارة مستخدمي المنصة')
               }
-              className="flex-1 flex-row-reverse items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4"
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4"
             >
               <Users size={18} color={foregroundColor} />
 
-              <Text className="font-tajawal-medium text-sm text-foreground">
+              <AppText variant="label">
                 المستخدمون
-              </Text>
+              </AppText>
             </Pressable>
 
             <Pressable
               onPress={() =>
                 Alert.alert('الإعدادات', 'إعدادات المنصة')
               }
-              className="flex-1 flex-row-reverse items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4"
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4"
             >
               <Settings size={18} color={foregroundColor} />
 
-              <Text className="font-tajawal-medium text-sm text-foreground">
+              <AppText variant="label">
                 الإعدادات
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         </View>
 
+        <Card>
+          <AppText variant="heading" style={{ textAlign: 'right' }}>البحث في النشاطات</AppText>
+          <AppInput
+            label="البحث"
+            placeholder="ابحث في النشاطات"
+            value={query}
+            onChangeText={setQuery}
+            style={{ textAlign: 'right' }}
+            returnKeyType="search"
+          />
+          <View className="flex-row items-center justify-between">
+            <Badge label="بيانات تجريبية" variant="secondary" />
+            <IconButton accessibilityLabel="مسح البحث" disabled={!query} onPress={() => setQuery('')}>
+              <X size={20} color={foregroundColor} />
+            </IconButton>
+          </View>
+        </Card>
+
         {/* Recent Activity */}
         <View className="gap-4">
-          <View className="flex-row-reverse items-center justify-between">
-            <Text className="font-tajawal-bold text-xl text-foreground">
+          <View className="flex-row items-center justify-between">
+            <AppText variant="heading">
               آخر النشاطات
-            </Text>
+            </AppText>
 
             <Pressable
               onPress={() =>
@@ -251,13 +274,17 @@ export default function AdminHome() {
             >
               <ArrowLeft size={16} color={primaryColor} />
 
-              <Text className="font-tajawal-medium text-sm text-primary">
+              <AppText variant="label" className="text-primary">
                 عرض الكل
-              </Text>
+              </AppText>
             </Pressable>
           </View>
 
-          {activities.map((activity) => {
+          {filteredItems.length === 0 ? (
+            <AppText muted style={{ textAlign: 'right' }}>لا توجد نتائج مطابقة للبحث.</AppText>
+          ) : null}
+
+          {filteredItems.map((activity) => {
             const Icon = activity.icon;
 
             return (
@@ -266,7 +293,7 @@ export default function AdminHome() {
                 onPress={() =>
                   Alert.alert('تفاصيل النشاط', activity.message)
                 }
-                className="flex-row-reverse items-center gap-3 rounded-2xl border border-border bg-surface p-4"
+                className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-4"
               >
                 <View className="rounded-xl bg-background p-3">
                   <Icon
@@ -276,23 +303,22 @@ export default function AdminHome() {
                   />
                 </View>
 
-                <View className="flex-1 items-end gap-1">
-                  <Text
-                    className="font-tajawal-medium text-base text-foreground"
+                <View className="flex-1 items-start gap-1">
+                  <AppText variant="label" className="text-base"
                     style={{ textAlign: 'right' }}
                   >
                     {activity.message}
-                  </Text>
+                  </AppText>
 
-                  <View className="flex-row-reverse items-center gap-1">
+                  <View className="flex-row items-center gap-1">
                     <Clock3
                       size={13}
                       color={foregroundColor}
                     />
 
-                    <Text className="font-tajawal text-xs text-muted-foreground">
+                    <AppText variant="caption" muted>
                       {activity.time}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
 

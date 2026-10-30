@@ -9,6 +9,11 @@
       "types": "./src/index.ts",
       "react-native": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./integration-test": {
+      "types": "./src/integration/IntegrationTestScreen.tsx",
+      "react-native": "./src/integration/IntegrationTestScreen.tsx",
+      "default": "./src/integration/IntegrationTestScreen.tsx"
     }
   },
   "peerDependencies": {
@@ -27,6 +32,8 @@
   },
   "dependencies": {
     "@wow/theme": "workspace:*",
-    "lucide-react-native": "^1.61.0"
+    "lucide-react-native": "^1.61.0",
+    "@wow/api": "workspace:*",
+    "@wow/auth": "workspace:*"
   }
 }

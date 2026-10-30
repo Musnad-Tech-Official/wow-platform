@@ -2,6 +2,7 @@
 import { Pressable } from 'react-native';
 import { Bell } from 'lucide-react-native';
 import { styled } from 'nativewind';
+import { rtlProps, rtlStyles } from './rtl';
 
 import Animated, {
   useSharedValue,
@@ -52,6 +53,8 @@ export function AnimatedBell({
 
   return (
     <Pressable
+      {...rtlProps}
+      style={rtlStyles.layout}
       onPress={ringBell}
       accessibilityRole="button"
       accessibilityLabel="Notifications"

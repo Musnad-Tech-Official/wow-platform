@@ -1,5 +1,16 @@
 {
   "name": "wow-platform",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.2"
+  },
+  "scripts": {
+    "lint": "eslint apps packages",
+    "typecheck": "node scripts/validate-integration-routes.cjs && pnpm --filter @wow/api typecheck && pnpm --filter customer exec tsc --noEmit && pnpm --filter merchant exec tsc --noEmit && pnpm --filter admin exec tsc --noEmit",
+    "test:query": "node scripts/test-query.cjs",
+    "test:integration": "node scripts/test-integration.cjs",
+    "validate:routes": "node scripts/validate-integration-routes.cjs"
+  }
 }
