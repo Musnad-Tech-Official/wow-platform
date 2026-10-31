@@ -8,6 +8,7 @@ export * from './offers';
 export * from './customer-interactions';
 export * from './billing';
 export * from './discovery';
+export * from './media';
 export { createWowPublicSupabaseClient, useWowPublicSupabaseClient, type WowPublicSupabaseOptions } from './supabase/public-client';
 export { WowQueryProvider, type WowQueryProviderProps } from './query/WowQueryProvider';
 export { createWowQueryClient } from './query/query-client';
@@ -73,3 +74,9 @@ export {
   useAdminUpsertCategory,
   useAdminSetBusinessCategories,
 } from './query/hooks/use-discovery';
+export {
+  usePublicOfferMedia,
+  useUploadWowMedia,
+  useAttachOfferMedia,
+  useAttachComplaintEvidence,
+} from './query/hooks/use-media';
