@@ -394,6 +394,107 @@ test('verification APIs use migration 003 RPC names and exact request fields', a
   ]);
 });
 
+test('Migration 004 offer RPCs use exact names, types and parameter keys', async () => {
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    requests.push({ path, body: JSON.parse(options.body) });
+    if (path.endsWith('wow_admin_list_pending_offers')) return response([]);
+    if (path.endsWith('wow_admin_get_offer_review')) return response({ version: { id } });
+    return response(id);
+  };
+  const client = makeClient();
+  const payload = {
+    title: 'Offer', offer_kind: 'product', final_price: '42.00', currency: 'YER',
+    items: [{ item_type: 'product', name: 'Item' }], branches: [otherId],
+  };
+  assert.equal(await api.createOffer(client, { businessId: id }), id);
+  assert.equal(await api.saveOfferDraft(client, { offerId: id, payload }), id);
+  assert.equal(await api.submitOffer(client, id), id);
+  assert.equal(await api.setOfferAvailability(client, { offerId: id, available: true, paused: false }), id);
+  assert.deepEqual(await api.listAdminPendingOffers(client, { limit: 25, offset: 5 }), []);
+  assert.deepEqual(await api.getAdminOfferReview(client, id), { version: { id } });
+  assert.equal(await api.decideAdminOffer(client, { versionId: id, decision: 'approved' }), id);
+  assert.deepEqual(requests, [
+    { path: '/rest/v1/rpc/wow_create_offer', body: { p_business_id: id } },
+    { path: '/rest/v1/rpc/wow_save_offer_draft', body: { p_offer_id: id, p_payload: payload } },
+    { path: '/rest/v1/rpc/wow_submit_offer', body: { p_offer_id: id } },
+    { path: '/rest/v1/rpc/wow_set_offer_availability', body: { p_offer_id: id, p_available: true, p_paused: false } },
+    { path: '/rest/v1/rpc/wow_admin_list_pending_offers', body: { p_limit: 25, p_offset: 5 } },
+    { path: '/rest/v1/rpc/wow_admin_get_offer_review', body: { p_version_id: id } },
+    { path: '/rest/v1/rpc/wow_admin_decide_offer', body: { p_version_id: id, p_decision: 'approved', p_reason: null } },
+  ]);
+});
+
+test('offers hooks stay idle while signed out and offer creation invalidates only the right business', async () => {
+  let privateQueries;
+  let requests = 0;
+  globalThis.fetch = async () => { requests++; return response([]); };
+  function InspectPrivate() {
+    recordClient();
+    privateQueries = [
+      api.useBusinessOffers(id), api.useOfferVersions(id),
+      api.useOfferVersionDetails(id), api.useAdminPendingOffers(),
+      api.useAdminOfferReview(id),
+    ];
+    return null;
+  }
+  const signedOut = await mount(provider(h(InspectPrivate), { userId: null, sessionScopeKey: null }));
+  assert(privateQueries.every(q => q.fetchStatus === 'idle' && q.data === undefined));
+  assert.equal(requests, 0);
+  await act(async () => signedOut.unmount());
+
+  let mutation;
+  let queryClient;
+  const captured = [];
+  globalThis.fetch = async (url, options) => {
+    captured.push({ path: new URL(url).pathname, body: JSON.parse(options.body) });
+    return response(id);
+  };
+  function InspectCreate() {
+    queryClient = recordClient();
+    mutation = api.useCreateOffer();
+    return null;
+  }
+  await mount(provider(h(InspectCreate)));
+  const current = api.wowQueryKeys.offers.business(id, 'user_a');
+  const other = api.wowQueryKeys.offers.business(otherId, 'user_a');
+  const otherUser = api.wowQueryKeys.offers.business(id, 'user_b');
+  for (const key of [current, other, otherUser]) queryClient.setQueryData(key, []);
+  await act(async () => assert.equal(await mutation.mutateAsync({ businessId: id }), id));
+  assert.equal(queryClient.getQueryState(current).isInvalidated, true);
+  assert.equal(queryClient.getQueryState(other).isInvalidated, false);
+  assert.equal(queryClient.getQueryState(otherUser).isInvalidated, false);
+  assert.deepEqual(captured, [{ path: '/rest/v1/rpc/wow_create_offer', body: { p_business_id: id } }]);
+});
+
+test('offer version detail reads are RLS-backed and return null for invisible versions', async () => {
+  const seen = [];
+  globalThis.fetch = async (url) => {
+    const { pathname, searchParams } = new URL(url);
+    seen.push({ pathname, search: searchParams.toString() });
+    if (pathname.endsWith('/offer_versions')) {
+      return response([{ id, offer_id: otherId, business_id: id, version_no: 1, review_status: 'draft' }]);
+    }
+    if (pathname.endsWith('/offer_items')) return response([{ id: otherId, offer_version_id: id, item_type: 'product', name: 'Item', sort_order: 0 }]);
+    if (pathname.endsWith('/offer_item_attributes')) return response([{ id: otherId, offer_item_id: otherId, name: 'size', value: '1L', sort_order: 0 }]);
+    if (pathname.endsWith('/offer_branches')) return response([{ business_id: id, offer_version_id: id, branch_id: otherId }]);
+    if (pathname.endsWith('/offer_media')) return response([]);
+    return response([]);
+  };
+  const client = makeClient();
+  const detail = await api.getOfferVersionDetails(client, id);
+  assert.equal(detail.version.id, id);
+  assert.equal(detail.items[0].attributes[0].value, '1L');
+  assert.equal(detail.branches[0].branch_id, otherId);
+  for (const path of ['/offer_versions', '/offer_items', '/offer_item_attributes', '/offer_branches', '/offer_media']) {
+    assert(seen.some(e => e.pathname.endsWith(path)), path);
+  }
+  assert(seen.some(e => e.pathname.endsWith('/offer_versions') && e.search.includes('id=eq.')));
+  globalThis.fetch = async () => response(null);
+  assert.equal(await api.getOfferVersionDetails(client, id), null);
+});
+
 test('mutations do not retry failures and cannot write while signed out', async () => {
   let mutation;
   let requests = 0;
