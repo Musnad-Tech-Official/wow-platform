@@ -18,4 +18,18 @@ export const wowQueryKeys = {
     adminDetail: (verificationId: string | null, userId: string | null) =>
       ['verifications', 'admin', 'detail', verificationId, userId] as const,
   },
+  offers: {
+    merchantRoot: (userId: string | null) => ['offers', 'merchant', userId] as const,
+    business: (businessId: string | null, userId: string | null) =>
+      ['offers', 'merchant', userId, 'business', businessId] as const,
+    versions: (offerId: string | null, userId: string | null) =>
+      ['offers', 'merchant', userId, 'versions', offerId] as const,
+    version: (versionId: string | null, userId: string | null) =>
+      ['offers', 'merchant', userId, 'version', versionId] as const,
+    adminRoot: (userId: string | null) => ['offers', 'admin', userId] as const,
+    adminList: (limit: number, offset: number, userId: string | null) =>
+      ['offers', 'admin', userId, 'pending', limit, offset] as const,
+    adminDetail: (versionId: string | null, userId: string | null) =>
+      ['offers', 'admin', userId, 'detail', versionId] as const,
+  },
 };
