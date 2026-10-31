@@ -5,6 +5,7 @@ export * from './businesses';
 export * from './branches';
 export * from './verifications';
 export * from './offers';
+export * from './customer-interactions';
 export { WowQueryProvider, type WowQueryProviderProps } from './query/WowQueryProvider';
 export { createWowQueryClient } from './query/query-client';
 export { wowQueryKeys } from './query/query-keys';
@@ -32,3 +33,20 @@ export {
   useAdminOfferReview,
   useAdminDecideOffer,
 } from './query/hooks/use-offers';
+export {
+  useSavedOffers,
+  useSavedBusinesses,
+  useSetSavedOffer,
+  useSetSavedBusiness,
+  useMyRatings,
+  useRateOffer,
+  useMyComplaints,
+  useSubmitComplaint,
+  useBusinessComplaints,
+  useMerchantRespondComplaint,
+  useAdminRatings,
+  useAdminModerateRating,
+  useAdminComplaints,
+  useAdminComplaint,
+  useAdminUpdateComplaint,
+} from './query/hooks/use-customer-interactions';
