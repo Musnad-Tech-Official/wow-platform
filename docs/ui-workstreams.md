@@ -1,61 +1,43 @@
-# WOW — Parallel UI Workstreams (Feature- and Page-Based)
+# WOW — Unassigned Work Packages (Self-Service Backlog)
 
-**Goal:** Turn the stable `@wow/api` foundation into usable pages across Customer, Merchant and Admin without having three developers change the same code. This is a proposed development assignment for the current discovery/merchant-management MVP, not a launch-readiness sign-off.
+**Status:** Open for volunteers. This replaces the older name-based / three-person assignment plan. Development can proceed with **one developer, two developers, three developers or more**, without changing the system. No individual owns work until they explicitly claim an issue.
 
-## Rules for parallel work
+## How it works
 
-- Assign each **connected workflow** to **one feature owner**, including its closely related pages and components. This is **not** a rigid one-application-per-person split.
-- New routes belong under independent feature route names; share screen-specific components only within the feature's own directory. Do not edit another owner's feature files.
-- The existing `packages/api`, `packages/auth`, `packages/theme`, `packages/ui`, and shared app `_layout.tsx` files are **frozen for concurrent page work**. Propose shared changes via a small dedicated PR; coordinate a single integrator for navigational changes.
-- Each contributor starts from **latest main**, uses a feature branch and submits a narrowly scoped PR. Run `pnpm.cmd typecheck`, `pnpm.cmd lint`, `pnpm.cmd test:query`, `pnpm.cmd test:integration` locally.
-- The root `index.tsx` and `_layout.tsx` files in each app are integration files: the coordinating developer owns those edits in a dedicated final wiring PR. Individual contributors implement their feature route and component files.
-- Do not put private admin evidence, credentials, private Storage keys, or unpublished offers into public Customer UI; rely on role-appropriate API exports.
-- Backend live integration is a separate audited workstream. UI teams can start with deterministic mock data and replace it with the typed hooks as soon as contracts are verified.
+Each package is a self-contained group of closely related pages or tasks, potentially spanning Customer, Merchant and Admin. Package boundaries are chosen to minimize conflicts in feature folders, not to force one person to own a particular application.
 
-## Three feature-owner lanes
+1. Choose **one unclaimed package** from the table below. Check the issue and any active PR before claiming it.
+2. Comment `Taking W##` in the issue and self-assign it. Update its status to in progress. **Only one active owner for the same package/file scope**; other developers choose another package. An owner can divide a large package into smaller issues only with explicit, non-overlapping paths.
+3. Branch from latest `main`: `feat/w01-customer-discovery`, `feat/w04-offer-workflow`, etc. Use a descriptive suffix. PRs must mention `Refs #issue-number`.
+4. Work only in the package's owned feature folders. Shared changes to `packages/api`, `packages/ui`, `packages/auth`, `packages/theme`, root app `index.tsx` or `_layout.tsx` require a dedicated, coordinated PR.
+5. Run local `pnpm.cmd typecheck`, `pnpm.cmd lint`, `pnpm.cmd test:query`, `pnpm.cmd test:integration` and relevant UI smoke checks before requesting a merge.
+6. After merge, claim another available package. If only one developer works, simply take packages in dependency order. Two developers take two different available packages. There is **no minimum team size**.
 
-| Owner | Connected workflow and pages | Candidate file ownership |
-| --- | --- | --- |
-| **Islam** | Customer discovery: home, category browse, search/filter, business details, public offer details, favorites; Admin taxonomy screen for controlled categories | `apps/customer/src/features/discovery/**`, `apps/customer/src/features/favorites/**`, `apps/customer/src/app/discover/**`, `apps/customer/src/app/business/**`, `apps/customer/src/app/offer/**` (public offer display); `apps/admin/src/features/taxonomy/**` and `apps/admin/src/app/taxonomy/**` |
-| **Sabri** | Merchant onboarding/management: business and branch setup, business/branch verification status and submission, owner team/access, pause/resume, profile revisions and billing/trial/subscriptions; the *corresponding* Admin verification/billing/profile-review screens | `apps/merchant/src/features/business/**`, `branches/**`, `verification/**`, `team/**`, `billing/**`, `profile/**` under `features/`; merchant routes by the same names; `apps/admin/src/features/verification/**`, `billing/**`, `profile-revisions/**`, matching Admin routes |
-| **Shahir** | Offer lifecycle and trust: Merchant offer create/edit/submit/media/availability; Admin offer queue and independent offer decisions; Customer rating/complaint components and complaint history; Merchant complaint reply; Admin rating/complaint moderation | `apps/merchant/src/features/offers/**`, `complaints/**`; Merchant routes `offers/**`, `complaints/**`; `apps/admin/src/features/offer-review/**`, `moderation/**` and matching routes; `apps/customer/src/features/feedback/**`, `apps/customer/src/app/feedback/**` |
+## Open package catalog
 
-The lanes are **functional ownership**, not a prohibition against working in multiple apps. The complete complaint workflow remains with Shahir; the public offer details page remains with Islam. For the “Rate / Report” entry actions on offer details, Shahir supplies reusable, exported feedback UI components and Islam attaches them to the public offer details page in a coordinated integration PR. Avoid simultaneous changes to `apps/customer/src/app/offer/**`.
+| ID | Work package | Issue | Dependencies / ownership notes |
+| --- | --- | --- | --- |
+| W00 | Database structural verification + real multi-role RLS/Storage tests | [#10](https://github.com/Musnad-Tech-Official/wow-platform/issues/10) | **Do first; required before real data or release.** Can run alongside mock-based UI work |
+| W01 | Customer home, search, categories, business & offer discovery | [#11](https://github.com/Musnad-Tech-Official/wow-platform/issues/11) | Public offer-details route belongs only to W01 |
+| W02 | Customer saved offers/businesses and account states | [#12](https://github.com/Musnad-Tech-Official/wow-platform/issues/12) | Reusable Save component; no W01 route edits |
+| W03 | Merchant business creation, branches, verification and profile | [#13](https://github.com/Musnad-Tech-Official/wow-platform/issues/13) | Supplies business and branch IDs needed by merchant workflows |
+| W04 | Merchant offer draft, version, media, submission and pause | [#14](https://github.com/Musnad-Tech-Official/wow-platform/issues/14) | Depends on W03 data context (mocks acceptable initially) |
+| W05 | Merchant employee access, trial, subscription and billing | [#15](https://github.com/Musnad-Tech-Official/wow-platform/issues/15) | Depends on W03 business context (mocks acceptable initially) |
+| W06 | Admin business verification, profile revision and billing decisions | [#16](https://github.com/Musnad-Tech-Official/wow-platform/issues/16) | Admin privilege checked server-side, not inferred from app |
+| W07 | Admin offer review and category approval | [#17](https://github.com/Musnad-Tech-Official/wow-platform/issues/17) | Owns its Admin feature folders only |
+| W08 | Customer ratings/complaints, Merchant responses and Admin moderation | [#18](https://github.com/Musnad-Tech-Official/wow-platform/issues/18) | Owns cross-app complaint workflow, not the W01 offer-details route |
+| W09 | Global app shell, navigation wiring, RTL and acceptance integration | [#19](https://github.com/Musnad-Tech-Official/wow-platform/issues/19) | **Do after** primary feature routes are ready; exclusive ownership of shared app layouts/navigation |
 
-Before implementation, agree on the design shell and naming scheme once: Arabic RTL, Tajawal typography, accessible loading/empty/error states, responsive targets, and the current brand/theme. Do not let individual features each reinvent the global navigation or duplicated UI primitives.
+Issues #10–#19 are created **without assignees**. Selecting an issue is voluntary, not dependent on any previously suggested person or teammate.
 
-## Proposed delivery batches
+### Avoid merge conflicts
 
-### Batch A — independently runnable UI
+Keep each feature's route and components in its own folder. Do not add deep links to another package's route without review. Consumers of `@wow/api` use the exported typed functions and hooks; missing API capabilities become separate backend-contract issues instead of unauthorized direct SQL calls or client-side privilege bypasses.
 
-- Islam: guest home/discovery/search/details using public discovery RPCs, then favorites after auth.
-- Sabri: merchant business selector, business profile, branches and verification states; admin verification decision panel.
-- Shahir: merchant offers list, draft editor, review submission and status; admin pending offer review.
+All private queries rely on the current Clerk session, and customer-facing public discovery must work for signed-out guests. Storage buckets remain private; never use public URL helpers for private evidence. Business/offer approval, billing and Admin actions are server-authorized.
 
-All can develop in parallel after their base branches are created from the same `main`, with no overlapping feature folders.
+### What should start first?
 
-### Batch B — operational UI
+**W00 is the priority security gate** and can be undertaken by any available contributor while mock-based UI work proceeds independently. For UI, **W01 (customer discovery)** and **W03 (merchant onboarding)** are good independent starting packages, with **W07 (admin offer review)** also independent. This order is about dependencies, **not identities**.
 
-- Islam: filters/categories, public offer media presentation, favorites and polished empty/error states, admin taxonomy.
-- Sabri: employees/permissions, branch pause, profile revisions, trials/paid subscription requests and admin payment review.
-- Shahir: attachment workflow, availability pause/resume, registered-user conformity rating and complaint submission/history, merchant complaint response and admin moderation.
-
-### Batch C — integration and acceptance
-
-One coordinator integrates feature entry routes and navigation in `index.tsx`/`_layout.tsx`. Validate Auth gating, signed-out discovery, guest-to-signed-in transitions, partial employee branch permissions, no drafts appearing in Customer, no paid plan activation from a submitted payment reference. Run local gates and cross-feature smoke tests.
-
-## Suggested branch names
-
-| Owner | Batch A branch | Batch B branch |
-| --- | --- | --- |
-| Islam | `feat/customer-discovery-pages` | `feat/customer-discovery-polish` |
-| Sabri | `feat/merchant-onboarding-pages` | `feat/merchant-operations-pages` |
-| Shahir | `feat/offers-review-pages` | `feat/trust-moderation-pages` |
-
-Once Batch A PRs merge, each owner branches Batch B from fresh `main`. Keep PRs small enough for clear review and local testing, not one PR per entire application.
-
-## Page contract review
-
-Every page should identify the matching `@wow/api` hook, user role, input IDs, loading/empty/error outcomes, retry semantics, and success-state invalidation. A feature that needs a missing RPC or schema field should open a focused backend-contract issue/PR rather than inventing a client-only security bypass.
-
-**This plan covers the approved first-release offer discovery platform.** Cart, integrated customer checkout, delivery and consumer-wallet payments require a separately approved API/schema phase and are not assumed to exist today.
+The release-one contract currently covers discoverable verified offers, merchant management and moderation. Shopping cart, online customer checkout and delivery are separate future scope. A local green build does **not** certify a live Supabase database; consult `docs/database-test-runbook.md`.
