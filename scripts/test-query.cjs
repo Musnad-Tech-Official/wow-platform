@@ -849,6 +849,203 @@ test('Migration 007 rejects malformed public search results and private Supabase
   await assert.rejects(api.searchPublicBusinesses(client), /unexpected result shape/);
 });
 
+test('Migration 008 media RPCs preserve exact arguments, UUID and boolean results', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    calls.push({ path, body: options.body ? JSON.parse(options.body) : {} });
+    if (path.endsWith('/wow_attach_complaint_evidence')) return response(true);
+    if (path.endsWith('/wow_public_get_offer_media')) return response([
+      { bucket: 'wow-offer-media', key: id + '/' + otherId + '/user_a/' + 'a'.repeat(48) + '.webp',
+        alt_text: null, is_cover: true, sort_order: 0 },
+    ]);
+    return response(id);
+  };
+  const client = makeClient();
+  assert.equal(await api.attachOfferMedia(client, {
+    versionId: id, storageKey: 'draft/key.webp', itemId: otherId,
+    altText: 'Image of product', isCover: true, sortOrder: 2,
+  }), id);
+  assert.equal(await api.attachComplaintEvidence(client, {
+    complaintId: id, storageKey: 'complaints/user_a/' + id + '/example.pdf',
+  }), true);
+  const images = await api.getPublicOfferMedia(client, id);
+  assert.equal(images.length, 1);
+  assert.equal(images[0].is_cover, true);
+  assert.deepEqual(calls, [
+    { path: '/rest/v1/rpc/wow_attach_offer_media', body: {
+      p_version_id: id, p_storage_key: 'draft/key.webp',
+      p_item_id: otherId, p_alt_text: 'Image of product', p_is_cover: true, p_sort_order: 2,
+    } },
+    { path: '/rest/v1/rpc/wow_attach_complaint_evidence', body: {
+      p_complaint_id: id, p_storage_key: 'complaints/user_a/' + id + '/example.pdf',
+    } },
+    { path: '/rest/v1/rpc/wow_public_get_offer_media', body: { p_offer_id: id } },
+  ]);
+});
+
+test('Migration 008 upload keys use safe paths and enforce MIME/size/immutable upload', async () => {
+  const random = 'b'.repeat(48);
+  const business = api.createWowMediaPath({ kind: 'business', businessId: id }, 'user_a', random, 'image/webp');
+  const offer = api.createWowMediaPath({ kind: 'offer', businessId: id, versionId: otherId }, 'user_a', random, 'image/jpeg');
+  const verification = api.createWowMediaPath({ kind: 'verification', businessId: id }, 'user_a', random, 'application/pdf');
+  const complaint = api.createWowMediaPath({ kind: 'complaint', complaintId: id }, 'user_a', random, 'image/png');
+  assert.deepEqual(business, { bucket: 'wow-business-media', key: id + '/user_a/' + random + '.webp' });
+  assert.deepEqual(offer, { bucket: 'wow-offer-media', key: id + '/' + otherId + '/user_a/' + random + '.jpg' });
+  assert.deepEqual(verification, { bucket: 'wow-verification-evidence', key: 'business-verifications/' + id + '/user_a/' + random + '.pdf' });
+  assert.deepEqual(complaint, { bucket: 'wow-complaint-evidence', key: 'complaints/user_a/' + id + '/' + random + '.png' });
+  assert.throws(() => api.createWowMediaPath({ kind: 'business', businessId: id }, 'user_a', 'unsafe', 'image/png'), /secure random bytes/);
+  assert.throws(() => api.createWowMediaPath({ kind: 'business', businessId: id }, '../bad', random, 'image/png'), /Invalid Clerk user ID/);
+  assert.throws(() => api.createWowMediaPath({ kind: 'business', businessId: 'invalid' }, 'user_a', random, 'image/png'), /UUID/);
+
+  const uploaded = [];
+  const mockClient = {
+    storage: { from(bucket) { return {
+      async upload(path, body, options) {
+        uploaded.push({ bucket, path, body, options });
+        return { data: { path }, error: null };
+      },
+    }; } },
+  };
+  const bytes = new Uint8Array([1, 2, 3, 4]).buffer;
+  const result = await api.uploadWowMedia(mockClient, {
+    scope: { kind: 'offer', businessId: id, versionId: otherId }, userId: 'user_a',
+    bytes, contentType: 'image/webp',
+  });
+  assert.equal(result.bucket, 'wow-offer-media');
+  assert.match(result.key, new RegExp('^' + id + '/' + otherId + '/user_a/[a-f0-9]{48}\\.webp
+  let mutation;
+  let requests = 0;
+  globalThis.fetch = async () => { requests++; return response({ code: '42501', message: 'Permission denied' }, 403); };
+  function Inspect() { recordClient(); mutation = api.useCreateBusiness(); return null; }
+  const renderer = await mount(provider(h(Inspect)));
+  await act(async () => { await assert.rejects(mutation.mutateAsync({ name: 'Shop' }), error => error.code === '42501'); });
+  assert.equal(requests, 1);
+  await update(renderer, provider(h(Inspect), { userId: null, sessionScopeKey: null }));
+  await act(async () => { await assert.rejects(mutation.mutateAsync({ name: 'Shop' }), /signed-in session/); });
+  assert.equal(requests, 1);
+});
+
+test('query retry runs once without multiplying Supabase SDK retries', async () => {
+  const queryClient = api.createWowQueryClient();
+  const defaults = queryClient.getDefaultOptions();
+  queryClient.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retryDelay: 0 } });
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    return new Response(JSON.stringify({ code: '503', message: 'Unavailable' }), {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '0' },
+    });
+  };
+  try {
+    await assert.rejects(queryClient.fetchQuery({
+      queryKey: api.wowQueryKeys.businesses.mine('user_a'),
+      queryFn: () => api.getMyBusinesses(makeClient(), 'user_a'),
+    }), error => error.code === '503');
+    assert.equal(requests, 2);
+  } finally { queryClient.clear(); }
+});
+
+test('a late mutation response cannot populate or invalidate the next session cache', async () => {
+  let mutation;
+  let queryClient;
+  let finishRequest;
+  globalThis.fetch = async () => new Promise(resolve => { finishRequest = () => resolve(response(id)); });
+  function Inspect() {
+    queryClient = recordClient();
+    mutation = api.useCreateBusiness();
+    return null;
+  }
+  const renderer = await mount(provider(h(Inspect)));
+  let pending;
+  await act(async () => { pending = mutation.mutateAsync({ name: 'Shop' }); await tick(); });
+  assert.equal(typeof finishRequest, 'function');
+  await update(renderer, provider(h(Inspect), { userId: 'user_b', sessionScopeKey: scope('user_b', 'session_b') }));
+  const key = api.wowQueryKeys.businesses.mine('user_b');
+  queryClient.setQueryData(key, []);
+  await act(async () => { finishRequest(); await pending; });
+  assert.equal(mutation.status, 'idle');
+  assert.equal(queryClient.getQueryState(key).isInvalidated, false);
+  assert.equal(queryClient.getQueryData(api.wowQueryKeys.businesses.detail(id, 'user_a')), undefined);
+  assert.equal(queryClient.getMutationCache().getAll().length, 0);
+});
+
+test('session replacement cancels in-flight reads through the Supabase AbortSignal', async () => {
+  let aborted = false;
+  globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => { aborted = true; reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
+  });
+  function Inspect() { recordClient(); api.useCurrentUser(); return null; }
+  const renderer = await mount(provider(h(Inspect)));
+  await update(renderer, provider(h(Inspect), { userId: null, sessionScopeKey: null }));
+  assert.equal(aborted, true);
+  assert.equal(clients[0].getQueryCache().getAll().length, 0);
+});
+));
+  assert.equal(uploaded.length, 1);
+  assert.equal(uploaded[0].body, bytes);
+  assert.deepEqual(uploaded[0].options, { contentType: 'image/webp', upsert: false });
+
+  await assert.rejects(api.uploadWowMedia(mockClient, {
+    scope: { kind: 'business', businessId: id }, userId: 'user_a', bytes, contentType: 'application/pdf',
+  }), /images only/);
+  await assert.rejects(api.uploadWowMedia(mockClient, {
+    scope: { kind: 'offer', businessId: id, versionId: otherId }, userId: 'user_a',
+    bytes: new ArrayBuffer(5 * 1024 * 1024 + 1), contentType: 'image/jpeg',
+  }), /file size/);
+  assert.equal(uploaded.length, 1);
+});
+
+test('Migration 008 media hooks gate uploads and attachments while signed out but allow public image reads', async () => {
+  const mediaKey = id + '/' + otherId + '/user_a/' + 'a'.repeat(48) + '.webp';
+  const paths = [];
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    paths.push({ path, authorization: options.headers.get('Authorization') });
+    return response([{ bucket: 'wow-offer-media', key: mediaKey, alt_text: null, is_cover: true, sort_order: 0 }]);
+  };
+  let query, upload, offer, complaint;
+  function Guest() {
+    recordClient();
+    query = api.usePublicOfferMedia(id, {
+      url: 'https://wow.invalid', publishableKey: 'sb_publishable_local',
+    });
+    upload = api.useUploadWowMedia();
+    offer = api.useAttachOfferMedia();
+    complaint = api.useAttachComplaintEvidence();
+    return null;
+  }
+  await mount(provider(h(Guest), { userId: null, sessionScopeKey: null, getClient: () => null }));
+  await act(tick);
+  assert.equal(query.data[0].key, mediaKey);
+  assert.equal(paths.length, 1);
+  assert(paths[0].path.endsWith('/rpc/wow_public_get_offer_media'));
+  assert.notEqual(paths[0].authorization, 'Bearer local-session-token');
+  await act(async () => {
+    await assert.rejects(upload.mutateAsync({
+      scope: { kind: 'business', businessId: id },
+      bytes: new ArrayBuffer(1), contentType: 'image/png',
+    }), /signed-in session/);
+    await assert.rejects(offer.mutateAsync({ versionId: id, storageKey: mediaKey }), /signed-in session/);
+    await assert.rejects(complaint.mutateAsync({ complaintId: id, storageKey: mediaKey }), /signed-in session/);
+  });
+  assert.equal(paths.length, 1);
+});
+
+test('Migration 008 signed URLs reject private bucket keys and limit expiry', async () => {
+  let signingCalls = 0;
+  const client = { storage: { from() {
+    signingCalls++;
+    return { createSignedUrl: async () => ({ data: { signedUrl: 'https://signed.invalid/short' }, error: null }) };
+  } } };
+  const good = { bucket: 'wow-offer-media', key: id + '/' + otherId + '/user_a/' + 'a'.repeat(48) + '.webp' };
+  assert.equal(await api.signPublicOfferMedia(client, good, 60), 'https://signed.invalid/short');
+  await assert.rejects(api.signPublicOfferMedia(client, { ...good, bucket: 'wow-complaint-evidence' }), /Invalid approved/);
+  await assert.rejects(api.signPublicOfferMedia(client, { ...good, key: 'draft/not-approved.jpg' }), /Invalid approved/);
+  await assert.rejects(api.signPublicOfferMedia(client, good, 3600), /1–120 seconds/);
+  assert.equal(signingCalls, 1);
+});
+
 test('mutations do not retry failures and cannot write while signed out', async () => {
   let mutation;
   let requests = 0;
