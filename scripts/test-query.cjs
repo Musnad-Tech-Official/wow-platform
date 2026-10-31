@@ -913,75 +913,7 @@ test('Migration 008 upload keys use safe paths and enforce MIME/size/immutable u
     bytes, contentType: 'image/webp',
   });
   assert.equal(result.bucket, 'wow-offer-media');
-  assert.match(result.key, new RegExp('^' + id + '/' + otherId + '/user_a/[a-f0-9]{48}\\.webp
-  let mutation;
-  let requests = 0;
-  globalThis.fetch = async () => { requests++; return response({ code: '42501', message: 'Permission denied' }, 403); };
-  function Inspect() { recordClient(); mutation = api.useCreateBusiness(); return null; }
-  const renderer = await mount(provider(h(Inspect)));
-  await act(async () => { await assert.rejects(mutation.mutateAsync({ name: 'Shop' }), error => error.code === '42501'); });
-  assert.equal(requests, 1);
-  await update(renderer, provider(h(Inspect), { userId: null, sessionScopeKey: null }));
-  await act(async () => { await assert.rejects(mutation.mutateAsync({ name: 'Shop' }), /signed-in session/); });
-  assert.equal(requests, 1);
-});
-
-test('query retry runs once without multiplying Supabase SDK retries', async () => {
-  const queryClient = api.createWowQueryClient();
-  const defaults = queryClient.getDefaultOptions();
-  queryClient.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retryDelay: 0 } });
-  let requests = 0;
-  globalThis.fetch = async () => {
-    requests++;
-    return new Response(JSON.stringify({ code: '503', message: 'Unavailable' }), {
-      status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '0' },
-    });
-  };
-  try {
-    await assert.rejects(queryClient.fetchQuery({
-      queryKey: api.wowQueryKeys.businesses.mine('user_a'),
-      queryFn: () => api.getMyBusinesses(makeClient(), 'user_a'),
-    }), error => error.code === '503');
-    assert.equal(requests, 2);
-  } finally { queryClient.clear(); }
-});
-
-test('a late mutation response cannot populate or invalidate the next session cache', async () => {
-  let mutation;
-  let queryClient;
-  let finishRequest;
-  globalThis.fetch = async () => new Promise(resolve => { finishRequest = () => resolve(response(id)); });
-  function Inspect() {
-    queryClient = recordClient();
-    mutation = api.useCreateBusiness();
-    return null;
-  }
-  const renderer = await mount(provider(h(Inspect)));
-  let pending;
-  await act(async () => { pending = mutation.mutateAsync({ name: 'Shop' }); await tick(); });
-  assert.equal(typeof finishRequest, 'function');
-  await update(renderer, provider(h(Inspect), { userId: 'user_b', sessionScopeKey: scope('user_b', 'session_b') }));
-  const key = api.wowQueryKeys.businesses.mine('user_b');
-  queryClient.setQueryData(key, []);
-  await act(async () => { finishRequest(); await pending; });
-  assert.equal(mutation.status, 'idle');
-  assert.equal(queryClient.getQueryState(key).isInvalidated, false);
-  assert.equal(queryClient.getQueryData(api.wowQueryKeys.businesses.detail(id, 'user_a')), undefined);
-  assert.equal(queryClient.getMutationCache().getAll().length, 0);
-});
-
-test('session replacement cancels in-flight reads through the Supabase AbortSignal', async () => {
-  let aborted = false;
-  globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
-    options.signal.addEventListener('abort', () => { aborted = true; reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
-  });
-  function Inspect() { recordClient(); api.useCurrentUser(); return null; }
-  const renderer = await mount(provider(h(Inspect)));
-  await update(renderer, provider(h(Inspect), { userId: null, sessionScopeKey: null }));
-  assert.equal(aborted, true);
-  assert.equal(clients[0].getQueryCache().getAll().length, 0);
-});
-));
+  assert.match(result.key, new RegExp('^' + id + '/' + otherId + '/user_a/[a-f0-9]{48}\\.webp$'));
   assert.equal(uploaded.length, 1);
   assert.equal(uploaded[0].body, bytes);
   assert.deepEqual(uploaded[0].options, { contentType: 'image/webp', upsert: false });
