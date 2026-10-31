@@ -81,14 +81,14 @@ function AppQueryProvider({ children }: PropsWithChildren) {
   const sessionScopeKey = isLoaded && isSignedIn && userId && sessionId
     ? JSON.stringify([userId, sessionId])
     : null;
-  const client = useWowSupabaseClient({
+  const getClient = useWowSupabaseClient({
     url: process.env.EXPO_PUBLIC_SUPABASE_URL,
     publishableKey: process.env.EXPO_PUBLIC_SUPABASE_KEY,
     getToken,
     sessionScopeKey,
   });
 
-  return <WowQueryProvider client={client} userId={userId ?? null}
+  return <WowQueryProvider getClient={getClient} userId={userId ?? null}
     sessionScopeKey={sessionScopeKey} isAuthReady={isLoaded}>
     {children}
   </WowQueryProvider>;

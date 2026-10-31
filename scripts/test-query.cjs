@@ -16,7 +16,7 @@ execFileSync(process.execPath, [apiRequire.resolve('typescript/lib/tsc.js'),
   '--ignoreDeprecations', '6.0', '--skipLibCheck', '--strict', '--jsx', 'react-jsx',
   '--outDir', output, '--rootDir', 'packages/api/src', 'packages/api/src/index.ts',
 ], { cwd: root, stdio: 'inherit' });
-symlinkSync(resolve(root, 'packages/api/node_modules'), resolve(output, 'node_modules'), 'dir');
+symlinkSync(resolve(root, 'packages/api/node_modules'), resolve(output, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
 
 const listeners = new Set();
 let subscriptions = 0;
@@ -43,7 +43,19 @@ Module._load = load;
 
 const React = apiRequire('react');
 const { create, act } = apiRequire('react-test-renderer');
-const { useQueryClient, focusManager } = apiRequire('@tanstack/react-query');
+const { useQueryClient, focusManager, timeoutManager } = apiRequire('@tanstack/react-query');
+
+// Keep the actual GC delays/callbacks, but do not hold Node open for five minutes.
+timeoutManager.setTimeoutProvider({
+  setTimeout(callback, delay) {
+    const timer = setTimeout(callback, delay);
+    if (delay >= 300_000) timer.unref();
+    return timer;
+  },
+  clearTimeout,
+  setInterval,
+  clearInterval,
+});
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const originalFetch = globalThis.fetch;
 const originalError = console.error;
@@ -71,8 +83,9 @@ async function update(renderer, element) {
   await act(async () => { renderer.update(element); await tick(); });
 }
 function provider(children, overrides = {}) {
+  const client = makeClient();
   return h(api.WowQueryProvider, {
-    client: makeClient(), userId: 'user_a', sessionScopeKey: scope('user_a', 'session_a'), isAuthReady: true, ...overrides,
+    getClient: () => client, userId: 'user_a', sessionScopeKey: scope('user_a', 'session_a'), isAuthReady: true, ...overrides,
   }, children);
 }
 function recordClient() {
@@ -131,7 +144,7 @@ test('providers keep independent caches, stable rerenders and isolate same-user 
   assert.equal(first.getQueryCache().getAll().length, 0);
   const second = current;
   second.setQueryData(['private'], 'private');
-  await update(renderer, provider(h(Inspect), { userId: null, sessionScopeKey: null, client: null }));
+  await update(renderer, provider(h(Inspect), { userId: null, sessionScopeKey: null, getClient: () => null }));
   assert.notEqual(current, second);
   assert.equal(current.getQueryData(['private']), undefined);
   assert.equal(second.getQueryCache().getAll().length, 0);
@@ -150,6 +163,31 @@ test('switching accounts cannot expose a previous profile even for the first ren
   await update(renderer, provider(h(Inspect), { userId: 'user_b', sessionScopeKey: scope('user_b', 'session_b') }));
   assert(reads.length > 0);
   assert(reads.every(value => value === undefined));
+});
+
+test('StrictMode effect replay keeps active queries in the cache and invalidation working', async () => {
+  let result;
+  let queryClient;
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    return response([{ id: 'user_a', account_status: 'active' }]);
+  };
+  function Inspect() {
+    queryClient = recordClient();
+    result = api.useCurrentUser();
+    return null;
+  }
+  await mount(h(React.StrictMode, null, provider(h(Inspect))));
+  await act(tick);
+  assert.equal(result.status, 'success');
+  const key = api.wowQueryKeys.users.current('user_a');
+  assert.deepEqual(queryClient.getQueryData(key), result.data);
+  const before = requests;
+  await act(async () => { await queryClient.invalidateQueries({ queryKey: key, exact: true }); });
+  await act(tick);
+  assert.equal(requests, before + 1);
+  assert.equal(listeners.size, 1);
 });
 
 test('AppState shares one subscription, updates native focus, and preserves browser handling', async () => {
@@ -177,35 +215,65 @@ test('AppState shares one subscription, updates native focus, and preserves brow
 
 test('the shared client survives token callback refresh and rejects stale-session or missing tokens', async () => {
   let current;
+  let accessor;
   let tokenCalls = 0;
   let finishToken;
   const requests = [];
   globalThis.fetch = async (url, options) => { requests.push(options.headers.get('Authorization')); return response([]); };
   function Boundary({ sessionScopeKey, getToken }) {
-    current = api.useWowSupabaseClient({ url: 'https://wow.invalid', publishableKey: 'sb_publishable_local', getToken, sessionScopeKey });
+    const getClient = api.useWowSupabaseClient({ url: 'https://wow.invalid', publishableKey: 'sb_publishable_local', getToken, sessionScopeKey });
+    accessor = getClient;
+    React.useEffect(() => { current = getClient(); }, [getClient]);
     return null;
   }
   const renderer = await mount(h(Boundary, { sessionScopeKey: 'session_a', getToken: async () => 'token_1' }));
   const first = current;
+  const firstAccessor = accessor;
   await update(renderer, h(Boundary, { sessionScopeKey: 'session_a', getToken: async () => { tokenCalls++; return 'token_2'; } }));
   assert.equal(current, first);
+  assert.equal(accessor, firstAccessor);
   await api.getCurrentUser(current, 'user_a');
   assert.equal(tokenCalls, 1);
   assert.deepEqual(requests, ['Bearer token_2']);
   await update(renderer, h(Boundary, { sessionScopeKey: 'session_a', getToken: () => new Promise(resolve => { finishToken = resolve; }) }));
   const pending = api.getCurrentUser(first, 'user_a');
-  const rejected = assert.rejects(pending, /session changed/);
+  const rejected = assert.rejects(pending, error => /session changed/.test(error.message));
   await tick();
   await update(renderer, h(Boundary, { sessionScopeKey: 'session_b', getToken: async () => 'token_b' }));
   finishToken('token_1');
   await rejected;
   assert.notEqual(current, first);
-  await assert.rejects(api.getCurrentUser(first, 'user_a'), /session changed/);
+  assert.throws(firstAccessor, /session changed/);
+  await assert.rejects(api.getCurrentUser(first, 'user_a'), error => /session changed/.test(error.message));
   assert.equal(requests.length, 1);
   await update(renderer, h(Boundary, { sessionScopeKey: 'session_b', getToken: async () => null }));
-  await assert.rejects(api.getCurrentUser(current, 'user_b'), /token is required/);
+  await assert.rejects(api.getCurrentUser(current, 'user_b'), error => /token is required/.test(error.message));
   await update(renderer, h(Boundary, { sessionScopeKey: null, getToken: async () => null }));
   assert.equal(current, null);
+});
+
+test('the real authentication boundary keeps its cache across token changes and resets on readiness loss', async () => {
+  let queryClient;
+  let getClient;
+  function Inspect() { queryClient = recordClient(); api.useCurrentUser(); return null; }
+  function Boundary({ ready, getToken }) {
+    const sessionScopeKey = ready ? scope('user_a', 'session_a') : null;
+    getClient = api.useWowSupabaseClient({ url: 'https://wow.invalid', publishableKey: 'sb_publishable_local', getToken, sessionScopeKey });
+    return h(api.WowQueryProvider, { getClient, userId: 'user_a', isAuthReady: ready, sessionScopeKey }, h(Inspect));
+  }
+  globalThis.fetch = async () => response([{ id: 'user_a', account_status: 'active' }]);
+  const renderer = await mount(h(Boundary, { ready: true, getToken: async () => 'token_a' }));
+  await act(tick);
+  const first = queryClient;
+  const firstSdkClient = getClient();
+  await update(renderer, h(Boundary, { ready: true, getToken: async () => 'token_refreshed' }));
+  assert.equal(queryClient, first);
+  assert.equal(getClient(), firstSdkClient);
+  await update(renderer, h(Boundary, { ready: false, getToken: async () => null }));
+  assert.notEqual(queryClient, first);
+  assert.equal(getClient(), null);
+  assert.equal(first.getQueryCache().getAll().length, 0);
+  assert.equal(queryClient.getQueryData(api.wowQueryKeys.users.current('user_a')), undefined);
 });
 
 test('private queries stay disabled before auth readiness; missing webhook profiles are null and can refetch', async () => {
@@ -243,6 +311,28 @@ test('all resource queries call SDK API functions with identity filters and busi
   assert(requests.some(url => url.searchParams.get('owner_user_id') === 'eq.user_a'));
   assert(requests.some(url => url.searchParams.get('id') === `eq.${id}`));
   assert(requests.some(url => url.searchParams.get('business_id') === `eq.${id}`));
+});
+
+test('all private hooks stay idle while signed out and business queries require an ID', async () => {
+  let results;
+  let requests = 0;
+  globalThis.fetch = async () => { requests++; return response([]); };
+  function Inspect() {
+    recordClient();
+    results = [api.useCurrentUser(), api.useMyBusinesses(), api.useBusiness(id), api.useBusinessBranches(id)];
+    return null;
+  }
+  const renderer = await mount(provider(h(Inspect), { userId: null, sessionScopeKey: null }));
+  assert(results.every(query => query.fetchStatus === 'idle' && query.data === undefined));
+  assert.equal(requests, 0);
+  function MissingId() {
+    recordClient();
+    results = [api.useBusiness(), api.useBusinessBranches(null)];
+    return null;
+  }
+  await update(renderer, provider(h(MissingId)));
+  assert(results.every(query => query.fetchStatus === 'idle'));
+  assert.equal(requests, 0);
 });
 
 test('business and branch mutations use RPCs and invalidate only affected identity/resource keys', async () => {
@@ -287,6 +377,50 @@ test('mutations do not retry failures and cannot write while signed out', async 
   await update(renderer, provider(h(Inspect), { userId: null, sessionScopeKey: null }));
   await act(async () => { await assert.rejects(mutation.mutateAsync({ name: 'Shop' }), /signed-in session/); });
   assert.equal(requests, 1);
+});
+
+test('query retry runs once without multiplying Supabase SDK retries', async () => {
+  const queryClient = api.createWowQueryClient();
+  const defaults = queryClient.getDefaultOptions();
+  queryClient.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retryDelay: 0 } });
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    return new Response(JSON.stringify({ code: '503', message: 'Unavailable' }), {
+      status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '0' },
+    });
+  };
+  try {
+    await assert.rejects(queryClient.fetchQuery({
+      queryKey: api.wowQueryKeys.businesses.mine('user_a'),
+      queryFn: () => api.getMyBusinesses(makeClient(), 'user_a'),
+    }), error => error.code === '503');
+    assert.equal(requests, 2);
+  } finally { queryClient.clear(); }
+});
+
+test('a late mutation response cannot populate or invalidate the next session cache', async () => {
+  let mutation;
+  let queryClient;
+  let finishRequest;
+  globalThis.fetch = async () => new Promise(resolve => { finishRequest = () => resolve(response(id)); });
+  function Inspect() {
+    queryClient = recordClient();
+    mutation = api.useCreateBusiness();
+    return null;
+  }
+  const renderer = await mount(provider(h(Inspect)));
+  let pending;
+  await act(async () => { pending = mutation.mutateAsync({ name: 'Shop' }); await tick(); });
+  assert.equal(typeof finishRequest, 'function');
+  await update(renderer, provider(h(Inspect), { userId: 'user_b', sessionScopeKey: scope('user_b', 'session_b') }));
+  const key = api.wowQueryKeys.businesses.mine('user_b');
+  queryClient.setQueryData(key, []);
+  await act(async () => { finishRequest(); await pending; });
+  assert.equal(mutation.status, 'idle');
+  assert.equal(queryClient.getQueryState(key).isInvalidated, false);
+  assert.equal(queryClient.getQueryData(api.wowQueryKeys.businesses.detail(id, 'user_a')), undefined);
+  assert.equal(queryClient.getMutationCache().getAll().length, 0);
 });
 
 test('session replacement cancels in-flight reads through the Supabase AbortSignal', async () => {
