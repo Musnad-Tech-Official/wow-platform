@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Pressable } from 'react-native';
 import { Heart } from 'lucide-react-native';
-import { styled } from 'nativewind';
+import { useTheme } from '@wow/theme';
 import { rtlProps, rtlStyles } from './rtl';
 
 import Animated, {
@@ -11,17 +11,6 @@ import Animated, {
   withSequence,
   withSpring,
 } from 'react-native-reanimated';
-
-// Map NativeWind classes to Lucide SVG properties
-const StyledHeart = styled(Heart, {
-  className: {
-    target: false,
-    nativeStyleMapping: {
-      color: true,
-      fill: true,
-    },
-  },
-});
 
 type AnimatedHeartProps = {
   initialLiked?: boolean;
@@ -33,6 +22,7 @@ export function AnimatedHeart({
   onChange,
 }: AnimatedHeartProps) {
   const [liked, setLiked] = useState(initialLiked);
+  const { resolvedTheme } = useTheme();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -64,14 +54,11 @@ export function AnimatedHeart({
       className="items-center justify-center rounded-xl bg-surface p-4"
     >
       <Animated.View style={animatedStyle}>
-        <StyledHeart
+        <Heart
           size={28}
           strokeWidth={2}
-          className={
-            liked
-              ? 'text-red-500 fill-red-500'
-              : 'text-muted-foreground fill-transparent'
-          }
+          color={liked ? '#EF4444' : resolvedTheme === 'dark' ? '#A1A1AA' : '#71717A'}
+          fill={liked ? '#EF4444' : 'none'}
         />
       </Animated.View>
     </Pressable>
