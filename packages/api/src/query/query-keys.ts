@@ -76,5 +76,6 @@ export const wowQueryKeys = {
     ) => ['discovery', 'search', query, city, district, categoryId, sort, limit, offset] as const,
     business: (businessId: string | null) => ['discovery', 'business', businessId] as const,
     offer: (offerId: string | null) => ['discovery', 'offer', offerId] as const,
+    offerMedia: (offerId: string | null) => ['discovery', 'offer-media', offerId] as const,
   },
 };
