@@ -102,7 +102,7 @@ afterEach(async () => {
 });
 
 test('exports, v5 defaults, query keys and workspace React instances are consistent', () => {
-  for (const name of ['WowQueryProvider', 'createWowQueryClient', 'useWowSupabaseClient', 'getCurrentUser', 'getMyBusinesses', 'getBusiness', 'createBusiness', 'getBusinessBranches', 'createBranch', 'useCurrentUser', 'useMyBusinesses', 'useBusiness', 'useCreateBusiness', 'useBusinessBranches', 'useCreateBranch']) assert.equal(typeof api[name], 'function', name);
+  for (const name of ['WowQueryProvider', 'createWowQueryClient', 'useWowSupabaseClient', 'getCurrentUser', 'getMyBusinesses', 'getBusiness', 'createBusiness', 'getBusinessBranches', 'createBranch', 'useCurrentUser', 'useMyBusinesses', 'useBusiness', 'useCreateBusiness', 'useBusinessBranches', 'useCreateBranch', 'getBusinessVerifications', 'submitBusinessVerification', 'resubmitBusinessVerification', 'listAdminBusinessVerifications', 'getAdminBusinessVerification', 'decideAdminBusinessVerification', 'useBusinessVerifications', 'useSubmitBusinessVerification', 'useResubmitBusinessVerification', 'useAdminBusinessVerifications', 'useAdminBusinessVerification', 'useAdminDecideBusinessVerification']) assert.equal(typeof api[name], 'function', name);
   const first = api.createWowQueryClient();
   const second = api.createWowQueryClient();
   assert.notEqual(first, second);
@@ -311,6 +311,7 @@ test('all resource queries call SDK API functions with identity filters and busi
   assert(requests.some(url => url.searchParams.get('owner_user_id') === 'eq.user_a'));
   assert(requests.some(url => url.searchParams.get('id') === `eq.${id}`));
   assert(requests.some(url => url.searchParams.get('business_id') === `eq.${id}`));
+  assert(requests.some(url => url.pathname.endsWith('/business_branches')));
 });
 
 test('all private hooks stay idle while signed out and business queries require an ID', async () => {
@@ -357,12 +358,39 @@ test('business and branch mutations use RPCs and invalidate only affected identi
   assert(!queryClient.getQueryState(otherUser).isInvalidated);
   assert(!queryClient.getQueryState(branches).isInvalidated);
   queryClient.setQueryData(detail, {});
-  await act(async () => { await branch.mutateAsync({ businessId: id, name: 'Branch', parameters: { p_address: 'Local', p_name: 'ignored', p_business_id: otherId } }); });
+  await act(async () => { await branch.mutateAsync({ businessId: id, name: 'Branch', city: 'Taiz', addressLine: 'Market Street 1' }); });
   assert(queryClient.getQueryState(branches).isInvalidated);
   for (const key of [detail, unrelated, otherBranches]) assert(!queryClient.getQueryState(key).isInvalidated);
   assert.deepEqual(requests, [
     { path: '/rest/v1/rpc/wow_create_business', body: { p_name: 'Shop', p_description: 'Description' } },
-    { path: '/rest/v1/rpc/wow_create_branch', body: { p_business_id: id, p_name: 'Branch', p_address: 'Local' } },
+    { path: '/rest/v1/rpc/wow_create_branch', body: { p_business_id: id, p_name: 'Branch', p_city: 'Taiz', p_address_line: 'Market Street 1', p_district: null, p_latitude: null, p_longitude: null } },
+  ]);
+});
+
+test('verification APIs use migration 003 RPC names and exact request fields', async () => {
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    requests.push({ path, body: JSON.parse(options.body) });
+    if (path.endsWith('wow_get_my_business_verifications') || path.endsWith('wow_admin_list_business_verifications')) return response([]);
+    if (path.endsWith('wow_admin_get_business_verification')) return response({ id, status: 'submitted' });
+    return response(id);
+  };
+  const client = makeClient();
+  const evidence = [`business-verifications/${id}/user_a/id-proof.png`];
+  assert.equal(await api.submitBusinessVerification(client, { businessId: id, branchId: otherId, requestType: 'initial', evidenceRefs: evidence }), id);
+  assert.equal(await api.resubmitBusinessVerification(client, { verificationId: id, evidenceRefs: evidence }), id);
+  assert.deepEqual(await api.getBusinessVerifications(client, id), []);
+  assert.deepEqual(await api.listAdminBusinessVerifications(client, { status: 'submitted', limit: 20, offset: 10 }), []);
+  assert.deepEqual(await api.getAdminBusinessVerification(client, id), { id, status: 'submitted' });
+  assert.equal(await api.decideAdminBusinessVerification(client, { verificationId: id, decision: 'approved' }), id);
+  assert.deepEqual(requests, [
+    { path: '/rest/v1/rpc/wow_submit_business_verification', body: { p_business_id: id, p_branch_id: otherId, p_request_type: 'initial', p_evidence_refs: evidence } },
+    { path: '/rest/v1/rpc/wow_resubmit_business_verification', body: { p_verification_id: id, p_evidence_refs: evidence } },
+    { path: '/rest/v1/rpc/wow_get_my_business_verifications', body: { p_business_id: id } },
+    { path: '/rest/v1/rpc/wow_admin_list_business_verifications', body: { p_status: 'submitted', p_limit: 20, p_offset: 10 } },
+    { path: '/rest/v1/rpc/wow_admin_get_business_verification', body: { p_verification_id: id } },
+    { path: '/rest/v1/rpc/wow_admin_decide_business_verification', body: { p_verification_id: id, p_decision: 'approved', p_reason: null } },
   ]);
 });
 
