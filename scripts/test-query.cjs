@@ -442,7 +442,6 @@ test('offers hooks stay idle while signed out and offer creation invalidates onl
   const signedOut = await mount(provider(h(InspectPrivate), { userId: null, sessionScopeKey: null }));
   assert(privateQueries.every(q => q.fetchStatus === 'idle' && q.data === undefined));
   assert.equal(requests, 0);
-  await act(async () => signedOut.unmount());
 
   let mutation;
   let queryClient;
