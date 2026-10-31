@@ -8,6 +8,7 @@ import {
 
 import { useColorScheme } from 'react-native';
 import { VariableContextProvider } from 'nativewind';
+import { wowColorSchemes } from './tokens';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -15,22 +16,22 @@ type ResolvedTheme = 'light' | 'dark';
 
 const themes = {
   light: {
-    '--color-primary': '#F5B700',
-    '--color-primary-foreground': '#171717',
-    '--color-background': '#FFFFFF',
-    '--color-surface': '#F4F4F5',
-    '--color-foreground': '#18181B',
-    '--color-muted-foreground': '#71717A',
-    '--color-border': '#E4E4E7',
+    '--color-primary': wowColorSchemes.light.primary,
+    '--color-primary-foreground': wowColorSchemes.light.primaryForeground,
+    '--color-background': wowColorSchemes.light.background,
+    '--color-surface': wowColorSchemes.light.surface,
+    '--color-foreground': wowColorSchemes.light.foreground,
+    '--color-muted-foreground': wowColorSchemes.light.mutedForeground,
+    '--color-border': wowColorSchemes.light.border,
   },
   dark: {
-    '--color-primary': '#FFD23F',
-    '--color-primary-foreground': '#171717',
-    '--color-background': '#101014',
-    '--color-surface': '#202024',
-    '--color-foreground': '#FAFAFA',
-    '--color-muted-foreground': '#A1A1AA',
-    '--color-border': '#3F3F46',
+    '--color-primary': wowColorSchemes.dark.primary,
+    '--color-primary-foreground': wowColorSchemes.dark.primaryForeground,
+    '--color-background': wowColorSchemes.dark.background,
+    '--color-surface': wowColorSchemes.dark.surface,
+    '--color-foreground': wowColorSchemes.dark.foreground,
+    '--color-muted-foreground': wowColorSchemes.dark.mutedForeground,
+    '--color-border': wowColorSchemes.dark.border,
   },
 };
 
@@ -83,4 +84,9 @@ export function useTheme() {
   }
 
   return context;
+}
+/** Semantic colors for JS-driven React Native styles and SVG icons. */
+export function useWowColors() {
+  const { resolvedTheme } = useTheme();
+  return wowColorSchemes[resolvedTheme];
 }
