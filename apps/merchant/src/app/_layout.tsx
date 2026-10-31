@@ -16,8 +16,10 @@ void SplashScreen.preventAutoHideAsync();
 
 // Enable RTL layout for React Native.
 // Native RTL changes may require a full app restart.
-I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
+if (Platform.OS !== 'web') {
+  I18nManager.allowRTL(true);
+  I18nManager.forceRTL(true);
+}
 
 
 const publishableKey =
@@ -57,7 +59,7 @@ export default function RootLayout() {
             : {})}
           style={{
             flex: 1,
-            direction: 'rtl',
+            ...(Platform.OS === 'web' ? {} : { direction: 'rtl' as const }),
           }}
         >
           <Stack
