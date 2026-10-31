@@ -78,4 +78,14 @@ export const wowQueryKeys = {
     offer: (offerId: string | null) => ['discovery', 'offer', offerId] as const,
     offerMedia: (offerId: string | null) => ['discovery', 'offer-media', offerId] as const,
   },
+  merchantOperations: {
+    ownerRoot: (userId: string | null) => ['merchant-operations', 'owner', userId] as const,
+    team: (userId: string | null, businessId: string | null) =>
+      ['merchant-operations', 'owner', userId, 'team', businessId] as const,
+    revisions: (userId: string | null, businessId: string | null) =>
+      ['merchant-operations', 'owner', userId, 'revisions', businessId] as const,
+    adminRoot: (userId: string | null) => ['merchant-operations', 'admin', userId] as const,
+    adminList: (userId: string | null, limit: number, offset: number) =>
+      ['merchant-operations', 'admin', userId, 'revisions', limit, offset] as const,
+  },
 };
