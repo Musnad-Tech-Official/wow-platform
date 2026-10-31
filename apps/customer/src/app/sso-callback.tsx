@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,13 +12,12 @@ import { useAuth } from '@wow/auth';
 export default function SsoCallbackScreen() {
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const result = WebBrowser.maybeCompleteAuthSession();
     if (result.type === 'failed') {
-      setError('تعذر إكمال نافذة تسجيل الدخول. أغلق هذه النافذة وجرّب مرة أخرى.');
+      console.warn('WOW SSO callback could not complete; close the popup and retry sign-in.');
     }
     // Successful browser completion closes this popup and resumes startSSOFlow.
   }, []);
@@ -32,9 +31,9 @@ export default function SsoCallbackScreen() {
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 }}>
-      {!error && <ActivityIndicator />}
+      <ActivityIndicator />
       <Text style={{ textAlign: 'center' }}>
-        {error ?? 'جارٍ إكمال تسجيل الدخول...'}
+        جارٍ إكمال تسجيل الدخول... إذا لم تُغلق النافذة تلقائيًا، أغلقها وحاول مرة أخرى.
       </Text>
     </View>
   );
