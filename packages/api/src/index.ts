@@ -7,6 +7,8 @@ export * from './verifications';
 export * from './offers';
 export * from './customer-interactions';
 export * from './billing';
+export * from './discovery';
+export { createWowPublicSupabaseClient, useWowPublicSupabaseClient, type WowPublicSupabaseOptions } from './supabase/public-client';
 export { WowQueryProvider, type WowQueryProviderProps } from './query/WowQueryProvider';
 export { createWowQueryClient } from './query/query-client';
 export { wowQueryKeys } from './query/query-keys';
@@ -63,3 +65,11 @@ export {
   useAdminCreateCommercialAgreement,
   useAdminRevokeCommercialAgreement,
 } from './query/hooks/use-billing';
+export {
+  usePublicCategories,
+  usePublicSearchBusinesses,
+  usePublicBusiness,
+  usePublicOffer,
+  useAdminUpsertCategory,
+  useAdminSetBusinessCategories,
+} from './query/hooks/use-discovery';

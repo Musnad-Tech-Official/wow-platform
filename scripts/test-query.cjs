@@ -731,6 +731,124 @@ test('Migration 006 billing rejects unexpected RPC JSON results and never enable
   }), /no scalar UUID/);
 });
 
+test('Migration 007 public RPCs send exact search parameters and safe null detail responses', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    calls.push({ path, body: options.body ? JSON.parse(options.body) : {} });
+    if (path.endsWith('/wow_public_list_categories')) return response([{ id, parent_id: null, slug: 'groceries', name_ar: 'مواد غذائية', name_en: null }]);
+    if (path.endsWith('/wow_public_search_businesses')) return response({ total: 0, limit: 5, offset: 10, items: [] });
+    return response(null);
+  };
+  const client = api.createWowPublicSupabaseClient('https://wow.invalid', 'sb_publishable_local');
+  assert.equal((await api.listPublicCategories(client))[0].slug, 'groceries');
+  assert.deepEqual(await api.searchPublicBusinesses(client, {
+    query: 'coffee', city: 'Taiz', district: 'Center', categoryId: id, sort: 'discount', limit: 5, offset: 10,
+  }), { total: 0, limit: 5, offset: 10, items: [] });
+  assert.equal(await api.getPublicBusiness(client, id), null);
+  assert.equal(await api.getPublicOffer(client, id), null);
+  assert.deepEqual(calls, [
+    { path: '/rest/v1/rpc/wow_public_list_categories', body: {} },
+    { path: '/rest/v1/rpc/wow_public_search_businesses', body: {
+      p_query: 'coffee', p_city: 'Taiz', p_district: 'Center', p_category_id: id,
+      p_sort: 'discount', p_limit: 5, p_offset: 10,
+    } },
+    { path: '/rest/v1/rpc/wow_public_get_business', body: { p_business_id: id } },
+    { path: '/rest/v1/rpc/wow_public_get_offer', body: { p_offer_id: id } },
+  ]);
+});
+
+test('Migration 007 anonymous discovery hooks run signed-out without a Clerk token', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({
+      path: new URL(url).pathname,
+      authorization: options.headers.get('Authorization'),
+    });
+    if (new URL(url).pathname.endsWith('/wow_public_list_categories')) return response([]);
+    if (new URL(url).pathname.endsWith('/wow_public_search_businesses')) {
+      return response({ total: 0, limit: 20, offset: 0, items: [] });
+    }
+    return response(null);
+  };
+  let categories;
+  let search;
+  let business;
+  let offer;
+  function Guest() {
+    recordClient();
+    const config = { url: 'https://wow.invalid', publishableKey: 'sb_publishable_local' };
+    categories = api.usePublicCategories(config);
+    search = api.usePublicSearchBusinesses({}, config);
+    business = api.usePublicBusiness(id, config);
+    offer = api.usePublicOffer(otherId, config);
+    return null;
+  }
+  await mount(provider(h(Guest), { userId: null, sessionScopeKey: null, getClient: () => null }));
+  await act(tick);
+  assert.deepEqual(categories.data, []);
+  assert.deepEqual(search.data, { total: 0, limit: 20, offset: 0, items: [] });
+  assert.equal(business.data, null);
+  assert.equal(offer.data, null);
+  assert.equal(calls.length, 4);
+  assert(calls.every(c => c.authorization !== 'Bearer local-session-token'));
+  assert(calls.every(c => c.path.startsWith('/rest/v1/rpc/wow_public_')));
+});
+
+test('Migration 007 admin category mutations are authenticated and invalidate discovery', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ path: new URL(url).pathname, body: JSON.parse(options.body) });
+    return response(id);
+  };
+  const client = makeClient();
+  assert.equal(await api.adminUpsertCategory(client, {
+    slug: 'groceries', nameAr: 'مواد غذائية', nameEn: 'Groceries', active: true, sortOrder: 2,
+  }), id);
+  assert.equal(await api.adminSetBusinessCategories(client, {
+    businessId: id, categoryIds: [otherId], primaryCategoryId: otherId,
+    reason: 'Merchant category approved by administrator',
+  }), id);
+  assert.deepEqual(calls, [
+    { path: '/rest/v1/rpc/wow_admin_upsert_category', body: {
+      p_id: null, p_slug: 'groceries', p_name_ar: 'مواد غذائية', p_name_en: 'Groceries',
+      p_parent_id: null, p_sort_order: 2, p_is_active: true,
+    } },
+    { path: '/rest/v1/rpc/wow_admin_set_business_categories', body: {
+      p_business_id: id, p_category_ids: [otherId], p_primary_category_id: otherId,
+      p_reason: 'Merchant category approved by administrator',
+    } },
+  ]);
+
+  let mutation;
+  let queryClient;
+  function Admin() {
+    queryClient = recordClient();
+    mutation = api.useAdminUpsertCategory();
+    return null;
+  }
+  await mount(provider(h(Admin)));
+  const categories = api.wowQueryKeys.discovery.categories();
+  const search = api.wowQueryKeys.discovery.search(null, null, null, null, 'recent', 20, 0);
+  queryClient.setQueryData(categories, []);
+  queryClient.setQueryData(search, { total: 0, items: [], limit: 20, offset: 0 });
+  await act(async () => {
+    await mutation.mutateAsync({ slug: 'groceries', nameAr: 'مواد غذائية', active: true });
+  });
+  assert.equal(queryClient.getQueryState(categories).isInvalidated, true);
+  assert.equal(queryClient.getQueryState(search).isInvalidated, true);
+});
+
+test('Migration 007 rejects malformed public search results and private Supabase keys', async () => {
+  assert.throws(
+    () => api.createWowPublicSupabaseClient('https://wow.invalid', 'sb_secret_private'),
+    /keys are prohibited/,
+  );
+  globalThis.fetch = async () => response({ total: 1, limit: 20, offset: 0 });
+  const client = api.createWowPublicSupabaseClient('https://wow.invalid', 'sb_publishable_local');
+  await assert.rejects(api.searchPublicBusinesses(client), /unexpected result shape/);
+});
+
 test('mutations do not retry failures and cannot write while signed out', async () => {
   let mutation;
   let requests = 0;
