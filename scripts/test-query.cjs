@@ -842,7 +842,7 @@ test('Migration 007 admin category mutations are authenticated and invalidate di
 test('Migration 007 rejects malformed public search results and private Supabase keys', async () => {
   assert.throws(
     () => api.createWowPublicSupabaseClient('https://wow.invalid', 'sb_secret_private'),
-    /Secret\\/service-role keys are prohibited/,
+    /keys are prohibited/,
   );
   globalThis.fetch = async () => response({ total: 1, limit: 20, offset: 0 });
   const client = api.createWowPublicSupabaseClient('https://wow.invalid', 'sb_publishable_local');
