@@ -137,11 +137,12 @@ Business details currently contain no branch aggregates, so creating a branch
 does not invalidate business details. API functions perform SELECTs and secure
 RPCs; feature mutations never directly insert protected business/branch rows.
 
-The deployed branch RPC signature and database-generated types are absent from
-this checkout. `CreateBranchInput.parameters` accepts additional named `p_*`
-arguments. `businessId` and `name` always supply `p_business_id` and `p_name`
-and cannot be overridden by that map. Both creation RPCs must return a scalar
-UUID. Required extra branch parameters must match the deployed RPC.
+The Migration 002 branch contract is now typed in `CreateBranchInput`:
+`businessId`, `name`, `city`, and `addressLine` are required; `district`,
+`latitude`, and `longitude` are optional. The API passes the exact
+`p_business_id`, `p_name`, `p_city`, `p_address_line`, `p_district`,
+`p_latitude`, and `p_longitude` arguments to `wow_create_branch`.
+The same SQL function returns a scalar UUID.
 
 ## Screen usage
 
@@ -163,7 +164,7 @@ const createBranch = useCreateBranch();
 
 // From an explicit submit action:
 await createBusiness.mutateAsync({ name: 'My business', description: null });
-await createBranch.mutateAsync({ businessId: selectedBusinessId, name: 'Main' });
+await createBranch.mutateAsync({ businessId: selectedBusinessId, name: 'Main', city: 'Taiz', addressLine: 'Market Street 1' });
 ```
 
 These return standard TanStack Query results (`data`, `error`, `isPending`,
