@@ -4,6 +4,7 @@ export * from './users';
 export * from './businesses';
 export * from './branches';
 export * from './verifications';
+export * from './offers';
 export { WowQueryProvider, type WowQueryProviderProps } from './query/WowQueryProvider';
 export { createWowQueryClient } from './query/query-client';
 export { wowQueryKeys } from './query/query-keys';
@@ -19,3 +20,15 @@ export {
   useAdminBusinessVerification,
   useAdminDecideBusinessVerification,
 } from './query/hooks/use-verifications';
+export {
+  useBusinessOffers,
+  useOfferVersions,
+  useOfferVersionDetails,
+  useCreateOffer,
+  useSaveOfferDraft,
+  useSubmitOffer,
+  useSetOfferAvailability,
+  useAdminPendingOffers,
+  useAdminOfferReview,
+  useAdminDecideOffer,
+} from './query/hooks/use-offers';
