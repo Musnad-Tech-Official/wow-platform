@@ -18,7 +18,7 @@ export function useBusinessVerifications(businessId?: string | null) {
   const context = useWowApiContext();
   return useQuery({
     queryKey: wowQueryKeys.verifications.business(businessId ?? null, context.userId),
-    enabled: !!context.userId && !!context.client && !!businessId,
+    enabled: !!context.userId && !!businessId,
     queryFn: () => {
       if (!businessId) throw new Error('A business ID is required.');
       return getBusinessVerifications(requireWowApiSession(context).client, businessId);
@@ -59,7 +59,7 @@ export function useAdminBusinessVerifications(filters: AdminVerificationListFilt
   const { status = 'submitted', limit = 50, offset = 0 } = filters;
   return useQuery({
     queryKey: wowQueryKeys.verifications.adminList(context.userId, status, limit, offset),
-    enabled: !!context.userId && !!context.client,
+    enabled: !!context.userId,
     queryFn: () => listAdminBusinessVerifications(requireWowApiSession(context).client, { status, limit, offset }),
   });
 }
@@ -68,7 +68,7 @@ export function useAdminBusinessVerification(verificationId?: string | null) {
   const context = useWowApiContext();
   return useQuery({
     queryKey: wowQueryKeys.verifications.adminDetail(verificationId ?? null, context.userId),
-    enabled: !!context.userId && !!context.client && !!verificationId,
+    enabled: !!context.userId && !!verificationId,
     queryFn: () => {
       if (!verificationId) throw new Error('A verification ID is required.');
       return getAdminBusinessVerification(requireWowApiSession(context).client, verificationId);
