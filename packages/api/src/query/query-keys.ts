@@ -9,4 +9,13 @@ export const wowQueryKeys = {
   branches: {
     business: (businessId: string | null, userId: string | null) => ['branches', 'business', businessId, userId] as const,
   },
+  verifications: {
+    business: (businessId: string | null, userId: string | null) =>
+      ['verifications', 'business', businessId, userId] as const,
+    adminLists: (userId: string | null) => ['verifications', 'admin', 'list', userId] as const,
+    adminList: (userId: string | null, status: string | null, limit: number, offset: number) =>
+      ['verifications', 'admin', 'list', userId, status, limit, offset] as const,
+    adminDetail: (verificationId: string | null, userId: string | null) =>
+      ['verifications', 'admin', 'detail', verificationId, userId] as const,
+  },
 };
