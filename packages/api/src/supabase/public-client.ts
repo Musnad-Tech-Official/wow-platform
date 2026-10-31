@@ -3,6 +3,15 @@ import { useCallback, useRef } from 'react';
 import { validatePublicSupabaseKey } from '../integration/helpers';
 import type { WowSupabaseClient } from './client';
 
+// Expo statically replaces these literal process.env.EXPO_PUBLIC_* expressions.
+// Keep this declaration module-local: @wow/api intentionally does not depend on Node typings.
+declare const process: {
+  env: {
+    EXPO_PUBLIC_SUPABASE_URL?: string;
+    EXPO_PUBLIC_SUPABASE_KEY?: string;
+  };
+};
+
 /** This client never attaches Clerk credentials. Public discovery RPCs are available to guests. */
 export function createWowPublicSupabaseClient(url: string, publishableKey: string): WowSupabaseClient {
   validatePublicSupabaseKey(publishableKey);
