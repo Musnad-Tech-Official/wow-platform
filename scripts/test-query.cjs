@@ -494,6 +494,122 @@ test('offer version detail reads are RLS-backed and return null for invisible ve
   assert.equal(await api.getOfferVersionDetails(client, id), null);
 });
 
+test('Migration 005 RPCs use exact argument contracts, return types and redacted view names', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    const body = JSON.parse(options.body);
+    calls.push({ path, body });
+    if (path.endsWith('wow_set_saved_offer')) return response(true);
+    if (path.endsWith('wow_set_saved_business')) return response(false);
+    if (path.endsWith('wow_admin_get_complaint')) return response({ complaint: { id }, updates: [] });
+    if (path.endsWith('wow_get_my_ratings') || path.endsWith('wow_get_my_complaints') ||
+        path.endsWith('wow_get_business_complaints') || path.endsWith('wow_admin_list_ratings') ||
+        path.endsWith('wow_admin_list_complaints')) return response([]);
+    return response(id);
+  };
+  const client = makeClient();
+  assert.equal(await api.setSavedOffer(client, { offerId: id, save: true }), true);
+  assert.equal(await api.setSavedBusiness(client, { businessId: otherId, save: false }), false);
+  assert.equal(await api.rateOffer(client, { offerId: id, conformity: 'could_not_verify' }), id);
+  assert.deepEqual(await api.getMyRatings(client, { limit: 25, offset: 5 }), []);
+  assert.equal(await api.submitComplaint(client, {
+    offerId: id, complaintType: 'unavailable', description: 'Item not available at branch',
+    offerVersionId: otherId,
+  }), id);
+  assert.deepEqual(await api.getMyComplaints(client), []);
+  assert.deepEqual(await api.getBusinessComplaints(client, { businessId: otherId, limit: 10, offset: 0 }), []);
+  assert.equal(await api.merchantRespondComplaint(client, { complaintId: id, message: 'Response from merchant' }), id);
+  assert.deepEqual(await api.listAdminRatings(client, { moderationStatus: 'under_review' }), []);
+  assert.equal(await api.adminModerateRating(client, { ratingId: id, status: 'excluded', reason: 'Evidence reviewed' }), id);
+  assert.deepEqual(await api.listAdminComplaints(client, { status: 'new', offset: 7 }), []);
+  assert.deepEqual(await api.getAdminComplaint(client, id), { complaint: { id }, updates: [] });
+  assert.equal(await api.adminUpdateComplaint(client, {
+    complaintId: id, status: 'closed', note: 'Complaint investigated',
+    publicOutcome: 'Case has been resolved',
+  }), id);
+  const rpc = name => '/rest/v1/rpc/' + name;
+  assert.deepEqual(calls, [
+    { path: rpc('wow_set_saved_offer'), body: { p_offer_id: id, p_save: true } },
+    { path: rpc('wow_set_saved_business'), body: { p_business_id: otherId, p_save: false } },
+    { path: rpc('wow_rate_offer'), body: { p_offer_id: id, p_conformity: 'could_not_verify', p_experience_stars: null } },
+    { path: rpc('wow_get_my_ratings'), body: { p_limit: 25, p_offset: 5 } },
+    { path: rpc('wow_submit_complaint'), body: {
+      p_offer_id: id, p_complaint_type: 'unavailable', p_description: 'Item not available at branch',
+      p_offer_version_id: otherId, p_branch_id: null, p_incident_at: null, p_private_evidence_keys: [],
+    } },
+    { path: rpc('wow_get_my_complaints'), body: { p_limit: 50, p_offset: 0 } },
+    { path: rpc('wow_get_business_complaints'), body: { p_business_id: otherId, p_limit: 10, p_offset: 0 } },
+    { path: rpc('wow_merchant_respond_complaint'), body: { p_complaint_id: id, p_message: 'Response from merchant' } },
+    { path: rpc('wow_admin_list_ratings'), body: { p_moderation_status: 'under_review', p_limit: 50, p_offset: 0 } },
+    { path: rpc('wow_admin_moderate_rating'), body: { p_rating_id: id, p_status: 'excluded', p_reason: 'Evidence reviewed' } },
+    { path: rpc('wow_admin_list_complaints'), body: { p_status: 'new', p_limit: 50, p_offset: 7 } },
+    { path: rpc('wow_admin_get_complaint'), body: { p_complaint_id: id } },
+    { path: rpc('wow_admin_update_complaint'), body: {
+      p_complaint_id: id, p_status: 'closed', p_note: 'Complaint investigated',
+      p_public_outcome: 'Case has been resolved',
+    } },
+  ]);
+});
+
+test('Migration 005 customer favorites query only authenticated owner table projections', async () => {
+  const seen = [];
+  globalThis.fetch = async (url, options) => {
+    const u = new URL(url);
+    seen.push(u);
+    assert.equal(options.method, 'GET');
+    if (u.pathname.endsWith('/saved_offers')) return response([{ id, user_id: 'user_a', offer_id: otherId, created_at: '2026-10-31T00:00:00Z' }]);
+    if (u.pathname.endsWith('/saved_businesses')) return response([{ id: otherId, user_id: 'user_a', business_id: id, created_at: '2026-10-31T00:00:00Z' }]);
+    throw Error('Forbidden raw table read: ' + u.pathname);
+  };
+  const client = makeClient();
+  assert.equal((await api.getSavedOffers(client, 'user_a'))[0].offer_id, otherId);
+  assert.equal((await api.getSavedBusinesses(client, 'user_a'))[0].business_id, id);
+  assert.equal(seen.length, 2);
+  assert(seen.every(u => u.searchParams.get('user_id') === 'eq.user_a'));
+  assert(seen.some(u => u.pathname.endsWith('/saved_offers')));
+  assert(seen.some(u => u.pathname.endsWith('/saved_businesses')));
+});
+
+test('Migration 005 hooks gate private reads and invalidate only the current account favorites', async () => {
+  let results;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return response([]); };
+  function SignedOut() {
+    recordClient();
+    results = [
+      api.useSavedOffers(), api.useSavedBusinesses(), api.useMyRatings(),
+      api.useMyComplaints(), api.useBusinessComplaints({ businessId: id }),
+      api.useAdminRatings(), api.useAdminComplaints(), api.useAdminComplaint(id),
+    ];
+    return null;
+  }
+  await mount(provider(h(SignedOut), { userId: null, sessionScopeKey: null }));
+  assert(results.every(q => q.fetchStatus === 'idle' && q.data === undefined));
+  assert.equal(calls, 0);
+
+  let mutation;
+  let queryClient;
+  globalThis.fetch = async (url) => {
+    assert(new URL(url).pathname.endsWith('/rpc/wow_set_saved_offer'));
+    return response(true);
+  };
+  function SignedIn() {
+    queryClient = recordClient();
+    mutation = api.useSetSavedOffer();
+    return null;
+  }
+  await mount(provider(h(SignedIn)));
+  const keys = api.wowQueryKeys.interactions;
+  queryClient.setQueryData(keys.savedOffers('user_a'), []);
+  queryClient.setQueryData(keys.savedOffers('user_b'), []);
+  queryClient.setQueryData(keys.savedBusinesses('user_a'), []);
+  await act(async () => assert.equal(await mutation.mutateAsync({ offerId: id, save: true }), true));
+  assert.equal(queryClient.getQueryState(keys.savedOffers('user_a')).isInvalidated, true);
+  assert.equal(queryClient.getQueryState(keys.savedOffers('user_b')).isInvalidated, false);
+  assert.equal(queryClient.getQueryState(keys.savedBusinesses('user_a')).isInvalidated, false);
+});
+
 test('mutations do not retry failures and cannot write while signed out', async () => {
   let mutation;
   let requests = 0;
