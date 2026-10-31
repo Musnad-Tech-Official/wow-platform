@@ -118,7 +118,7 @@ export interface OfferMedia {
 export interface OfferVersionDetails {
   version: OfferVersion;
   items: OfferItemWithAttributes[];
-  branches: Array<{ business_id: string; offer_version_id: string; branch_id: string }>;
+  branches: { business_id: string; offer_version_id: string; branch_id: string }[];
   media: OfferMedia[];
 }
 
