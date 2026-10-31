@@ -9,6 +9,7 @@ export * from './customer-interactions';
 export * from './billing';
 export * from './discovery';
 export * from './media';
+export * from './merchant-operations';
 export { createWowPublicSupabaseClient, useWowPublicSupabaseClient, type WowPublicSupabaseOptions } from './supabase/public-client';
 export { WowQueryProvider, type WowQueryProviderProps } from './query/WowQueryProvider';
 export { createWowQueryClient } from './query/query-client';
@@ -80,3 +81,14 @@ export {
   useAttachOfferMedia,
   useAttachComplaintEvidence,
 } from './query/hooks/use-media';
+export {
+  useBusinessTeam,
+  useSetEmployeeAccess,
+  useSetBusinessPause,
+  useSetBranchPause,
+  useUpdateMerchantDraft,
+  useSubmitProfileRevision,
+  useMyProfileRevisions,
+  useAdminProfileRevisions,
+  useAdminDecideProfileRevision,
+} from './query/hooks/use-merchant-operations';
