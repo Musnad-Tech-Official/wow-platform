@@ -32,4 +32,28 @@ export const wowQueryKeys = {
     adminDetail: (versionId: string | null, userId: string | null) =>
       ['offers', 'admin', userId, 'detail', versionId] as const,
   },
+  interactions: {
+    savedOffers: (userId: string | null) => ['interactions', 'savedOffers', userId] as const,
+    savedBusinesses: (userId: string | null) => ['interactions', 'savedBusinesses', userId] as const,
+    myRatingsRoot: (userId: string | null) => ['interactions', 'ratings', 'customer', userId] as const,
+    myRatings: (userId: string | null, limit: number, offset: number) =>
+      ['interactions', 'ratings', 'customer', userId, limit, offset] as const,
+    myComplaintsRoot: (userId: string | null) => ['interactions', 'complaints', 'customer', userId] as const,
+    myComplaints: (userId: string | null, limit: number, offset: number) =>
+      ['interactions', 'complaints', 'customer', userId, limit, offset] as const,
+    merchantComplaintsRoot: (userId: string | null) =>
+      ['interactions', 'complaints', 'merchant', userId] as const,
+    merchantComplaints: (businessId: string | null, userId: string | null, limit: number, offset: number) =>
+      ['interactions', 'complaints', 'merchant', userId, businessId, limit, offset] as const,
+    adminRatingsRoot: (userId: string | null) =>
+      ['interactions', 'ratings', 'admin', userId] as const,
+    adminRatings: (userId: string | null, status: string | null, limit: number, offset: number) =>
+      ['interactions', 'ratings', 'admin', userId, status, limit, offset] as const,
+    adminComplaintsRoot: (userId: string | null) =>
+      ['interactions', 'complaints', 'admin', userId] as const,
+    adminComplaints: (userId: string | null, status: string | null, limit: number, offset: number) =>
+      ['interactions', 'complaints', 'admin', userId, status, limit, offset] as const,
+    adminComplaint: (userId: string | null, complaintId: string | null) =>
+      ['interactions', 'complaints', 'admin', userId, 'detail', complaintId] as const,
+  },
 };
