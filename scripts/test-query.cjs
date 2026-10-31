@@ -610,6 +610,127 @@ test('Migration 005 hooks gate private reads and invalidate only the current acc
   assert.equal(queryClient.getQueryState(keys.savedBusinesses('user_a')).isInvalidated, false);
 });
 
+test('Migration 006 billing RPCs send exact names, arguments and validate result shapes', async () => {
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    const body = options.body ? JSON.parse(options.body) : {};
+    requests.push({ path, body });
+    if (path.endsWith('/wow_list_subscription_plans')) {
+      return response([{ code: 'BASIC', name: 'Basic', price: '1200.00', currency: 'YER', duration_days: 30, feature_limits: {} }]);
+    }
+    if (path.endsWith('/wow_get_business_billing')) {
+      return response({ business_id: id, has_publication_entitlement: false, subscriptions: [], payments: [], agreements: [] });
+    }
+    if (path.endsWith('/wow_admin_list_subscription_payments')) return response([]);
+    return response(id);
+  };
+  const client = makeClient();
+  assert.equal((await api.listSubscriptionPlans(client))[0].code, 'BASIC');
+  assert.equal((await api.getBusinessBilling(client, id)).has_publication_entitlement, false);
+  assert.equal(await api.activateBusinessTrial(client, id), id);
+  assert.equal(await api.requestPaidSubscription(client, { businessId: id, planCode: 'BASIC' }), id);
+  assert.equal(await api.submitSubscriptionPayment(client, { subscriptionId: id, method: 'wallet', reference: 'TEST-REF-1234' }), id);
+  assert.equal(await api.adminConfigureSubscriptionPlan(client, {
+    code: 'BASIC', price: '1200.00', currency: 'YER',
+    durationDays: 30, featureLimits: { offers: 20 }, active: true,
+  }), id);
+  assert.deepEqual(await api.adminListSubscriptionPayments(client, { status: 'submitted', limit: 20, offset: 3 }), []);
+  assert.equal(await api.adminDecideSubscriptionPayment(client, {
+    paymentId: id, approve: false, note: 'Payment was not independently confirmed.',
+  }), id);
+  assert.equal(await api.adminCreateCommercialAgreement(client, {
+    businessId: id, agreementType: 'partnership', grantsPublication: true,
+    startsAt: '2026-11-01T00:00:00+03:00', endsAt: null,
+    termsSnapshot: { approved: true }, reason: 'Approved partnership agreement',
+  }), id);
+  assert.equal(await api.adminRevokeCommercialAgreement(client, {
+    agreementId: id, reason: 'Partnership agreement ended',
+  }), id);
+  const rpc = n => '/rest/v1/rpc/' + n;
+  assert.deepEqual(requests, [
+    { path: rpc('wow_list_subscription_plans'), body: {} },
+    { path: rpc('wow_get_business_billing'), body: { p_business_id: id } },
+    { path: rpc('wow_activate_business_trial'), body: { p_business_id: id } },
+    { path: rpc('wow_request_paid_subscription'), body: { p_business_id: id, p_plan_code: 'BASIC' } },
+    { path: rpc('wow_submit_subscription_payment'), body: {
+      p_subscription_id: id, p_method: 'wallet', p_reference: 'TEST-REF-1234',
+    } },
+    { path: rpc('wow_admin_configure_subscription_plan'), body: {
+      p_code: 'BASIC', p_price: '1200.00', p_currency: 'YER', p_duration_days: 30,
+      p_feature_limits: { offers: 20 }, p_active: true,
+    } },
+    { path: rpc('wow_admin_list_subscription_payments'), body: {
+      p_status: 'submitted', p_limit: 20, p_offset: 3,
+    } },
+    { path: rpc('wow_admin_decide_subscription_payment'), body: {
+      p_payment_id: id, p_approve: false, p_note: 'Payment was not independently confirmed.',
+    } },
+    { path: rpc('wow_admin_create_commercial_agreement'), body: {
+      p_business_id: id, p_agreement_type: 'partnership', p_grants_publication: true,
+      p_starts_at: '2026-11-01T00:00:00+03:00', p_ends_at: null,
+      p_terms_snapshot: { approved: true }, p_reason: 'Approved partnership agreement',
+    } },
+    { path: rpc('wow_admin_revoke_commercial_agreement'), body: {
+      p_agreement_id: id, p_reason: 'Partnership agreement ended',
+    } },
+  ]);
+});
+
+test('Migration 006 billing private hooks wait for auth and trial update targets a single business', async () => {
+  let results;
+  let requestCount = 0;
+  globalThis.fetch = async () => { requestCount++; return response([]); };
+  function SignedOut() {
+    recordClient();
+    results = [
+      api.useSubscriptionPlans(), api.useBusinessBilling(id), api.useAdminSubscriptionPayments(),
+    ];
+    return null;
+  }
+  await mount(provider(h(SignedOut), { userId: null, sessionScopeKey: null }));
+  assert(results.every(query => query.fetchStatus === 'idle' && query.data === undefined));
+  assert.equal(requestCount, 0);
+
+  let mutation;
+  let queryClient;
+  globalThis.fetch = async (url) => {
+    assert(new URL(url).pathname.endsWith('/rpc/wow_activate_business_trial'));
+    return response(id);
+  };
+  function SignedIn() {
+    queryClient = recordClient();
+    mutation = api.useActivateBusinessTrial();
+    return null;
+  }
+  await mount(provider(h(SignedIn)));
+  const current = api.wowQueryKeys.billing.business('user_a', id);
+  const unrelated = api.wowQueryKeys.billing.business('user_a', otherId);
+  const anotherAccount = api.wowQueryKeys.billing.business('user_b', id);
+  for (const key of [current, unrelated, anotherAccount]) queryClient.setQueryData(key, {});
+  await act(async () => assert.equal(await mutation.mutateAsync(id), id));
+  assert.equal(queryClient.getQueryState(current).isInvalidated, true);
+  assert.equal(queryClient.getQueryState(unrelated).isInvalidated, false);
+  assert.equal(queryClient.getQueryState(anotherAccount).isInvalidated, false);
+});
+
+test('Migration 006 billing rejects unexpected RPC JSON results and never enables proof upload', async () => {
+  const client = makeClient();
+  globalThis.fetch = async url => {
+    const pathname = new URL(url).pathname;
+    if (pathname.endsWith('/wow_list_subscription_plans')) return response({});
+    if (pathname.endsWith('/wow_get_business_billing')) return response([]);
+    if (pathname.endsWith('/wow_admin_list_subscription_payments')) return response({});
+    return response(null);
+  };
+  await assert.rejects(api.listSubscriptionPlans(client), /JSON array/);
+  await assert.rejects(api.getBusinessBilling(client, id), /JSON object/);
+  await assert.rejects(api.adminListSubscriptionPayments(client), /JSON array/);
+  await assert.rejects(api.submitSubscriptionPayment(client, {
+    subscriptionId: id, method: 'cash', reference: 'TEST-REF-0001',
+  }), /no scalar UUID/);
+});
+
 test('mutations do not retry failures and cannot write while signed out', async () => {
   let mutation;
   let requests = 0;

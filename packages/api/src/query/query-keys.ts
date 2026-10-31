@@ -56,4 +56,15 @@ export const wowQueryKeys = {
     adminComplaint: (userId: string | null, complaintId: string | null) =>
       ['interactions', 'complaints', 'admin', userId, 'detail', complaintId] as const,
   },
+  billing: {
+    root: (userId: string | null) => ['billing', userId] as const,
+    plans: (userId: string | null) => ['billing', userId, 'plans'] as const,
+    businessRoot: (userId: string | null) => ['billing', userId, 'business'] as const,
+    business: (userId: string | null, businessId: string | null) =>
+      ['billing', userId, 'business', businessId] as const,
+    adminPaymentsRoot: (userId: string | null) =>
+      ['billing', userId, 'admin-payments'] as const,
+    adminPayments: (userId: string | null, status: string | null, limit: number, offset: number) =>
+      ['billing', userId, 'admin-payments', status, limit, offset] as const,
+  },
 };
