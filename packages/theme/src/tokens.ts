@@ -1,19 +1,13 @@
-/**
- * WOW's cross-platform design contract. Keep these values in sync with
- * packages/theme/theme.css, which registers NativeWind class names.
- *
- * Semantic tokens are used for component states instead of ad-hoc hex values.
- * No UI element should infer authorization from a color or status badge.
- */
+/** WOW approved visual contract. Changes require comparison with approved screen previews. */
 export const wowColorSchemes = {
   light: {
-    primary: '#F5B700',
-    primaryForeground: '#171717',
+    primary: '#FACC15',
+    primaryForeground: '#0F172D',
     background: '#FFFFFF',
-    surface: '#F4F4F5',
-    foreground: '#18181B',
-    mutedForeground: '#71717A',
-    border: '#E4E4E7',
+    surface: '#FFFFFF',
+    foreground: '#0F172D',
+    mutedForeground: '#64748B',
+    border: '#E8EBF0',
     success: '#166534',
     successSurface: '#DCFCE7',
     warning: '#854D0E',
@@ -23,11 +17,11 @@ export const wowColorSchemes = {
     info: '#1D4ED8',
     infoSurface: '#DBEAFE',
     neutral: '#52525B',
-    neutralSurface: '#E4E4E7',
+    neutralSurface: '#F1F5F9',
   },
   dark: {
-    primary: '#FFD23F',
-    primaryForeground: '#171717',
+    primary: '#FACC15',
+    primaryForeground: '#0F172D',
     background: '#101014',
     surface: '#202024',
     foreground: '#FAFAFA',
@@ -46,6 +40,20 @@ export const wowColorSchemes = {
   },
 } as const;
 
+export const wowBrandColors = {
+  yellow: '#FACC15',
+  yellowHover: '#FDE047',
+  yellowPale: '#FEFCE8',
+  navy: '#0F172D',
+} as const;
+
+export const wowAppCanvases = {
+  customer: '#F5F6F8',
+  merchant: '#F4F5F8',
+  admin: '#F6F7F6',
+} as const;
+
+export type WowAppKind = keyof typeof wowAppCanvases;
 export type WowResolvedTheme = keyof typeof wowColorSchemes;
 export type WowStatusTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
@@ -55,7 +63,16 @@ export const wowLayoutTokens = {
   minTouchSize: 48,
   screenHorizontalPadding: 20,
   screenTopPadding: 24,
+  // Kept for backwards compatibility; use page-specific limits when possible.
   maxContentWidth: 1080,
+  pageMaxWidth: { customer: 1240, merchant: 1440, admin: 1560 },
+} as const;
+
+/** Width-based breakpoints: platform === web does not imply desktop-sized viewport. */
+export const wowResponsiveTokens = {
+  compact: 600,
+  desktop: 1024,
+  wide: 1440,
 } as const;
 
 export const wowTypography = {
