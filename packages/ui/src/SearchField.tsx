@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, TextInput, View, type TextInputProps } from 'react-native';
 import { Search, X } from 'lucide-react-native';
 import { useWowColors } from '@wow/theme';
@@ -16,11 +17,14 @@ export function SearchField({
   editable = true, style, ...props
 }: SearchFieldProps) {
   const colors = useWowColors();
+  const [focused, setFocused] = useState(false);
   return (
     <View {...rtlProps} className="min-h-12 flex-row items-center gap-2 rounded-xl border border-border bg-background px-3"
-      style={rtlStyles.layout}>
+      style={[rtlStyles.layout, { backgroundColor: colors.background, borderColor: focused ? colors.focusRing : colors.controlBorder, borderWidth: focused ? 2 : 1 }]}>
       <Search size={20} strokeWidth={1.9} color={colors.mutedForeground} />
       <TextInput {...rtlProps} {...props} editable={editable} value={value} onChangeText={onChangeText}
+        onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+        onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
         onSubmitEditing={() => onSubmitSearch?.()} returnKeyType="search" placeholder={placeholder}
         accessibilityLabel={props.accessibilityLabel ?? label} placeholderTextColor={colors.mutedForeground}
         style={[rtlStyles.text, { flex: 1, minHeight: 48, minWidth: 0, fontSize: 16,
