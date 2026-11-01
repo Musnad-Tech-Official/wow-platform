@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 import { AppText } from './AppText';
+import { useWowColors } from '@wow/theme';
 import { rtlProps } from './rtl';
 
 export interface SectionHeaderProps {
@@ -10,6 +11,7 @@ export interface SectionHeaderProps {
 }
 
 export function SectionHeader({ title, subtitle, actionLabel, onActionPress }: SectionHeaderProps) {
+  const colors = useWowColors();
   return (
     <View {...rtlProps} className="flex-row items-center justify-between gap-3">
       <View className="min-w-0 flex-1 items-start gap-1">
@@ -24,7 +26,7 @@ export function SectionHeader({ title, subtitle, actionLabel, onActionPress }: S
           onPress={onActionPress}
           className="min-h-12 justify-center rounded-xl px-3 active:opacity-70"
         >
-          <AppText variant="label" className="font-tajawal-bold text-primary">
+          <AppText variant="label" className="font-tajawal-bold" style={{ color: colors.actionForeground }}>
             {actionLabel}
           </AppText>
         </Pressable>
