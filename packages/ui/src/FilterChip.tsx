@@ -19,7 +19,7 @@ export function FilterChip({ label, selected, onPress, disabled = false }: Filte
         opacity: disabled ? .5 : 1, alignItems: 'center', justifyContent: 'center',
         borderWidth: 1, borderRadius: 999,
         backgroundColor: selected ? colors.primary : colors.surface,
-        borderColor: selected ? colors.primary : colors.border }}>
+        borderColor: selected ? colors.focusRing : colors.controlBorder }}>
       <AppText variant="label" style={{ color: selected ? colors.primaryForeground : colors.foreground }}>{label}</AppText>
     </Pressable>
   );
