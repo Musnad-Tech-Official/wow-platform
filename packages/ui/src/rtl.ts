@@ -4,6 +4,7 @@ import { Platform, StyleSheet } from 'react-native';
 export const rtlProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
 
 export const rtlStyles = StyleSheet.create({
-  layout: { direction: 'rtl' },
+  // React Native Web accepts the dir prop, not direction in a style object.
+  layout: Platform.OS === 'web' ? {} : { direction: 'rtl' as const },
   text: { writingDirection: 'rtl' },
 });
