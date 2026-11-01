@@ -105,4 +105,35 @@ for(const file of ['packages/theme/src/tokens.ts','packages/ui/src/AppButton.tsx
  const source=ts.createSourceFile(file,read(file),ts.ScriptTarget.Latest,true,file.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS);
  assert.equal(source.parseDiagnostics.length,0,file+': invalid TS/TSX syntax');
 }
+// A single malformed shared component can stop Expo bundling even when it was
+// not among the explicit V0.8 acceptance samples above. Parse the entire
+// shared UI/theme surface and every app route and design-preview component.
+let parsedCount = 0;
+for (const folder of [
+  'packages/ui/src',
+  'packages/theme/src',
+  'apps/customer/src/app',
+  'apps/customer/src/features/design',
+  'apps/merchant/src/app',
+  'apps/admin/src/app',
+]) {
+  function visit(relativeDir) {
+    for (const entry of fs.readdirSync(path.join(root, relativeDir), { withFileTypes: true })) {
+      const file = path.join(relativeDir, entry.name);
+      if (entry.isDirectory()) {
+        visit(file);
+      } else if (entry.isFile() && /\.tsx?$/.test(entry.name)) {
+        const syntax = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true,
+          entry.name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+        assert.equal(syntax.parseDiagnostics.length, 0,
+          file + ': ' + syntax.parseDiagnostics.map(d =>
+            ts.flattenDiagnosticMessageText(d.messageText, '\\n')).join('; '));
+        parsedCount++;
+      }
+    }
+  }
+  visit(folder);
+}
+assert(parsedCount >= 40, 'Too few shared/app files were parsed');
+console.log('WOW V0.8 syntax: parsed ' + parsedCount + ' shared, route and preview TS/TSX files.');
 console.log('WOW V0.8 checks passed: 44 contrast pairs, semantic controls, RTL, responsive layouts and TS/TSX syntax.');
