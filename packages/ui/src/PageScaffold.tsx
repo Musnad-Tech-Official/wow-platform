@@ -39,7 +39,7 @@ export function PageScaffold({
       {...props}
       keyboardShouldPersistTaps="handled"
       className={`flex-1 bg-background ${className ?? ''}`}
-      style={[{ backgroundColor }, style]
+      style={[{ backgroundColor }, style]}
       contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingBottom: 32 }}
     >
       <View
