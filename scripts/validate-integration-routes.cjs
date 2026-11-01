@@ -27,6 +27,14 @@ async function main() {
   const declaration = readFileSync(resolve(typesDirectory, 'router.d.ts'), 'utf8');
   assert(declaration.includes('/integration-test'), 'Integration route missing from generated declarations');
   assert(!/\/(auth-test|rls-test)/.test(declaration), 'Obsolete route in generated declarations');
+  if (app === 'customer') {
+    assert(declaration.includes('/sso-callback'), 'Customer SSO callback route missing from Expo Router declarations');
+    const callback = readFileSync(resolve(projectRoot, 'src/app/sso-callback.tsx'), 'utf8');
+    assert.match(callback, /WebBrowser\.maybeCompleteAuthSession\(\)/, 'Web popup must complete OAuth session on callback');
+    const signIn = readFileSync(resolve(projectRoot, 'src/app/sign-in.tsx'), 'utf8');
+    assert.match(signIn, /path: 'sso-callback'/, 'Customer sign-in must use the callback route');
+    assert.match(signIn, /redirectUrl/, 'Customer sign-in must specify OAuth redirect URL');
+  }
   const layout = readFileSync(resolve(projectRoot, 'src/app/_layout.tsx'), 'utf8');
   assert.match(layout, /Stack\.Protected guard=\{__DEV__\}/);
   const route = readFileSync(resolve(projectRoot, 'src/app/integration-test.tsx'), 'utf8');

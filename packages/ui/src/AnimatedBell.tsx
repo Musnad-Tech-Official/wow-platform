@@ -1,7 +1,7 @@
 
 import { Pressable } from 'react-native';
 import { Bell } from 'lucide-react-native';
-import { styled } from 'nativewind';
+import { useTheme } from '@wow/theme';
 import { rtlProps, rtlStyles } from './rtl';
 
 import Animated, {
@@ -11,16 +11,6 @@ import Animated, {
   withTiming,
   withSpring,
 } from 'react-native-reanimated';
-
-// Enable NativeWind className support for Lucide
-const StyledBell = styled(Bell, {
-  className: {
-    target: false,
-    nativeStyleMapping: {
-      color: true,
-    },
-  },
-});
 
 type AnimatedBellProps = {
   onPress?: () => void;
@@ -32,6 +22,7 @@ export function AnimatedBell({
   size = 28,
 }: AnimatedBellProps) {
   const rotation = useSharedValue(0);
+  const { resolvedTheme } = useTheme();
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -61,10 +52,10 @@ export function AnimatedBell({
       className="items-center justify-center rounded-xl bg-surface p-4 active:opacity-80"
     >
       <Animated.View style={animatedStyle}>
-        <StyledBell
+        <Bell
           size={size}
           strokeWidth={2}
-          className="text-primary"
+          color={resolvedTheme === 'dark' ? '#FFD23F' : '#F5B700'}
         />
       </Animated.View>
     </Pressable>
