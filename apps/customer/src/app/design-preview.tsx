@@ -4,6 +4,7 @@ import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { V06Gallery } from '../features/design/V06Gallery';
 import { V07ThemeAudit } from '../features/design/V07ThemeAudit';
+import { V08AcceptanceGallery } from '../features/design/V08AcceptanceGallery';
 import { wowBrand, wowIllustrations } from '@wow/assets';
 import { useWowColors, useWowViewport, wowBrandColors } from '@wow/theme';
 import {
@@ -77,8 +78,8 @@ export default function DesignPreviewRoute() {
       <Divider />
       <SectionHeader title="المؤشرات والقوائم" subtitle="بيانات توضيحية وليست بيانات فعلية" />
       <View className="flex-row flex-wrap gap-3">
-        <MetricCard label="المتاجر" value="12" caption="تجريبي" icon={<WowIcon name="store" color={colors.primary} />} />
-        <MetricCard label="المراجعات" value="4" caption="تجريبي" icon={<WowIcon name="check" color={colors.primary} />} />
+        <MetricCard label="المتاجر" value="12" caption="تجريبي" icon={<WowIcon name="store" color={colors.actionForeground} />} />
+        <MetricCard label="المراجعات" value="4" caption="تجريبي" icon={<WowIcon name="check" color={colors.actionForeground} />} />
       </View>
       <ListRow title="متجر نموذجي" description="صف للمعاينة فقط" leading={<WowIcon name="store" />} trailing={<StatusBadge label={selected ? 'محدد' : 'جديد'} tone={selected ? 'success' : 'neutral'} />} onPress={() => setSelected(!selected)} />
       <SectionHeader title="إدخال وتجربة الحالات" />
@@ -92,6 +93,7 @@ export default function DesignPreviewRoute() {
       <DataState kind={state} actionLabel={state === 'error' ? 'إعادة المحاولة' : undefined} onAction={() => setState('loading')} />
       <Divider />
       <V07ThemeAudit />
+      <V08AcceptanceGallery />
       <V06Gallery />
       <AppText variant="caption" muted>لا توجد أي طلبات API أو بيانات مستخدم ضمن هذه المعاينة.</AppText>
     </PageScaffold>
