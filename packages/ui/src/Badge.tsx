@@ -1,4 +1,5 @@
 import { View, type ViewProps } from 'react-native';
+import { useWowColors } from '@wow/theme';
 import { rtlProps, rtlStyles } from './rtl';
 import { AppText } from './AppText';
 
@@ -8,9 +9,16 @@ export type BadgeProps = Omit<ViewProps, 'children'> & {
 };
 
 export function Badge({ label, variant = 'primary', className, style, ...props }: BadgeProps) {
+  const colors = useWowColors();
   return (
-    <View {...rtlProps} {...props} style={[rtlStyles.layout, style]} className={`self-start rounded-lg px-3 py-1 ${variant === 'primary' ? 'bg-primary' : 'border border-border bg-surface'} ${className ?? ''}`}>
-      <AppText variant="label" className={variant === 'primary' ? 'text-primary-foreground' : 'text-foreground'}>{label}</AppText>
+    <View {...rtlProps} {...props}
+      style={[rtlStyles.layout, {
+        backgroundColor: variant === 'primary' ? colors.primary : colors.surface,
+        borderColor: variant === 'primary' ? 'transparent' : colors.border,
+        borderWidth: variant === 'primary' ? 0 : 1,
+      }, style]}
+      className={`self-start rounded-lg px-3 py-1 ${className ?? ''}`}>
+      <AppText variant="label" tone={variant === 'primary' ? 'onPrimary' : 'default'}>{label}</AppText>
     </View>
   );
 }
