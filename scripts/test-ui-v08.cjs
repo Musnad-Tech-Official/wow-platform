@@ -88,8 +88,19 @@ for(const width of widths){
  const size=(parent-(columns-1)*gap)/columns;
  assert(size>=min&&columns*size+(columns-1)*gap<=parent+0.01,'Responsive layout invalid at '+width);
 }
-let ts;try{ts=require('typescript')}catch{try{ts=require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript')}catch{}}
-assert(ts,'TypeScript is required for V0.8 syntax checks');
+// pnpm isolates workspace devDependencies. Resolve TypeScript from the package
+// that declares it, rather than the repository root or a machine-specific path.
+const { createRequire } = require('node:module');
+const uiRequire = createRequire(path.join(root, 'packages/ui/package.json'));
+let ts;
+try {
+  ts = uiRequire('typescript');
+} catch (error) {
+  throw new Error(
+    'Cannot resolve the TypeScript devDependency of @wow/ui. Check workspace installation with pnpm --filter @wow/ui exec tsc --version.',
+    { cause: error },
+  );
+}
 for(const file of ['packages/theme/src/tokens.ts','packages/ui/src/AppButton.tsx','packages/ui/src/AppText.tsx','packages/ui/src/AppInput.tsx','packages/ui/src/ThemeSwitcher.tsx','packages/ui/src/SegmentedTabs.tsx','packages/ui/src/FilterChip.tsx','packages/ui/src/RadioFieldGroup.tsx','packages/ui/src/SwitchField.tsx','packages/ui/src/ProgressBar.tsx','packages/ui/src/SelectField.tsx','packages/ui/src/TextAreaField.tsx','packages/ui/src/AnimatedWowIcon.tsx','packages/ui/src/SectionHeader.tsx','packages/ui/src/SearchField.tsx','packages/ui/src/Card.tsx','packages/ui/src/ListRow.tsx','packages/ui/src/PageScaffold.tsx','apps/customer/src/app/design-preview.tsx','apps/customer/src/features/design/V08AcceptanceGallery.tsx']){
  const source=ts.createSourceFile(file,read(file),ts.ScriptTarget.Latest,true,file.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS);
  assert.equal(source.parseDiagnostics.length,0,file+': invalid TS/TSX syntax');
