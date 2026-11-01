@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 import { V06Gallery } from '../features/design/V06Gallery';
+import { V07ThemeAudit } from '../features/design/V07ThemeAudit';
 import { wowBrand, wowIllustrations } from '@wow/assets';
 import { useWowColors, useWowViewport, wowBrandColors } from '@wow/theme';
 import {
@@ -90,6 +91,7 @@ export default function DesignPreviewRoute() {
       </ResponsiveActionGroup>
       <DataState kind={state} actionLabel={state === 'error' ? 'إعادة المحاولة' : undefined} onAction={() => setState('loading')} />
       <Divider />
+      <V07ThemeAudit />
       <V06Gallery />
       <AppText variant="caption" muted>لا توجد أي طلبات API أو بيانات مستخدم ضمن هذه المعاينة.</AppText>
     </PageScaffold>

@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView } from 'react-native';
 import { useWowColors } from '@wow/theme';
 import { AppText } from './AppText';
 import { rtlProps } from './rtl';
