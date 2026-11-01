@@ -26,7 +26,7 @@ export function SegmentedTabs({ tabs, value, onValueChange, accessibilityLabel =
             style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center',
               paddingHorizontal: 18, borderRadius: 12, opacity: tab.disabled ? .5 : 1,
               backgroundColor: selected ? colors.primary : colors.surface,
-              borderColor: selected ? colors.primary : colors.border, borderWidth: 1 }}>
+              borderColor: selected ? colors.focusRing : colors.controlBorder, borderWidth: 1.5 }}>
             <AppText variant="label" style={{ color: selected ? colors.primaryForeground : colors.foreground }}>
               {tab.label}
             </AppText>
