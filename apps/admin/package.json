@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.26",
     "@wow/api": "workspace:*",
+    "@wow/assets": "workspace:*",
     "@wow/auth": "workspace:*",
     "@wow/theme": "workspace:*",
     "@wow/types": "workspace:*",

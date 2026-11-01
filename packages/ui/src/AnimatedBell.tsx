@@ -1,62 +1,44 @@
-
+import { useState } from 'react';
 import { Pressable } from 'react-native';
 import { Bell } from 'lucide-react-native';
-import { useTheme } from '@wow/theme';
+import Animated, { ReduceMotion, useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
+import { useWowColors } from '@wow/theme';
+import { wowMotion } from './motion';
 import { rtlProps, rtlStyles } from './rtl';
 
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  withSpring,
-} from 'react-native-reanimated';
+export type AnimatedBellProps = { onPress?: () => void; size?: number; disabled?: boolean };
 
-type AnimatedBellProps = {
-  onPress?: () => void;
-  size?: number;
-};
-
-export function AnimatedBell({
-  onPress,
-  size = 28,
-}: AnimatedBellProps) {
+/** One quiet two-phase ring, rather than continuous icon shaking. */
+export function AnimatedBell({ onPress, size = 24, disabled = false }: AnimatedBellProps) {
   const rotation = useSharedValue(0);
-  const { resolvedTheme } = useTheme();
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { rotate: `${rotation.value}deg` },
-    ],
-  }));
-
+  const colors = useWowColors();
+  const [hovered, setHovered] = useState(false);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotation.get()}deg` }] }));
   function ringBell() {
-    rotation.value = withSequence(
-      withTiming(-20, { duration: 100 }),
-      withTiming(20, { duration: 100 }),
-      withTiming(-15, { duration: 100 }),
-      withTiming(15, { duration: 100 }),
-      withSpring(0)
-    );
-
+    if (disabled) return;
+    rotation.set(withSequence(
+      withTiming(-wowMotion.bellAngleDeg, { duration: 95, reduceMotion: ReduceMotion.System }),
+      withTiming(wowMotion.bellAngleDeg / 2, { duration: 105, reduceMotion: ReduceMotion.System }),
+      withTiming(0, { duration: 120, reduceMotion: ReduceMotion.System }),
+    ));
     onPress?.();
   }
-
   return (
     <Pressable
       {...rtlProps}
-      style={rtlStyles.layout}
+      style={[rtlStyles.layout, { minWidth: 48, minHeight: 48,
+        backgroundColor: hovered ? colors.neutralSurface : colors.surface }]}
       onPress={ringBell}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel="Notifications"
-      className="items-center justify-center rounded-xl bg-surface p-4 active:opacity-80"
+      accessibilityLabel="الإشعارات"
+      accessibilityState={{ disabled }}
+      className={`items-center justify-center rounded-xl ${disabled ? 'opacity-50' : ''}`}
     >
       <Animated.View style={animatedStyle}>
-        <Bell
-          size={size}
-          strokeWidth={2}
-          color={resolvedTheme === 'dark' ? '#FFD23F' : '#F5B700'}
-        />
+        <Bell size={size} strokeWidth={1.9} color={colors.foreground} />
       </Animated.View>
     </Pressable>
   );
