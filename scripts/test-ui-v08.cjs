@@ -122,7 +122,7 @@ for (const folder of [
       const file = path.join(relativeDir, entry.name);
       if (entry.isDirectory()) {
         visit(file);
-      } else if (entry.isFile() && /\\.tsx?$/.test(entry.name)) {
+      } else if (entry.isFile() && /\.tsx?$/.test(entry.name)) {
         const syntax = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true,
           entry.name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
         assert.equal(syntax.parseDiagnostics.length, 0,
