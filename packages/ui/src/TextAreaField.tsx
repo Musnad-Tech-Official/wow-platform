@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { TextInput, View, type TextInputProps } from 'react-native';
 import { useWowColors } from '@wow/theme';
 import { AppText } from './AppText';
@@ -21,18 +21,21 @@ export function TextAreaField({
   const generatedId = useId();
   const id = nativeID ?? generatedId;
   const colors = useWowColors();
+  const [focused, setFocused] = useState(false);
   return (
     <View {...rtlProps} className="gap-2" style={rtlStyles.layout}>
       <AppText variant="label" nativeID={`${id}-label`}>{label}{required ? ' *' : ''}</AppText>
       <TextInput
         {...rtlProps} {...props} multiline numberOfLines={4} value={value} maxLength={maxLength}
+        onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+        onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
         nativeID={id} editable={editable} accessibilityLabel={accessibilityLabel ?? label}
         accessibilityHint={error ?? hint} aria-invalid={!!error}
         placeholderTextColor={colors.mutedForeground}
         style={[rtlStyles.layout, rtlStyles.text, {
           minHeight, paddingHorizontal: 16, paddingVertical: 12,
-          borderWidth: 1.5, borderRadius: 12,
-          borderColor: error ? colors.danger : colors.border,
+          borderWidth: focused ? 2 : 1.5, borderRadius: 12,
+          borderColor: error ? colors.danger : (focused ? colors.focusRing : colors.controlBorder),
           backgroundColor: colors.background, color: colors.foreground,
           fontFamily: 'Tajawal-Regular', fontSize: 16, textAlignVertical: 'top',
         }, style]}

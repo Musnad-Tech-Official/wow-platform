@@ -63,7 +63,7 @@ export function AnimatedWowIcon({ name, label, size = 22, onPress, disabled = fa
       className={`items-center justify-center rounded-xl ${disabled ? 'opacity-50' : ''}`}
     >
       <Animated.View style={animatedStyle}>
-        <WowIcon name={name} size={size} color={hovered && !disabled ? colors.primary : colors.foreground} />
+        <WowIcon name={name} size={size} color={hovered && !disabled ? colors.actionForeground : colors.foreground} />
       </Animated.View>
     </Pressable>
   );

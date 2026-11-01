@@ -27,7 +27,7 @@ export function ThemeSwitcher() {
               paddingHorizontal: 16, paddingVertical: 10,
               borderRadius: 12,
               backgroundColor: selected ? colors.primary : colors.surface,
-              borderColor: selected ? colors.primary : colors.border,
+              borderColor: selected ? colors.focusRing : colors.controlBorder,
               borderWidth: 1,
             }]}
           >

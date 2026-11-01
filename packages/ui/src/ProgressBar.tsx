@@ -26,7 +26,7 @@ export function ProgressBar({ value, label, showPercent = true }: ProgressBarPro
         accessibilityValue={{ min: 0, max: 100, now: percent }}
         style={{ height: 9, borderRadius: 99, backgroundColor: colors.border, overflow: 'hidden',
           flexDirection: 'row', justifyContent: 'flex-start' }}>
-        <View style={{ width: `${percent}%` as `${number}%`, height: '100%', borderRadius: 99, backgroundColor: colors.primary }} />
+        <View style={{ width: `${percent}%` as `${number}%`, height: '100%', borderRadius: 99, backgroundColor: colors.focusRing }} />
       </View>
     </View>
   );

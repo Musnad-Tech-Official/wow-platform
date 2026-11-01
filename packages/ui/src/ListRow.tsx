@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { AppText } from './AppText';
+import { useWowColors } from '@wow/theme';
 import { rtlProps } from './rtl';
 
 export interface ListRowProps {
@@ -20,6 +21,8 @@ export function ListRow({
   onPress,
   accessibilityLabel,
 }: ListRowProps) {
+  const colors = useWowColors();
+  const surfaceStyle = { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 };
   const content = (
     <>
       {leading ? <View className="shrink-0">{leading}</View> : null}
@@ -33,12 +36,13 @@ export function ListRow({
 
   const className = 'min-h-14 flex-row items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3';
   if (!onPress) {
-    return <View {...rtlProps} className={className}>{content}</View>;
+    return <View {...rtlProps} className={className} style={surfaceStyle}>{content}</View>;
   }
 
   return (
     <Pressable
       {...rtlProps}
+      style={surfaceStyle}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}

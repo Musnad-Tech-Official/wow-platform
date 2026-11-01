@@ -25,11 +25,11 @@ export function RadioFieldGroup({ label, options, value, onValueChange, disabled
             accessibilityLabel={option.label} accessibilityState={{ checked: selected, disabled: inactive }}
             disabled={inactive} onPress={() => onValueChange(option.value)}
             style={[rtlStyles.layout, { opacity: inactive ? .5 : 1,
-              borderColor: selected ? colors.primary : colors.border, borderWidth: 1.5,
+              borderColor: selected ? colors.focusRing : colors.controlBorder, borderWidth: 1.5,
               backgroundColor: colors.surface, borderRadius: 12 }]}
             className="min-h-12 flex-row items-center gap-3 px-3 py-3">
             <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1.8,
-              borderColor: selected ? colors.primary : colors.mutedForeground,
+              borderColor: selected ? colors.focusRing : colors.mutedForeground,
               alignItems: 'center', justifyContent: 'center' }}>
               {selected ? <View style={{ width: 11, height: 11, borderRadius: 6,
                 backgroundColor: colors.primary }} /> : null}

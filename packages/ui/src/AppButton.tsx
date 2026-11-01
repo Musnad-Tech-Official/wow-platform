@@ -98,7 +98,7 @@ export function AppButton({
         rtlStyles.layout,
         {
           backgroundColor: scheme.bg,
-          borderColor: focused ? colors.primary : scheme.border,
+          borderColor: focused ? (variant === 'primary' ? colors.primaryForeground : colors.focusRing) : scheme.border,
           borderWidth: focused || scheme.border !== 'transparent' ? 1.5 : 0,
           opacity: inactive ? 0.55 : 1,
           minHeight: 48,

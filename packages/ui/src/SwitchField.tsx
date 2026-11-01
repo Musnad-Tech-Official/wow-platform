@@ -25,7 +25,8 @@ export function SwitchField({ label, description, checked, onCheckedChange, disa
         {description ? <AppText variant="caption" muted>{description}</AppText> : null}
       </View>
       <View style={{ width: 46, height: 28, borderRadius: 14, padding: 3,
-        backgroundColor: checked ? colors.primary : colors.border,
+        backgroundColor: checked ? colors.primary : colors.neutralSurface,
+        borderWidth: 1.5, borderColor: checked ? colors.focusRing : colors.controlBorder,
         flexDirection: 'row', justifyContent: checked ? 'flex-start' : 'flex-end',
       }}>
         <View style={{ width: 22, height: 22, borderRadius: 11,

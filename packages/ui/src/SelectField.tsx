@@ -22,6 +22,7 @@ export function SelectField({
   label, value, options, onValueChange, placeholder = 'اختر من القائمة', hint, error, disabled = false,
 }: SelectFieldProps) {
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const colors = useWowColors();
   const selected = options.find(item => item.value === value);
   return (
@@ -29,9 +30,9 @@ export function SelectField({
       <AppText variant="label">{label}</AppText>
       <Pressable {...rtlProps} accessibilityRole="button" accessibilityLabel={label}
         accessibilityHint="افتح قائمة الخيارات" accessibilityState={{ disabled, expanded: open }}
-        disabled={disabled} onPress={() => setOpen(true)}
+        disabled={disabled} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onPress={() => setOpen(true)}
         className="min-h-12 flex-row items-center justify-between gap-3 rounded-xl px-4 py-3"
-        style={{ opacity: disabled ? .5 : 1, borderWidth: 1.5, borderColor: error ? colors.danger : colors.border,
+        style={{ opacity: disabled ? .5 : 1, borderWidth: 1.5, borderColor: error ? colors.danger : (focused ? colors.focusRing : colors.controlBorder),
           backgroundColor: colors.background }}>
         <AppText style={{ color: selected ? colors.foreground : colors.mutedForeground }}>
           {selected?.label ?? placeholder}
@@ -60,7 +61,7 @@ export function SelectField({
                   className="min-h-12 flex-row items-center justify-between gap-3 rounded-lg px-3 py-3"
                   style={{ opacity: item.disabled ? .5 : 1 }}>
                   <AppText>{item.label}</AppText>
-                  {item.value === value ? <Check color={colors.primary} size={20}/> : null}
+                  {item.value === value ? <Check color={colors.actionForeground} size={20}/> : null}
                 </Pressable>
               ))}
             </ScrollView>

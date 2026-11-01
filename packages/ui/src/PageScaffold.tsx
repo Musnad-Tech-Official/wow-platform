@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ScrollView, View, type ScrollViewProps } from 'react-native';
 import {
   useTheme,
+  useWowColors,
   useWowViewport,
   wowAppCanvases,
   wowLayoutTokens,
@@ -28,16 +29,17 @@ export function PageScaffold({
 }: PageScaffoldProps) {
   const viewport = useWowViewport();
   const { resolvedTheme } = useTheme();
+  const colors = useWowColors();
   const horizontalPadding = viewport.isCompact ? 16 : viewport.isDesktop ? 32 : 24;
   const contentWidth = maxWidth ?? wowLayoutTokens.pageMaxWidth[app];
-  const backgroundColor = resolvedTheme === 'dark' ? undefined : wowAppCanvases[app];
+  const backgroundColor = resolvedTheme === 'dark' ? colors.background : wowAppCanvases[app];
   return (
     <ScrollView
       {...rtlProps}
       {...props}
       keyboardShouldPersistTaps="handled"
       className={`flex-1 bg-background ${className ?? ''}`}
-      style={[backgroundColor ? { backgroundColor } : undefined, style]}
+      style={[{ backgroundColor }, style]
       contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingBottom: 32 }}
     >
       <View

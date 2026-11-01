@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { TextInput, View, type TextInputProps } from 'react-native';
 import { useWowColors } from '@wow/theme';
 import { AppText } from './AppText';
@@ -16,6 +16,7 @@ export function AppInput({ label, hint, error, containerClassName, className, st
   const id = useId();
   const inputId = nativeID ?? id;
   const colors = useWowColors();
+  const [focused, setFocused] = useState(false);
 
   return (
     <View {...rtlProps} style={rtlStyles.layout} className={`gap-2 ${containerClassName ?? ''}`}>
@@ -26,9 +27,12 @@ export function AppInput({ label, hint, error, containerClassName, className, st
         style={[rtlStyles.layout, rtlStyles.text, {
           color: colors.foreground,
           backgroundColor: colors.background,
-          borderColor: error ? colors.danger : colors.border,
+          borderColor: error ? colors.danger : (focused ? colors.focusRing : colors.controlBorder),
+          borderWidth: focused ? 2 : 1,
         }, style]}
         nativeID={inputId}
+        onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+        onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
         editable={editable}
         placeholderTextColor={placeholderTextColor ?? colors.mutedForeground}
         accessibilityLabel={accessibilityLabel ?? label}
