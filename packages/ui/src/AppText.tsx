@@ -52,7 +52,7 @@ export function AppText({
   const toneColors = {
     default: colors.foreground,
     muted: colors.mutedForeground,
-    primary: colors.primary,
+    primary: colors.actionForeground,
     onPrimary: colors.primaryForeground,
     success: colors.success,
     warning: colors.warning,
