@@ -1,6 +1,6 @@
 # WOW Design System — UI Foundation (v1)
 
-This is the shared **Customer, Merchant and Admin** design contract. It supplements `docs/ui-workstreams.md`; no developer or person is assigned a screen by this document.
+This is the approved visual contract for Customer, Merchant and Admin. Build real feature pages using the approved screen designs and reuse the existing shared components. Improve defects or missing states without inventing new product flows.
 
 ## Visual direction
 
@@ -81,6 +81,14 @@ function BusinessList({ businesses, isLoading, error }: {
 
 If `colors` is only needed for an SVG/icon, pass `color={colors.primary}` directly and never pass `className` through a Lucide styled adapter.
 
+### Additional shared controls
+
+The shared library also exports `SearchField`, `TextAreaField`, `SwitchField`, `RadioFieldGroup`, `FilterChip`, `SegmentedTabs`, `SelectField`, `InlineNotice`, `ProgressBar`, `Skeleton`, `ConfirmDialog`, `Pagination`, `DataTable`, `ToastBanner`, `FileSelectField`, `BottomSheet` and `Stepper`. Inspect their actual TypeScript props before use; do not copy legacy examples.
+
+### Semantic color safeguards
+
+Keep the approved primary yellow `#FACC15` and readable `primaryForeground`. Text links, focus rings and selected indicators use `actionForeground`/`focusRing`, not yellow text on a white canvas. Inputs use the semantic `controlBorder`; muted labels require legible contrast in both modes. The source checks cover 44 token contrasts, but visual and assistive-device review is still required.
+
 ## Developer-only gallery
 
 From Customer Expo web, navigate directly to:
@@ -89,36 +97,23 @@ From Customer Expo web, navigate directly to:
 http://localhost:8081/design-preview
 ```
 
-`apps/customer/src/app/design-preview.tsx` exercises all added primitives, theme switching, inputs and list actions. It contains only labeled synthetic values and makes **zero** Clerk or Supabase API requests. The route redirects to `/` outside `__DEV__`. It is intentionally not linked from shared navigation; W09 owns integration routes.
+`apps/customer/src/app/design-preview.tsx` exercises all added primitives, theme switching, inputs and list actions. It contains only labeled synthetic values and makes **zero** Clerk or Supabase API requests. The route redirects to `/` outside `__DEV__`. It is not part of the product navigation.
 
 This gallery can also be opened via Expo Go's development route if the project launches on a device.
 
-## Rules for W01–W09 page owners
+## Page implementation rules
 
 1. Start with `PageScaffold`, `PageHeader` and `SectionHeader`; do not invent new global shells and nav in each package.
 2. Preserve semantic status meaning: **submitted/pending = warning**, **approved = success**, **rejected = danger**, **draft = neutral**. A badge is UI only and does not grant permissions.
 3. Use `DataState` for loading, errors and empty results. Protected screen states must distinguish **signed-out** vs **loading** vs **permission denied**.
 4. Use `@wow/api` typed hooks, never raw restricted tables or hardcoded private Storage URLs. Public discovery remains available to guests.
-5. Compose existing components before proposing new dependencies. Shared UI changes require their own small PR, and no other page package should simultaneously edit `packages/ui` or `packages/theme`.
+5. Compose existing components before proposing new dependencies. Avoid unreviewed API changes to shared UI; verify cross-app consumers.
 6. Use `minTouchSize`, Tajawal and responsive max-width guidance across all screens. Always set accessible labels on icon-only actions.
 7. Dark theme must be checked manually for every new page; do not hardcode colors where semantic tokens exist.
 8. Only explicit user actions trigger mutations, and success messages must wait for a confirmed response. Do not auto-retry ambiguous writes.
 
-## Local validation before merge
+## Validation
 
-Run from repository root:
+Run `bash scripts/verify-ui-v08.sh` from the repository root. Inspect the developer-only `/design-preview` screen at mobile/tablet/desktop widths, RTL, light/dark/system and keyboard focus. Also validate representative Android/iOS devices, accessibility semantics and reduced motion. A source-level contrast or mocked test is not a device acceptance certificate.
 
-```powershell
-pnpm.cmd --filter @wow/ui exec tsc --noEmit
-pnpm.cmd typecheck
-pnpm.cmd lint
-pnpm.cmd test:query
-pnpm.cmd test:integration
-pnpm.cmd --filter customer start --clear
-```
-
-Open the gallery on Expo Web, toggle light/dark/system, trigger the empty/error/loading states, use inputs and buttons, and verify no unexpected runtime warnings. Also verify gallery is not usable as a production page.
-
-**Known integration dependency:** PR #21 fixes the preexisting Customer web Lucide/SSO/RTL warnings. This design-system branch deliberately does not edit those same files. Land and verify that fix independently; otherwise the old Customer home can still crash even when the component gallery code compiles.
-
-Database write/RLS/Storage production tests remain deferred to the pre-release security gate. That deferral does not excuse shipping real customer data before live verification.
+The Stepper number alignment requires cross-platform visual verification in Arabic RTL. Database authorization and Storage security require separate live testing (`docs/database-test-runbook.md`).

@@ -1,10 +1,16 @@
 # WOW — Database Test Runbook (Migration 010 and Live RLS)
 
-**Purpose:** test the *deployed* Supabase project, not just JavaScript wrappers. **Priority: W00** ([Issue #10](https://github.com/Musnad-Tech-Official/wow-platform/issues/10)). The test can be claimed and performed by **any** available developer and must pass before release or real customer evidence uploads.
+**Purpose:** test the *deployed* Supabase project, not just JavaScript wrappers. **Priority: W00** ([Issue #10](https://github.com/Musnad-Tech-Official/wow-platform/issues/10)). The procedure is a prerequisite for using real customer accounts or private evidence and for production release.
 
-**Current evidence:** Local `typecheck`, `lint`, 36 Query tests, and 19 local integration guard tests passed on the Migration 009 PR. These tests use mocked client/HTTP behavior. **No live Supabase results have been recorded or verified in this repo.**
+**Local evidence:** The repository's Query and integration tests are mocked; live role-based authorization, staging and migration-history reconciliation are not yet verified.
 
-## Phase A — read-only SQL structural audit (run now)
+## Verified read-only inventory snapshot (2026-11-02)
+
+The connected WOW Supabase project had 25 `public` and 7 `wow_private` RLS-enabled tables, and five private WOW Storage buckets. These flags **do not** prove correct isolation. The migration-history API returned no migrations and no `supabase_migrations.schema_migrations` table was found; original source SQL `001–010` and staging identity still need reconciliation. Security review found 19 RLS-without-policy informational findings, 5 public and 5 authenticated SECURITY DEFINER execute warnings, six anon-executable definer routines among 85 observed, six permissive offer SELECT policies and a present payment-proof-disabled constraint. Each finding requires inspection, not automatic grant/policy changes. Backup/restore, live user-role tests and production environment classification remain unverified.
+
+`docs/sql/w00-readonly-inventory.sql` is a supplementary seven-SELECT metadata inventory, **not** a substitute for the original `010_verify.sql`.
+
+## Phase A — read-only SQL structural audit
 
 The already-reviewed source package `WOW_Migration_010_Package.zip` includes `010_verify.sql`. **This is the read-only script** that contains seven audit blocks, including a nine-row pass/fail checklist. It has zero INSERT/UPDATE/DELETE statements. It is distinct from `010_database_hardening.sql`, which is a migration and **must not** be run as a test.
 
@@ -74,8 +80,8 @@ For every action record the user role, target business/branch, HTTP/SQL outcome,
 
 ## Phase C — release gate
 
-Only after Phase A AND the required Phase B/Storage tests pass may the team consider live production release, with backups/restore, privacy and admin MFA controls separately verified. **UI work with mocks may start now in parallel** under `docs/ui-workstreams.md`; a green UI build does not lift this gate.
+Only after Phase A AND the required Phase B/Storage tests pass may the team consider live production release, with backups/restore, privacy and admin MFA controls separately verified. A green UI build alone does not lift the live database security gate.
 
-## How to run safely without a direct database connection from ChatGPT
+## Evidence handling
 
-Use the unchanged `010_verify.sql` in Supabase SQL Editor and share **sanitized seven result sections** here. An installed Supabase integration can be used for read-only SQL only when its actions are actually exposed and the target project is confirmed. Installation alone does not establish a successful SQL execution. Do not share `service_role` keys, DB passwords, SQL editor access tokens, Clerk session tokens, or personally identifying rows.
+Preserve the original, unchanged `010_verify.sql` and sanitized evidence for all seven result sections. Do not store account identifiers, tokens, secrets, payment evidence or private media in Git. Treat database access and production mutations as separately authorized operations.
