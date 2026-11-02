@@ -35,7 +35,7 @@ check('repo root instructions establish approved package boundaries and security
 });
 check('full roadmap then first command, without allocating developers', () => {
   const handoff = read('docs/developer-handoff-protocol.md');
-  assert.match(handoff,/complete assigned roadmap|complete assigned.*roadmap/i);
+  assert.match(handoff,/Full map of that developer's tasks/i);
   assert.match(handoff,/first concrete executable command/);
   assert.match(handoff,/no developer assignments/i);
 });
