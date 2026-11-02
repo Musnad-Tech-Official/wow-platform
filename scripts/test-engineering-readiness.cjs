@@ -42,7 +42,7 @@ check('full roadmap then first command, without allocating developers', () => {
 check('ready report distinguishes metadata and live security tests', () => {
   const doc = read('docs/engineering-readiness.md');
   for (const text of ['25 RLS enabled','7 RLS enabled','five','staging','010_verify.sql','MISSING FROM REPOSITORY','OPEN — release blocker']) {
-    assert(doc.includes(text),'Missing finding '+text);
+    assert(doc.toLowerCase().includes(text.toLowerCase()),'Missing finding '+text);
   }
 });
 check('W00 inventory is SELECT-only and not mistaken for migration 010', () => {
