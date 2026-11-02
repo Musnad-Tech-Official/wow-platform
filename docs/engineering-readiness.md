@@ -18,6 +18,8 @@ Added:
 - `AGENTS.md`: root-wide technical ownership and safety rules.
 - `docs/developer-handoff-protocol.md`: parent-to-three-conversation handoff semantics.
 
+**GitHub governance check:** Reading `main` branch protection via this integration returned **403** (insufficient integration access). Reading repository rulesets returned **403** with GitHub's message that the current plan does not support the feature for this private repository unless upgraded or public. Therefore do **not** assume a required-check/PR rule is enforced. Keep an owner-reviewed manual PR gate until the repository owner confirms an available enforcement method.
+
 **CI evidence:** GitHub Actions [run #41365050732](https://github.com/Musnad-Tech-Official/wow-platform/actions/runs/41365050732) **PASSED** on PR #27: frozen pnpm install, readiness contract tests and full UI/typecheck/lint/Query/integration guard suite. After owner-approved merge, verify the first `main` push run as well. Repository branch protection and required checks require repository owner/admin configuration. The GitHub connector does not establish those protections just by adding the workflow. Do not auto-merge a PR just because local checks pass.
 
 ## D — Read-only live Supabase preflight
