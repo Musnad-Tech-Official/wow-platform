@@ -74,7 +74,7 @@ All merchant/admin private keys include Clerk user ID. The existing session-scop
 - Currency and amount fields use `OfferMoney` (`string | number`); precise calculations should operate on decimal string or a safe money library, never floating-point arithmetic for payments.
 - Draft save may delete previous media references, so coordinate images with the save path.
 
-## Local checks to run before merge
+## Validation
 
 ```powershell
 pnpm.cmd typecheck
