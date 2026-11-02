@@ -45,6 +45,15 @@ check('ready report distinguishes metadata and live security tests', () => {
     assert(doc.toLowerCase().includes(text.toLowerCase()),'Missing finding '+text);
   }
 });
+check('existing W00–W09 package map is preserved and awaits owner allocation', () => {
+  const backlog = read('docs/ui-workstreams.md');
+  assert.match(backlog,/three developers/i);
+  assert.match(backlog,/parent conversation/i);
+  assert.doesNotMatch(backlog,/Open for volunteers|no minimum team size/i);
+  for (let i = 0; i <= 9; i++) {
+    assert(backlog.includes('| W' + String(i).padStart(2,'0') + ' |'), 'Missing work package W' + i);
+  }
+});
 check('W00 inventory is SELECT-only and not mistaken for migration 010', () => {
   const sql = read('docs/sql/w00-readonly-inventory.sql');
   const uncommented = sql.replace(/--[^\n]*/g,'').trim();
