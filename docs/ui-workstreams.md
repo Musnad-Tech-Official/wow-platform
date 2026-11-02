@@ -1,17 +1,17 @@
-# WOW — Unassigned Work Packages (Self-Service Backlog)
+# WOW — Approved W00–W09 Packages (Pending Three-Developer Allocation)
 
-**Status:** Open for volunteers. This replaces the older name-based / three-person assignment plan. Development can proceed with **one developer, two developers, three developers or more**, without changing the system. No individual owns work until they explicitly claim an issue.
+**Status:** Package boundaries W00–W09 are approved. The latest owner decision requires **three developers** and a **complete assignment approved in the parent conversation before claims or coding**. No individual is currently assigned. This updates only the allocation procedure, not the scope or dependencies of the packages.
 
 ## How it works
 
 Each package is a self-contained group of closely related pages or tasks, potentially spanning Customer, Merchant and Admin. Package boundaries are chosen to minimize conflicts in feature folders, not to force one person to own a particular application.
 
-1. Choose **one unclaimed package** from the table below. Check the issue and any active PR before claiming it.
-2. Comment `Taking W##` in the issue and self-assign it. Update its status to in progress. **Only one active owner for the same package/file scope**; other developers choose another package. An owner can divide a large package into smaller issues only with explicit, non-overlapping paths.
+1. The project owner approves the complete distribution of W00–W09 across the three developers in the parent conversation. Check package dependencies, issues and active PRs before finalizing ownership.
+2. **After approval**, the assigned developer comments `Taking W##` in the issue, self-assigns and updates status to in progress. **Only one active owner per package/file scope**. Divide large packages into non-overlapping issues only with explicit coordination.
 3. Branch from latest `main`: `feat/w01-customer-discovery`, `feat/w04-offer-workflow`, etc. Use a descriptive suffix. PRs must mention `Refs #issue-number`.
 4. Work only in the package's owned feature folders. Shared changes to `packages/api`, `packages/ui`, `packages/auth`, `packages/theme`, root app `index.tsx` or `_layout.tsx` require a dedicated, coordinated PR.
 5. Run local `pnpm.cmd typecheck`, `pnpm.cmd lint`, `pnpm.cmd test:query`, `pnpm.cmd test:integration` and relevant UI smoke checks before requesting a merge.
-6. After merge, claim another available package. If only one developer works, simply take packages in dependency order. Two developers take two different available packages. There is **no minimum team size**.
+6. After owner-approved merge, continue with the next package in that developer's approved roadmap. Ownership/reallocation changes require the owner's approval; avoid ad hoc package claiming.
 
 ## Open package catalog
 
@@ -28,7 +28,7 @@ Each package is a self-contained group of closely related pages or tasks, potent
 | W08 | Customer ratings/complaints, Merchant responses and Admin moderation | [#18](https://github.com/Musnad-Tech-Official/wow-platform/issues/18) | Owns cross-app complaint workflow, not the W01 offer-details route |
 | W09 | Global app shell, navigation wiring, RTL and acceptance integration | [#19](https://github.com/Musnad-Tech-Official/wow-platform/issues/19) | **Do after** primary feature routes are ready; exclusive ownership of shared app layouts/navigation |
 
-Issues #10–#19 are created **without assignees**. Selecting an issue is voluntary, not dependent on any previously suggested person or teammate.
+Issues #10–#19 currently have **no confirmed developer assignees**. Assign them only after the three-developer allocation is approved in the parent conversation; do not infer an owner from earlier examples.
 
 ### Avoid merge conflicts
 

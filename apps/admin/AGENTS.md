@@ -1,3 +1,7 @@
+# WOW admin app — agent instructions
+
+**Repository-wide source of truth:** [../../AGENTS.md](../../AGENTS.md). The root policies for approved W00–W09 ownership, credentials, shared-package review, CI and staging security take precedence. This app-specific Expo guidance supplements, but never overrides, the root instructions. Follow [../../docs/developer-handoff-protocol.md](../../docs/developer-handoff-protocol.md) when opening an assigned developer conversation.
+
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
 ## Expo has changed — do not trust your training data

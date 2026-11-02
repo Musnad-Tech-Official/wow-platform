@@ -1,0 +1,49 @@
+name: WOW quality gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wow-verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Types, lint, UI, API and integration guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install workspace dependencies from lockfile
+        run: pnpm install --frozen-lockfile
+      - name: Repository engineering readiness contracts
+        run: node scripts/test-engineering-readiness.cjs
+      - name: Full locally reproducible quality gate
+        run: bash scripts/verify-ui-v08.sh
+
+# No credentials, database writes, production deployments, or live user-data
+# tests are permitted in this workflow. W00 live role/RLS checks use a separate
+# explicitly authorized staging runbook.
