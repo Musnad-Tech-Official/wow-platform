@@ -18,7 +18,7 @@ Added:
 - `AGENTS.md`: root-wide technical ownership and safety rules.
 - `docs/developer-handoff-protocol.md`: parent-to-three-conversation handoff semantics.
 
-**Remaining verification:** A GitHub Actions run must finish green on this PR and a push after merge before calling CI active. Repository branch protection and required checks require repository owner/admin configuration. The GitHub connector does not establish those protections just by adding the workflow. Do not auto-merge a PR just because local checks pass.
+**CI evidence:** GitHub Actions [run #41365050732](https://github.com/Musnad-Tech-Official/wow-platform/actions/runs/41365050732) **PASSED** on PR #27: frozen pnpm install, readiness contract tests and full UI/typecheck/lint/Query/integration guard suite. After owner-approved merge, verify the first `main` push run as well. Repository branch protection and required checks require repository owner/admin configuration. The GitHub connector does not establish those protections just by adding the workflow. Do not auto-merge a PR just because local checks pass.
 
 ## D — Read-only live Supabase preflight
 
@@ -63,7 +63,7 @@ The new root `AGENTS.md` governs app-specific guides and `docs/agent-skills.md` 
 | Gate | Status |
 | --- | --- |
 | UI/design baseline and local test evidence | PASS (owner's local log) |
-| CI workflow source and repo contracts | PREPARED — GitHub Actions green run pending |
+| CI workflow source and repo contracts | PR #27 GitHub Actions PASSED (run #41365050732); first main-branch run pending owner-approved merge |
 | Branch protection / required reviews | OWNER CONFIGURATION PENDING |
 | Supabase schema inventory | READ-ONLY INSPECTED |
 | Staging environment identified | NOT VERIFIED |
