@@ -40,7 +40,7 @@ Query invalidations are targeted to the current user and relevant resource prefi
 
 Migration 005's JSON listing RPCs bound `limit` 1–100 and `offset` 0–10000; defaults are 50 and 0. For simpler pagination, hooks use these exact fields and keys.
 
-## Local verification before merge
+## Validation
 
 ```powershell
 git fetch origin
