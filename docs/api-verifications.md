@@ -18,6 +18,6 @@ Input names match migration 003 SQL. Admin rights are checked in PostgreSQL, nev
 - `getBusinessBranches` reads `public.business_branches`, not the nonexistent `branches` table.
 - `createBranch` requires `city` and `addressLine` matching deployed migration 002 RPC parameters; removes unsafe arbitrary parameter merging.
 
-## Deferred verification
+## Live verification
 
-This PR does not claim successful runtime Clerk/Supabase calls. Local pnpm lint, typecheck, and test suites must run before merge; test app integration at the agreed final campaign. Older Codex changes mentioned in chat are not pushed on main and should be reconciled separately. Migration SQL does not need reapplying.
+Runtime Clerk/Supabase role enforcement and deployed RPC permissions require live staging tests using `docs/database-test-runbook.md`. Local TypeScript and mocked tests alone are insufficient.
