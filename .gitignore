@@ -38,3 +38,12 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Native signing and Expo-generated artifacts
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+*.pem
+.kotlin/
+.metro-health-check*
