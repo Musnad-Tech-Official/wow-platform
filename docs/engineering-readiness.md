@@ -30,11 +30,14 @@ Using the connected Supabase project named **wow-platform** (project reference `
 | `public` | 25 ordinary/partitioned tables, **25 RLS enabled**, 0 disabled |
 | `wow_private` | 7 tables, **7 RLS enabled**, 0 disabled |
 | Storage | Five `wow-*` buckets exist, all `public = false`, with file limits and MIME restrictions |
-| Supabase migration-history API | Returned an **empty migrations list**; existing tables do not prove history is tracked or original SQL is preserved |
+| Supabase migration-history API | Returned an **empty migrations list**. Read-only SQL also found **no `supabase_migrations.schema_migrations` relation** in this database; recover and reconcile the migration source/history before any deployment |
 | Supabase development branches | **0 branches reported** |
 | Visible connected projects | This project's name is `wow-platform`; the other listed project is `Musnad Tech Website`. No separate WOW staging project was identified from these listings |
 | Security advisor | 19 `rls_enabled_no_policy` INFO findings; this may intentionally indicate RPC-only tables and requires role-by-role review, not automatic policy additions |
 | Security advisor | 5 `anon_security_definer_function_executable` WARN and 5 `authenticated_security_definer_function_executable` WARN for potentially intentional public discovery RPCs; inspect grants and function bodies before deciding |
+| Additional catalog inspection | 85 SECURITY DEFINER functions in `public`/`wow_private`; **6 executable by anon** (five public discovery RPCs, plus `wow_private.is_public_offer_object`); schema exposure and effective grants must be reviewed, not assumed exploitable |
+| Offer RLS policy inspection | Six offer-related SELECT policies exist, **all PERMISSIVE**. This is not in itself a security failure, but unexpected permissive combinations and their predicates require the original `010_verify.sql` and real-role testing |
+| Payment proof safety | `subscription_payments_proof_disabled_ck` constraint is present (definition and actual denial remain to be verified) |
 | Performance advisor | 39 unindexed foreign-key INFO, 4 `auth_rls_initplan` WARN and 43 unused-index INFO findings; triage before production performance claims |
 
 RLS enabled is **not a proof of correct isolation**; `SECURITY DEFINER` exposure requires special scrutiny. No SQL migration was applied, no authenticated private data inspected, no backup or privilege changed, and no paid staging branch was created. The environment's production/staging classification is still unverified.
