@@ -75,3 +75,24 @@ test('Codex and Antigravity discover the same focused WOW skills', () => {
     assert.match(agents,new RegExp('\\b'+skill+'\\b'),'AGENTS.md must route to '+skill);
   }
 });
+
+test('established upstream skills are complete and credited', () => {
+  const upstream = {
+    'expo-design-system': { directory: 'references', minimum: 2 },
+    'vercel-react-native-skills': { directory: 'rules', minimum: 35 },
+    'supabase-postgres-best-practices': { directory: 'references', minimum: 30 },
+  };
+  const agentRules=read('AGENTS.md');
+  const notices=read('.agents/THIRD_PARTY_NOTICES.md');
+  for (const [skill, item] of Object.entries(upstream)) {
+    const root='.agents/skills/'+skill+'/';
+    assert(exists(root+'SKILL.md'), 'Missing '+skill+' entry point');
+    const content=read(root+'SKILL.md');
+    assert.match(content,new RegExp('^name: '+skill+'\\s*$', 'm'));
+    assert.match(content,/^description:/m,'Missing discovery description for '+skill);
+    assert.match(agentRules,new RegExp(skill));
+    assert.match(notices,new RegExp(skill));
+    const files=fs.readdirSync(path.join(root,item.directory)).filter(f=>f.endsWith('.md'));
+    assert(files.length>=item.minimum,skill+' references incomplete');
+  }
+});

@@ -28,6 +28,17 @@ Skills live in `.agents/skills/` and are shared by both agents. Use only those a
 
 Use strong TypeScript types; handle loading/error/empty and unauthorized states explicitly; keep changes small, simple and compatible with existing APIs. Never claim a test passed without running it. If a skill is not loaded automatically, open the matching `SKILL.md` from the repository. Avoid triggering unrelated skills.
 
+
+### Established upstream engineering skills (read only when relevant)
+
+The following audited upstream guidance is vendored in `.agents/skills/`; use it **only for matching tasks**, together with the WOW-specific skills above:
+
+- `vercel-react-native-skills` for React Native/Expo rendering, list performance, native APIs and animation optimization; avoid introducing libraries or architectural changes merely because an example recommends them.
+- `expo-design-system` for maintaining shared theme tokens and auditing design-system drift; **keep existing `@wow/theme`, `@wow/ui`, Tajawal, NativeWind and approved WOW screens**. Do not generate a second token system.
+- `supabase-postgres-best-practices` for SQL migrations, PostgreSQL indexes/functions/grants, RLS and performance review; follow `wow-data-security` and the database test runbook for all actual DB environments.
+
+WOW contracts and user-approved decisions take precedence over generic skill examples. Skills guide engineering decisions; they do not authorize installs, migrations, production writes, redesigns or refactors. Open the relevant `SKILL.md` when discovery misses it. Third-party sources and pinned revisions: `.agents/THIRD_PARTY_NOTICES.md`.
+
 ## Verification
 
 Run from repository root:
