@@ -18,6 +18,27 @@ These instructions apply to all three Expo applications and shared packages.
 - Never commit credentials, `.env` files, private data, dumps or service-role keys. Do not run mutations on an unverified database environment; schema changes require reviewed SQL and backup/restore evidence.
 - The repository's local simulated tests do **not** verify live RLS, grants, Storage isolation, production backups or deployment readiness. Live database testing belongs to `docs/database-test-runbook.md`.
 
+## Task-specific skills (Codex and Antigravity)
+
+Skills live in `.agents/skills/` and are shared by both agents. Use only those applicable to the files being changed, not all skills on every task:
+
+- When implementing a new or changed screen or shared UI control, follow `wow-screen-fidelity` before finalizing the interface.
+- When changing Clerk/Supabase authorization, query clients, RPCs, SQL, RLS or private media, follow `wow-data-security`.
+- Before handing off any code changes, follow `wow-change-verification` and report actual test results and remaining manual checks.
+
+Use strong TypeScript types; handle loading/error/empty and unauthorized states explicitly; keep changes small, simple and compatible with existing APIs. Never claim a test passed without running it. If a skill is not loaded automatically, open the matching `SKILL.md` from the repository. Avoid triggering unrelated skills.
+
+
+### Established upstream engineering skills (read only when relevant)
+
+The following audited upstream guidance is vendored in `.agents/skills/`; use it **only for matching tasks**, together with the WOW-specific skills above:
+
+- `vercel-react-native-skills` for React Native/Expo rendering, list performance, native APIs and animation optimization; avoid introducing libraries or architectural changes merely because an example recommends them.
+- `expo-design-system` for maintaining shared theme tokens and auditing design-system drift; **keep existing `@wow/theme`, `@wow/ui`, Tajawal, NativeWind and approved WOW screens**. Do not generate a second token system.
+- `supabase-postgres-best-practices` for SQL migrations, PostgreSQL indexes/functions/grants, RLS and performance review; follow `wow-data-security` and the database test runbook for all actual DB environments.
+
+WOW contracts and user-approved decisions take precedence over generic skill examples. Skills guide engineering decisions; they do not authorize installs, migrations, production writes, redesigns or refactors. Open the relevant `SKILL.md` when discovery misses it. Third-party sources and pinned revisions: `.agents/THIRD_PARTY_NOTICES.md`.
+
 ## Verification
 
 Run from repository root:
