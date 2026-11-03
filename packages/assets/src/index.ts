@@ -5,6 +5,7 @@
  */
 export const wowBrand = {
   logoPrimary: require("../assets/brand/logo-primary.png"),
+  logoPrimaryDark: require("../assets/brand/logo-primary-dark.png"),
   logoNavy: require("../assets/brand/logo-navy.png"),
   logoWhite: require("../assets/brand/logo-white.png"),
   appIcon: require("../assets/brand/app-icon-1024.png"),
