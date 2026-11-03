@@ -63,3 +63,15 @@ test('CI has no secret-dependent tests and calls the actual verification suite',
   assert.match(ci,/scripts\/verify-ui-v08\.sh/);
   assert.doesNotMatch(ci,/\$\{\{\s*secrets\.|supabase db push|service_role|deploy:/i);
 });
+
+test('Codex and Antigravity discover the same focused WOW skills', () => {
+  const agents=read('AGENTS.md');
+  for (const skill of ['wow-screen-fidelity','wow-data-security','wow-change-verification']) {
+    const skillFile='.agents/skills/'+skill+'/SKILL.md';
+    assert(exists(skillFile),'Missing '+skillFile);
+    const content=read(skillFile);
+    assert.match(content,new RegExp('^---\\s*\\nname: '+skill+'\\s*\\n', 'm'),'Missing skill name metadata: '+skill);
+    assert.match(content,/^description:\s*Use when\s+.{40,}/m,'Missing trigger description: '+skill);
+    assert.match(agents,new RegExp('\\b'+skill+'\\b'),'AGENTS.md must route to '+skill);
+  }
+});

@@ -18,6 +18,16 @@ These instructions apply to all three Expo applications and shared packages.
 - Never commit credentials, `.env` files, private data, dumps or service-role keys. Do not run mutations on an unverified database environment; schema changes require reviewed SQL and backup/restore evidence.
 - The repository's local simulated tests do **not** verify live RLS, grants, Storage isolation, production backups or deployment readiness. Live database testing belongs to `docs/database-test-runbook.md`.
 
+## Task-specific skills (Codex and Antigravity)
+
+Skills live in `.agents/skills/` and are shared by both agents. Use only those applicable to the files being changed, not all skills on every task:
+
+- When implementing a new or changed screen or shared UI control, follow `wow-screen-fidelity` before finalizing the interface.
+- When changing Clerk/Supabase authorization, query clients, RPCs, SQL, RLS or private media, follow `wow-data-security`.
+- Before handing off any code changes, follow `wow-change-verification` and report actual test results and remaining manual checks.
+
+Use strong TypeScript types; handle loading/error/empty and unauthorized states explicitly; keep changes small, simple and compatible with existing APIs. Never claim a test passed without running it. If a skill is not loaded automatically, open the matching `SKILL.md` from the repository. Avoid triggering unrelated skills.
+
 ## Verification
 
 Run from repository root:
