@@ -1,6 +1,6 @@
 ---
 name: wow-data-security
-description: Use for WOW code or SQL changes touching Clerk sessions, Supabase clients/RPCs, PostgreSQL row-level security, role permissions, Storage uploads, private media or account-scoped caches.
+description: Use when changing WOW code or SQL touching Clerk sessions, Supabase clients/RPCs, PostgreSQL row-level security, role permissions, Storage uploads, private media or account-scoped caches.
 ---
 
 # WOW data and authorization safety
