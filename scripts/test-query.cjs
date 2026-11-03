@@ -123,6 +123,15 @@ test('exports, v5 defaults, query keys and workspace React instances are consist
   assert.equal(apiRequire('@tanstack/react-query/package.json').version, '5.105.0');
 });
 
+test('Clerk clients remain safe in React development prop logging while Supabase Auth stays disabled', async () => {
+  function Inspect() { return null; }
+  const first = makeClient();
+  const renderer = await mount(h(Inspect, { client: first }));
+  await update(renderer, h(Inspect, { client: makeClient() }));
+  assert.throws(() => first.auth.getSession(), /accessToken option/);
+  assert.throws(() => first.auth.signInWithPassword({ email: 'unused', password: 'unused' }), /accessToken option/);
+});
+
 test('providers keep independent caches, stable rerenders and isolate same-user new sessions and sign-out', async () => {
   let current;
   let sibling;
@@ -250,6 +259,90 @@ test('the shared client survives token callback refresh and rejects stale-sessio
   await assert.rejects(api.getCurrentUser(current, 'user_b'), error => /token is required/.test(error.message));
   await update(renderer, h(Boundary, { sessionScopeKey: null, getToken: async () => null }));
   assert.equal(current, null);
+});
+
+test('sign-in and session replacement initialize tokens after commit and hold queries until the client is ready', async () => {
+  let getClient;
+  let rendering = false;
+  let result;
+  const warnings = [];
+  const tokens = [];
+  const requests = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  globalThis.fetch = async (_url, options) => {
+    requests.push(options.headers.get('Authorization'));
+    return response([]);
+  };
+  function Inspect() {
+    recordClient();
+    result = api.useCurrentUser();
+    return null;
+  }
+  function Boundary({ sessionScopeKey }) {
+    rendering = true;
+    getClient = api.useWowSupabaseClient({
+      url: 'https://wow.invalid', publishableKey: 'sb_publishable_local', sessionScopeKey,
+      getToken: async () => {
+        assert.equal(rendering, false, 'Token requests must not run during render');
+        tokens.push(sessionScopeKey);
+        return `token_${sessionScopeKey}`;
+      },
+    });
+    rendering = false;
+    return h(api.WowQueryProvider, {
+      getClient, userId: sessionScopeKey ? 'user_a' : null, sessionScopeKey, isAuthReady: true,
+    }, h(Inspect));
+  }
+  try {
+    const boundary = sessionScopeKey => h(Boundary, { sessionScopeKey });
+    const renderer = await mount(boundary(null));
+    assert.equal(getClient(), null);
+    assert.equal(result.fetchStatus, 'idle');
+    assert.deepEqual(tokens, []);
+    for (const sessionScopeKey of ['session_a', 'session_b']) {
+      await update(renderer, boundary(sessionScopeKey));
+      await act(tick);
+      assert.equal(result.status, 'success');
+      assert.deepEqual(tokens.splice(0), [sessionScopeKey, sessionScopeKey]);
+    }
+    const last = getClient();
+    await update(renderer, boundary(null));
+    assert.equal(getClient(), null);
+    assert.equal(result.fetchStatus, 'idle');
+    await assert.rejects(api.getCurrentUser(last, 'user_a'), { message: /session changed/ });
+    assert.deepEqual(requests, ['Bearer token_session_a', 'Bearer token_session_b']);
+    assert.deepEqual(warnings, []);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('Strict Mode keeps client creation lazy until first committed use without auth warnings', async () => {
+  let getClient;
+  let tokenCalls = 0;
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  function Boundary() {
+    getClient = api.useWowSupabaseClient({
+      url: 'https://wow.invalid', publishableKey: 'sb_publishable_local', sessionScopeKey: 'session_a',
+      getToken: async () => { tokenCalls++; return 'token_a'; },
+    });
+    return null;
+  }
+  try {
+    await mount(h(React.StrictMode, null, h(Boundary)));
+    assert.equal(tokenCalls, 0, 'Rendering and committing the hook must not construct the SDK');
+    let client;
+    await act(async () => { client = getClient(); await tick(); });
+    assert(client);
+    assert.equal(getClient(), client);
+    assert.equal(tokenCalls, 1);
+    assert.deepEqual(warnings, []);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test('the real authentication boundary keeps its cache across token changes and resets on readiness loss', async () => {
