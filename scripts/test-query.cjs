@@ -110,6 +110,15 @@ test('exports, v5 defaults, query keys and workspace React instances are consist
   assert.equal(apiRequire('@tanstack/react-query/package.json').version, '5.105.0');
 });
 
+test('Clerk clients remain safe in React development prop logging while Supabase Auth stays disabled', async () => {
+  function Inspect() { return null; }
+  const first = makeClient();
+  const renderer = await mount(h(Inspect, { client: first }));
+  await update(renderer, h(Inspect, { client: makeClient() }));
+  assert.throws(() => first.auth.getSession(), /accessToken option/);
+  assert.throws(() => first.auth.signInWithPassword({ email: 'unused', password: 'unused' }), /accessToken option/);
+});
+
 test('providers keep independent caches, stable rerenders and isolate same-user new sessions and sign-out', async () => {
   let current;
   let sibling;
@@ -194,18 +203,112 @@ test('the shared client survives token callback refresh and rejects stale-sessio
   assert.deepEqual(requests, ['Bearer token_2']);
   await update(renderer, h(Boundary, { sessionScopeKey: 'session_a', getToken: () => new Promise(resolve => { finishToken = resolve; }) }));
   const pending = api.getCurrentUser(first, 'user_a');
-  const rejected = assert.rejects(pending, /session changed/);
+  const rejected = assert.rejects(pending, { message: /session changed/ });
   await tick();
   await update(renderer, h(Boundary, { sessionScopeKey: 'session_b', getToken: async () => 'token_b' }));
   finishToken('token_1');
   await rejected;
   assert.notEqual(current, first);
-  await assert.rejects(api.getCurrentUser(first, 'user_a'), /session changed/);
+  await assert.rejects(api.getCurrentUser(first, 'user_a'), { message: /session changed/ });
   assert.equal(requests.length, 1);
   await update(renderer, h(Boundary, { sessionScopeKey: 'session_b', getToken: async () => null }));
-  await assert.rejects(api.getCurrentUser(current, 'user_b'), /token is required/);
+  await assert.rejects(api.getCurrentUser(current, 'user_b'), { message: /token is required/ });
   await update(renderer, h(Boundary, { sessionScopeKey: null, getToken: async () => null }));
   assert.equal(current, null);
+});
+
+test('sign-in and session replacement initialize tokens after commit and hold queries until the client is ready', async () => {
+  let current;
+  let rendering = false;
+  let result;
+  const warnings = [];
+  const tokens = [];
+  const requests = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  globalThis.fetch = async (_url, options) => {
+    requests.push(options.headers.get('Authorization'));
+    return response([]);
+  };
+  function Inspect() {
+    recordClient();
+    result = api.useCurrentUser();
+    return null;
+  }
+  function Boundary({ sessionScopeKey }) {
+    rendering = true;
+    current = api.useWowSupabaseClient({
+      url: 'https://wow.invalid', publishableKey: 'sb_publishable_local', sessionScopeKey,
+      getToken: async () => {
+        assert.equal(rendering, false, 'Token requests must not run during render');
+        tokens.push(sessionScopeKey);
+        return `token_${sessionScopeKey}`;
+      },
+    });
+    rendering = false;
+    return h(api.WowQueryProvider, {
+      client: current, userId: sessionScopeKey ? 'user_a' : null, sessionScopeKey, isAuthReady: true,
+    }, h(Inspect));
+  }
+  try {
+    const boundary = sessionScopeKey => h(Boundary, { sessionScopeKey });
+    const renderer = await mount(boundary(null));
+    assert.equal(current, null);
+    assert.equal(result.fetchStatus, 'idle');
+    assert.deepEqual(tokens, []);
+    for (const sessionScopeKey of ['session_a', 'session_b']) {
+      await update(renderer, boundary(sessionScopeKey));
+      await act(tick);
+      assert.equal(result.status, 'success');
+      assert.deepEqual(tokens.splice(0), [sessionScopeKey, sessionScopeKey]);
+    }
+    const last = current;
+    await update(renderer, boundary(null));
+    assert.equal(current, null);
+    assert.equal(result.fetchStatus, 'idle');
+    await assert.rejects(api.getCurrentUser(last, 'user_a'), { message: /session changed/ });
+    assert.deepEqual(requests, ['Bearer token_session_a', 'Bearer token_session_b']);
+    assert.deepEqual(warnings, []);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('Strict Mode initializes only the committed Supabase client without auth warnings', async () => {
+  let current;
+  let tokenCalls = 0;
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  function Boundary() {
+    current = api.useWowSupabaseClient({
+      url: 'https://wow.invalid', publishableKey: 'sb_publishable_local', sessionScopeKey: 'session_a',
+      getToken: async () => { tokenCalls++; return 'token_a'; },
+    });
+    return null;
+  }
+  try {
+    await mount(h(React.StrictMode, null, h(Boundary)));
+    assert(current);
+    assert.equal(tokenCalls, 1);
+    assert.deepEqual(warnings, []);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('authenticated queries wait when a session is ready but its client is unavailable', async () => {
+  let result;
+  let requests = 0;
+  globalThis.fetch = async () => { requests++; return response([]); };
+  function Inspect() { recordClient(); result = api.useCurrentUser(); return null; }
+  const renderer = await mount(provider(h(Inspect), { client: null }));
+  assert.equal(result.fetchStatus, 'idle');
+  assert.equal(requests, 0);
+  await update(renderer, provider(h(Inspect)));
+  await act(tick);
+  assert.equal(result.status, 'success');
+  assert.equal(requests, 1);
 });
 
 test('private queries stay disabled before auth readiness; missing webhook profiles are null and can refetch', async () => {

@@ -21,7 +21,7 @@ const WowApiContext = createContext<WowApiContextValue | null>(null);
 
 export function WowQueryProvider(props: WowQueryProviderProps) {
   useEffect(subscribeToNativeFocus, []);
-  const active = props.isAuthReady && props.userId && props.sessionScopeKey;
+  const active = props.isAuthReady && props.userId && props.sessionScopeKey && props.client;
   // Replacing this subtree makes the new cache available in the very first render,
   // including a new session for the same user. Token refreshes do not change the key.
   const scope = active ? JSON.stringify([props.userId, props.sessionScopeKey]) : 'signed-out';

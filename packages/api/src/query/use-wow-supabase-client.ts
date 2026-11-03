@@ -1,5 +1,5 @@
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { createWowSupabaseClient, type ClerkTokenProvider } from '../supabase/client';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { createWowSupabaseClient, type ClerkTokenProvider, type WowSupabaseClient } from '../supabase/client';
 import { validatePublicSupabaseKey } from '../integration/helpers';
 
 export interface WowSupabaseOptions {
@@ -10,26 +10,56 @@ export interface WowSupabaseOptions {
 }
 
 export function useWowSupabaseClient({ url, publishableKey, getToken, sessionScopeKey }: WowSupabaseOptions) {
-  const current = useRef({ getToken, sessionScopeKey });
+  const currentGetToken = useRef(getToken);
+  const [connection, setConnection] = useState<{
+    client: WowSupabaseClient | null;
+    url?: string;
+    publishableKey?: string;
+    sessionScopeKey: string | null;
+    error?: unknown;
+  } | null>(null);
+
   useLayoutEffect(() => {
-    current.current = { getToken, sessionScopeKey };
-    return () => { current.current = { getToken, sessionScopeKey: null }; };
-  }, [getToken, sessionScopeKey]);
+    currentGetToken.current = getToken;
+  }, [getToken]);
 
-  const sessionToken = useCallback(async () => {
-        const assertSession = () => {
-          if (!sessionScopeKey || current.current.sessionScopeKey !== sessionScopeKey) throw new Error('Authentication session changed. Retry with the current session.');
-        };
-        assertSession();
-        const token = await current.current.getToken();
-        assertSession();
-        if (!token) throw new Error('An authenticated session token is required.');
-        return token;
-  }, [sessionScopeKey]);
+  // Supabase immediately requests a Realtime token in its constructor. Create
+  // the client after commit, so abandoned renders never request session tokens.
+  useLayoutEffect(() => {
+    let active = true;
+    let client: WowSupabaseClient | null = null;
+    const assertSession = () => {
+      if (!active) throw new Error('Authentication session changed. Retry with the current session.');
+    };
+    const sessionToken = async () => {
+      assertSession();
+      const token = await currentGetToken.current();
+      assertSession();
+      if (!token) throw new Error('An authenticated session token is required.');
+      return token;
+    };
+    // Deferring also lets Strict Mode's discarded mount cancel before the SDK
+    // starts its eager token request.
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      if (!url || !publishableKey || !sessionScopeKey) {
+        setConnection(null);
+        return;
+      }
+      validatePublicSupabaseKey(publishableKey);
+      client = createWowSupabaseClient({ url, publishableKey, getToken: sessionToken });
+      setConnection({ client, url, publishableKey, sessionScopeKey });
+    }).catch(error => {
+      if (active) setConnection({ client: null, url, publishableKey, sessionScopeKey, error });
+    });
+    return () => {
+      active = false;
+      void client?.removeAllChannels();
+    };
+  }, [url, publishableKey, sessionScopeKey]);
 
-  return useMemo(() => {
-    if (!url || !publishableKey || !sessionScopeKey) return null;
-    validatePublicSupabaseKey(publishableKey);
-    return createWowSupabaseClient({ url, publishableKey, getToken: sessionToken });
-  }, [url, publishableKey, sessionScopeKey, sessionToken]);
+  // Never expose a previous session's client while its replacement is pending.
+  if (!connection || connection.url !== url || connection.publishableKey !== publishableKey || connection.sessionScopeKey !== sessionScopeKey) return null;
+  if ('error' in connection) throw connection.error;
+  return connection.client;
 }
