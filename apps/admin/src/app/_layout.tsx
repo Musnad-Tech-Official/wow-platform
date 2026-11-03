@@ -16,8 +16,10 @@ void SplashScreen.preventAutoHideAsync();
 
 // Enable RTL layout for React Native.
 // Native RTL changes may require a full app restart.
-I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
+if (Platform.OS !== 'web') {
+  I18nManager.allowRTL(true);
+  I18nManager.forceRTL(true);
+}
 
 
 const publishableKey =
@@ -57,7 +59,7 @@ export default function RootLayout() {
             : {})}
           style={{
             flex: 1,
-            direction: 'rtl',
+            ...(Platform.OS === 'web' ? {} : { direction: 'rtl' as const }),
           }}
         >
           <Stack
@@ -81,14 +83,14 @@ function AppQueryProvider({ children }: PropsWithChildren) {
   const sessionScopeKey = isLoaded && isSignedIn && userId && sessionId
     ? JSON.stringify([userId, sessionId])
     : null;
-  const client = useWowSupabaseClient({
+  const getClient = useWowSupabaseClient({
     url: process.env.EXPO_PUBLIC_SUPABASE_URL,
     publishableKey: process.env.EXPO_PUBLIC_SUPABASE_KEY,
     getToken,
     sessionScopeKey,
   });
 
-  return <WowQueryProvider client={client} userId={userId ?? null}
+  return <WowQueryProvider getClient={getClient} userId={userId ?? null}
     sessionScopeKey={sessionScopeKey} isAuthReady={isLoaded}>
     {children}
   </WowQueryProvider>;

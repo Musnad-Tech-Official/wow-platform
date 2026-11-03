@@ -59,9 +59,13 @@ included in this checkout.
 5. Merchant G independently checks whether direct business insertion is denied.
 
 The workflow calls the deployed `wow_create_business` and `wow_create_branch`
-RPCs, which must return scalar UUIDs. Supply any extra required branch arguments
-as a JSON object in the screen. Parameter names must start with `p_`; the screen
-supplies `p_business_id` and `p_name` and prevents overriding them.
+RPCs, which must return scalar UUIDs. The Migration 002 branch RPC requires
+`p_business_id`, `p_name`, `p_city`, and `p_address_line`; the optional
+fields are `p_district`, `p_latitude`, and `p_longitude`.
+The development integration screen supplies `p_business_id` and `p_name`
+automatically and accepts the remaining named `p_*` arguments as a JSON object.
+For example: `{ "p_city": "Taiz", "p_address_line": "Market Street 1" }`.
+The screen is a diagnostics UI, not the app's production branch-create form.
 
 Every state-changing test requires its own confirmation. `Run All Safe Tests`
 only runs read-only checks. Created UUIDs and ownership evidence stay in memory

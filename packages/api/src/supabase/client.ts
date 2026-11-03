@@ -17,6 +17,8 @@ export function createWowSupabaseClient({
 }: SupabaseClientConfig) {
   const client = createClient(url, publishableKey, {
     accessToken: getToken,
+    // Query retries belong to TanStack; avoid multiplying SDK and query retries.
+    db: { retry: false },
     auth: {
       persistSession: false,
       autoRefreshToken: false,

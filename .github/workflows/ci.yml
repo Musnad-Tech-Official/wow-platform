@@ -1,0 +1,47 @@
+name: WOW quality gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wow-verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Integrity, assets, types, lint and API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check technical repository and app configuration
+        run: node scripts/test-repository-integrity.cjs
+      - name: Verify approved brand/illustration asset hashes
+        run: node scripts/test-design-foundation.cjs
+      - name: TypeScript, lint, UI, Query and integration guards
+        run: bash scripts/verify-ui-v08.sh

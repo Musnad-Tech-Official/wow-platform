@@ -1,0 +1,450 @@
+{
+  "name": "WOW assets shared foundation",
+  "version": "0.1.0",
+  "status": "active-in-repository",
+  "brandCanonicalVersion": "V2.1",
+  "source": {
+    "brand": "ASSETS.zip",
+    "customer": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1.zip",
+    "merchant": "WOW_MERCHANT_ALL_23_V0.1.zip",
+    "admin": "WOW_ADMIN_17_DESIGN_V0.1/admin.zip"
+  },
+  "items": [
+    {
+      "id": "logo-primary",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/PNG_EXPORTS/WOW_PRIMARY_LOGO_TRANSPARENT_900.png",
+      "targetPath": "assets/brand/logo-primary.png",
+      "category": "brand",
+      "role": "runtime",
+      "bytes": 116453,
+      "sha256": "876e43f9877b62a49a6812d0ac7deed30a184ddf89bbe3a41b36b1d8f667cecd",
+      "dimensions": [
+        900,
+        601
+      ]
+    },
+    {
+      "id": "app-icon-1024",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/PNG_EXPORTS/WOW_APP_ICON_1024.png",
+      "targetPath": "assets/brand/app-icon-1024.png",
+      "category": "brand",
+      "role": "runtime",
+      "bytes": 141169,
+      "sha256": "9d70a75ab2300d0d0a2b5417921820d4ddb2d8b7c63cadab37581d4a8391eb91",
+      "dimensions": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "app-icon-512",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/PNG_EXPORTS/WOW_APP_ICON_512.png",
+      "targetPath": "assets/brand/app-icon-512.png",
+      "category": "brand",
+      "role": "runtime",
+      "bytes": 55259,
+      "sha256": "2593b737253fae4e47a33ba7e19ee04b74b03635123b74730de27f67a9d54bd6",
+      "dimensions": [
+        512,
+        512
+      ]
+    },
+    {
+      "id": "app-icon-192",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/PNG_EXPORTS/WOW_APP_ICON_192.png",
+      "targetPath": "assets/brand/app-icon-192.png",
+      "category": "brand",
+      "role": "runtime",
+      "bytes": 15377,
+      "sha256": "eb9f90505e737436acf995bb3a6b97211747751e9cdc55dd266d549f5ce321ad",
+      "dimensions": [
+        192,
+        192
+      ]
+    },
+    {
+      "id": "favicon-32",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/PNG_EXPORTS/WOW_APP_ICON_32.png",
+      "targetPath": "assets/brand/favicon-32.png",
+      "category": "brand",
+      "role": "runtime",
+      "bytes": 1480,
+      "sha256": "bac650d4617f5040e3fef5ef8d38b4678bb885f5a780a985a8a333056c4fb700",
+      "dimensions": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "logo-primary",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/MASTERS/WOW_PRIMARY_LOGO_V2.1.svg",
+      "targetPath": "source/brand/logo-primary.svg",
+      "category": "brand",
+      "role": "source-master",
+      "bytes": 43766,
+      "sha256": "b1197bec8467e4d2c7a0f4f6ea4d311b4b2e7fcffae489e95f3eb3acb8bf7bb2",
+      "dimensions": null
+    },
+    {
+      "id": "app-icon",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/MASTERS/WOW_APP_ICON_V2.1.svg",
+      "targetPath": "source/brand/app-icon.svg",
+      "category": "brand",
+      "role": "source-master",
+      "bytes": 54439,
+      "sha256": "9f66fd8fd7f9fc03a9836934cf959b472505f22ac18b3828e09516b1c97da952",
+      "dimensions": null
+    },
+    {
+      "id": "logo-navy",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/MASTERS/WOW_MONO_NAVY_V2.1.svg",
+      "targetPath": "source/brand/logo-navy.svg",
+      "category": "brand",
+      "role": "source-master",
+      "bytes": 16618,
+      "sha256": "3c320ce0fc15f36c6e0fcb00ad56206459d10c4728be4a09400485719dcf8f6e",
+      "dimensions": null
+    },
+    {
+      "id": "logo-white",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/MASTERS/WOW_MONO_WHITE_V2.1.svg",
+      "targetPath": "source/brand/logo-white.svg",
+      "category": "brand",
+      "role": "source-master",
+      "bytes": 16619,
+      "sha256": "8c91e54e1113c5b2259ef35e0805b998a4d64553c689e96b7a2ff1fc858146e8",
+      "dimensions": null
+    },
+    {
+      "id": "logo-navy",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/PNG_EXPORTS/WOW_MONO_NAVY_1800.png",
+      "targetPath": "assets/brand/logo-navy.png",
+      "category": "brand",
+      "role": "derived-runtime-900px",
+      "bytes": 71783,
+      "sha256": "3d71faaf865ba57523090e54e69a745a9560526b6d42068b35109a4a394f194a",
+      "dimensions": [
+        900,
+        602
+      ]
+    },
+    {
+      "id": "logo-white",
+      "sourceBundle": "brand",
+      "sourcePath": "ASSETS/PNG_EXPORTS/WOW_MONO_WHITE_1800.png",
+      "targetPath": "assets/brand/logo-white.png",
+      "category": "brand",
+      "role": "derived-runtime-900px",
+      "bytes": 51876,
+      "sha256": "2db2bcf30201ffd227e7b26a722fd25a8cf3558618d3dff9339265bbf4b9374a",
+      "dimensions": [
+        900,
+        602
+      ]
+    },
+    {
+      "id": "ill_search_empty",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_search_empty.webp",
+      "targetPath": "assets/illustrations/customer/ill_search_empty.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 82616,
+      "sha256": "5c10063f3bb5da8d1ff1f10a0282ef03cd1e54c12e07b7308d65b0177b32fc21",
+      "dimensions": [
+        850,
+        700
+      ]
+    },
+    {
+      "id": "ill_offers_empty",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_offers_empty.webp",
+      "targetPath": "assets/illustrations/customer/ill_offers_empty.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 92844,
+      "sha256": "eecf6cc17075fd2ddf465d4aba3515b4f9e49bc0c0c43ac352228b61392cf255",
+      "dimensions": [
+        850,
+        753
+      ]
+    },
+    {
+      "id": "ill_saved_offers_empty",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_saved_offers_empty.webp",
+      "targetPath": "assets/illustrations/customer/ill_saved_offers_empty.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 74112,
+      "sha256": "3f4f468835b52e215b9ecc9ad75dae4f9fa0941f77d4d68e7a57c920162ebc6c",
+      "dimensions": [
+        850,
+        802
+      ]
+    },
+    {
+      "id": "ill_saved_merchants_empty",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_saved_merchants_empty.webp",
+      "targetPath": "assets/illustrations/customer/ill_saved_merchants_empty.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 80574,
+      "sha256": "35ce1c1d7dd3b7b000ca773a6baa36903dff6ad9c242e815bf73bb67a5d7fdc5",
+      "dimensions": [
+        850,
+        789
+      ]
+    },
+    {
+      "id": "ill_complaints_empty",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_complaints_empty.webp",
+      "targetPath": "assets/illustrations/customer/ill_complaints_empty.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 66230,
+      "sha256": "84b6c1a11d83776afb992af19b31c81d94ccfbb102c540fba68d85df28e77529",
+      "dimensions": [
+        850,
+        666
+      ]
+    },
+    {
+      "id": "ill_map_unavailable",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_map_unavailable.webp",
+      "targetPath": "assets/illustrations/customer/ill_map_unavailable.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 69528,
+      "sha256": "c75b695e983a0e61a1f01c04dbc653ffe16c2905e600a57a3d860afd0c8a0b46",
+      "dimensions": [
+        850,
+        607
+      ]
+    },
+    {
+      "id": "mascot_beacon_hero",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/mascot_beacon_hero.webp",
+      "targetPath": "assets/illustrations/customer/mascot_beacon_hero.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 65918,
+      "sha256": "145d2c3e8290ce5528fe1e1a825b9cc20914123139582c504bba277e96ac3b5b",
+      "dimensions": [
+        587,
+        620
+      ]
+    },
+    {
+      "id": "mascot_beacon_walk",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/mascot_beacon_walk.webp",
+      "targetPath": "assets/illustrations/customer/mascot_beacon_walk.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 73798,
+      "sha256": "6aa252c53221ca9ef0f9c9d3a8df11cceb3f5e5c57187230ffd6557618c806e9",
+      "dimensions": [
+        720,
+        693
+      ]
+    },
+    {
+      "id": "ill_discover_guide",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_discover_guide.webp",
+      "targetPath": "assets/illustrations/customer/ill_discover_guide.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 96134,
+      "sha256": "113f22a99abd0afd1878a086d52d117bde61653b5fdc4185399f9e3a8c5cd2de",
+      "dimensions": [
+        720,
+        613
+      ]
+    },
+    {
+      "id": "ill_secure_access",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_secure_access.webp",
+      "targetPath": "assets/illustrations/customer/ill_secure_access.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 73712,
+      "sha256": "40110740cce37c5e4325e8af9ab5d8f999ae11e36b7d31cf8c5815d628faade5",
+      "dimensions": [
+        720,
+        715
+      ]
+    },
+    {
+      "id": "ill_favorites_guide",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_favorites_guide.webp",
+      "targetPath": "assets/illustrations/customer/ill_favorites_guide.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 68546,
+      "sha256": "ff06d86dc8cfb9893df8e23877242920199f71b0e7d8cf5de4bc06d1e3ea94b6",
+      "dimensions": [
+        720,
+        703
+      ]
+    },
+    {
+      "id": "ill_complaint_guidance",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_complaint_guidance.webp",
+      "targetPath": "assets/illustrations/customer/ill_complaint_guidance.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 68380,
+      "sha256": "37e0565b6c0116f1fb2444abb4a6e191852304428dd8576bc112bb4fd4b0c895",
+      "dimensions": [
+        720,
+        549
+      ]
+    },
+    {
+      "id": "ill_registered_guide",
+      "sourceBundle": "customer",
+      "sourcePath": "WOW_CUSTOMER_ALL_12_FULL_HEIGHT_PREVIEW_V0.4.1/public/illustrations/ill_registered_guide.webp",
+      "targetPath": "assets/illustrations/customer/ill_registered_guide.webp",
+      "category": "illustrations.customer",
+      "role": "approved-runtime",
+      "bytes": 66122,
+      "sha256": "9971c08654ba81e8296ecd0f6b915c56670f4c714db88cdb71bd1319c4047492",
+      "dimensions": [
+        720,
+        605
+      ]
+    },
+    {
+      "id": "beacon-calm",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MERCHANT_ALL_23_V0.1/public/art/beacon-calm.webp",
+      "targetPath": "assets/illustrations/merchant/beacon-calm.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 65980,
+      "sha256": "bcd890373a0c4247e18900e77986742fdb2f316e4ad3883f39a71ef7c3a53363",
+      "dimensions": [
+        662,
+        670
+      ]
+    },
+    {
+      "id": "beacon-empty",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MERCHANT_ALL_23_V0.1/public/art/beacon-empty.webp",
+      "targetPath": "assets/illustrations/merchant/beacon-empty.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 83740,
+      "sha256": "a7a6a6b7da297ce8d9b7513308810966feebec0e45dce39d30ea41c1b39a6c85",
+      "dimensions": [
+        670,
+        659
+      ]
+    },
+    {
+      "id": "beacon-guide",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MERCHANT_ALL_23_V0.1/public/art/beacon-guide.webp",
+      "targetPath": "assets/illustrations/merchant/beacon-guide.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 102446,
+      "sha256": "eb51be40103abc1e4a4d584d640b02a5767591808402e4318f422e0ea6b35217",
+      "dimensions": [
+        670,
+        646
+      ]
+    },
+    {
+      "id": "beacon-help",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MERCHANT_ALL_23_V0.1/public/art/beacon-help.webp",
+      "targetPath": "assets/illustrations/merchant/beacon-help.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 74586,
+      "sha256": "aed80c33140d2556d558f35669d9457f923ca26c7dfd882e7ebe7ac72e348ba9",
+      "dimensions": [
+        670,
+        640
+      ]
+    },
+    {
+      "id": "beacon-thinking",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MERCHANT_ALL_23_V0.1/public/art/beacon-thinking.webp",
+      "targetPath": "assets/illustrations/merchant/beacon-thinking.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 89924,
+      "sha256": "7a86985a53e377523086a1f16c515a1bceeab0619cde2b4a90dc30056216c3c8",
+      "dimensions": [
+        670,
+        650
+      ]
+    },
+    {
+      "id": "beacon-welcome",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MERCHANT_ALL_23_V0.1/public/art/beacon-welcome.webp",
+      "targetPath": "assets/illustrations/merchant/beacon-welcome.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 83496,
+      "sha256": "ccfe3e305edc4f69e6e66262527dc5a4bd78c8159418ff6c69c641e41b08fd1b",
+      "dimensions": [
+        670,
+        617
+      ]
+    },
+    {
+      "id": "beacon-empty",
+      "sourceBundle": "admin",
+      "sourcePath": "WOW_ADMIN_17_DESIGN_V0.1/public/illustrations/beacon-empty.webp",
+      "targetPath": "assets/illustrations/admin/beacon-empty.webp",
+      "category": "illustrations.admin",
+      "role": "approved-runtime",
+      "bytes": 69160,
+      "sha256": "3a2ad31430e17074fa5f731b89d766445f97b3d22181c618a58802bc4baebeb6",
+      "dimensions": [
+        640,
+        629
+      ]
+    },
+    {
+      "id": "beacon-security",
+      "sourceBundle": "admin",
+      "sourcePath": "WOW_ADMIN_17_DESIGN_V0.1/public/illustrations/beacon-security.webp",
+      "targetPath": "assets/illustrations/admin/beacon-security.webp",
+      "category": "illustrations.admin",
+      "role": "approved-runtime",
+      "bytes": 60798,
+      "sha256": "e6714bbc9b8facc2f881b3f4fb07653144e9904e49951395ac909e266056f798",
+      "dimensions": [
+        640,
+        611
+      ]
+    }
+  ]
+}

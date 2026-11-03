@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { createWowSupabaseClient, type ClerkTokenProvider, type WowSupabaseClient } from '../supabase/client';
 import { validatePublicSupabaseKey } from '../integration/helpers';
 
@@ -9,57 +9,46 @@ export interface WowSupabaseOptions {
   sessionScopeKey: string | null;
 }
 
-export function useWowSupabaseClient({ url, publishableKey, getToken, sessionScopeKey }: WowSupabaseOptions) {
-  const currentGetToken = useRef(getToken);
-  const [connection, setConnection] = useState<{
-    client: WowSupabaseClient | null;
-    url?: string;
-    publishableKey?: string;
-    sessionScopeKey: string | null;
-    error?: unknown;
+// Returns a stable accessor. The SDK eagerly requests a token on construction,
+// so create it on first use by a query/event/effect, after auth has committed.
+export function useWowSupabaseClient({ url, publishableKey, getToken, sessionScopeKey }: WowSupabaseOptions): () => WowSupabaseClient | null {
+  const current = useRef({ getToken, sessionScopeKey });
+  const cached = useRef<{
+    url: string;
+    publishableKey: string;
+    sessionScopeKey: string;
+    client: WowSupabaseClient;
   } | null>(null);
-
   useLayoutEffect(() => {
-    currentGetToken.current = getToken;
-  }, [getToken]);
+    current.current = { getToken, sessionScopeKey };
+    return () => { current.current = { getToken, sessionScopeKey: null }; };
+  }, [getToken, sessionScopeKey]);
+  useLayoutEffect(() => () => { cached.current = null; }, [url, publishableKey, sessionScopeKey]);
 
-  // Supabase immediately requests a Realtime token in its constructor. Create
-  // the client after commit, so abandoned renders never request session tokens.
-  useLayoutEffect(() => {
-    let active = true;
-    let client: WowSupabaseClient | null = null;
+  const sessionToken = useCallback(async () => {
     const assertSession = () => {
-      if (!active) throw new Error('Authentication session changed. Retry with the current session.');
-    };
-    const sessionToken = async () => {
-      assertSession();
-      const token = await currentGetToken.current();
-      assertSession();
-      if (!token) throw new Error('An authenticated session token is required.');
-      return token;
-    };
-    // Deferring also lets Strict Mode's discarded mount cancel before the SDK
-    // starts its eager token request.
-    void Promise.resolve().then(() => {
-      if (!active) return;
-      if (!url || !publishableKey || !sessionScopeKey) {
-        setConnection(null);
-        return;
+      if (!sessionScopeKey || current.current.sessionScopeKey !== sessionScopeKey) {
+        throw new Error('Authentication session changed. Retry with the current session.');
       }
-      validatePublicSupabaseKey(publishableKey);
-      client = createWowSupabaseClient({ url, publishableKey, getToken: sessionToken });
-      setConnection({ client, url, publishableKey, sessionScopeKey });
-    }).catch(error => {
-      if (active) setConnection({ client: null, url, publishableKey, sessionScopeKey, error });
-    });
-    return () => {
-      active = false;
-      void client?.removeAllChannels();
     };
-  }, [url, publishableKey, sessionScopeKey]);
+    assertSession();
+    const token = await current.current.getToken();
+    assertSession();
+    if (!token) throw new Error('An authenticated session token is required.');
+    return token;
+  }, [sessionScopeKey]);
 
-  // Never expose a previous session's client while its replacement is pending.
-  if (!connection || connection.url !== url || connection.publishableKey !== publishableKey || connection.sessionScopeKey !== sessionScopeKey) return null;
-  if ('error' in connection) throw connection.error;
-  return connection.client;
+  return useCallback(() => {
+    if (!url || !publishableKey || !sessionScopeKey) return null;
+    if (current.current.sessionScopeKey !== sessionScopeKey) {
+      throw new Error('Authentication session changed. Retry with the current session.');
+    }
+    if (!cached.current || cached.current.url !== url ||
+      cached.current.publishableKey !== publishableKey || cached.current.sessionScopeKey !== sessionScopeKey) {
+      validatePublicSupabaseKey(publishableKey);
+      cached.current = { url, publishableKey, sessionScopeKey,
+        client: createWowSupabaseClient({ url, publishableKey, getToken: sessionToken }) };
+    }
+    return cached.current.client;
+  }, [url, publishableKey, sessionScopeKey, sessionToken]);
 }

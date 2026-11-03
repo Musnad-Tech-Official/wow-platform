@@ -5,11 +5,10 @@
   "dependencies": {
     "@expo/ui": "~57.0.26",
     "@wow/api": "workspace:*",
+    "@wow/assets": "workspace:*",
     "@wow/auth": "workspace:*",
     "@wow/theme": "workspace:*",
-    "@wow/types": "workspace:*",
     "@wow/ui": "workspace:*",
-    "@wow/utils": "workspace:*",
     "expo": "~57.0.31",
     "expo-auth-session": "~57.0.16",
     "expo-constants": "~57.0.22",
@@ -51,7 +50,6 @@
   },
   "scripts": {
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

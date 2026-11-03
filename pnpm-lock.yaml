@@ -26,21 +26,18 @@ importers:
       '@wow/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@wow/assets':
+        specifier: workspace:*
+        version: link:../../packages/assets
       '@wow/auth':
         specifier: workspace:*
         version: link:../../packages/auth
       '@wow/theme':
         specifier: workspace:*
         version: link:../../packages/theme
-      '@wow/types':
-        specifier: workspace:*
-        version: link:../../packages/types
       '@wow/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@wow/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       expo:
         specifier: ~57.0.31
         version: 57.0.31(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.17)(expo-router@57.0.29)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.1(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1)(typescript@6.0.3)
@@ -159,21 +156,18 @@ importers:
       '@wow/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@wow/assets':
+        specifier: workspace:*
+        version: link:../../packages/assets
       '@wow/auth':
         specifier: workspace:*
         version: link:../../packages/auth
       '@wow/theme':
         specifier: workspace:*
         version: link:../../packages/theme
-      '@wow/types':
-        specifier: workspace:*
-        version: link:../../packages/types
       '@wow/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@wow/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       expo:
         specifier: ~57.0.31
         version: 57.0.31(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.17)(expo-router@57.0.29)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.1(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1)(typescript@6.0.3)
@@ -292,21 +286,18 @@ importers:
       '@wow/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@wow/assets':
+        specifier: workspace:*
+        version: link:../../packages/assets
       '@wow/auth':
         specifier: workspace:*
         version: link:../../packages/auth
       '@wow/theme':
         specifier: workspace:*
         version: link:../../packages/theme
-      '@wow/types':
-        specifier: workspace:*
-        version: link:../../packages/types
       '@wow/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@wow/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       expo:
         specifier: ~57.0.31
         version: 57.0.31(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.17)(expo-router@57.0.29)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.1(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1)(typescript@6.0.3)
@@ -442,6 +433,8 @@ importers:
         specifier: ~6.0.3
         version: 6.0.3
 
+  packages/assets: {}
+
   packages/auth:
     dependencies:
       '@clerk/expo':
@@ -486,7 +479,6 @@ importers:
         specifier: ~6.0.3
         version: 6.0.3
 
-  packages/types: {}
 
   packages/ui:
     dependencies:
@@ -525,7 +517,6 @@ importers:
         specifier: ~6.0.3
         version: 6.0.3
 
-  packages/utils: {}
 
 packages:
 
@@ -5851,7 +5842,7 @@ snapshots:
       metro-resolver: 0.84.5
       metro-runtime: 0.84.5
       metro-source-map: 0.84.5(supports-color@8.1.1)
-      metro-symbolicate: 0.84.5(supports-color@8.1.1)
+      metro-symbolicate: 0.84.5
       metro-transform-plugins: 0.84.5(supports-color@8.1.1)
       metro-transform-worker: 0.84.5(supports-color@8.1.1)
     transitivePeerDependencies:
@@ -8690,7 +8681,7 @@ snapshots:
       '@babel/types': 7.29.8
       flow-enums-runtime: 0.0.6
       invariant: 2.2.4
-      metro-symbolicate: 0.84.5(supports-color@8.1.1)
+      metro-symbolicate: 0.84.5
       nullthrows: 1.1.1
       ob1: 0.84.5
       source-map: 0.5.7
@@ -8704,7 +8695,7 @@ snapshots:
       '@babel/types': 7.29.8
       flow-enums-runtime: 0.0.6
       invariant: 2.2.4
-      metro-symbolicate: 0.84.6(supports-color@8.1.1)
+      metro-symbolicate: 0.84.6
       nullthrows: 1.1.1
       ob1: 0.84.6
       source-map: 0.5.7
@@ -8712,7 +8703,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  metro-symbolicate@0.84.5(supports-color@8.1.1):
+  metro-symbolicate@0.84.5:
     dependencies:
       flow-enums-runtime: 0.0.6
       invariant: 2.2.4
@@ -8720,10 +8711,8 @@ snapshots:
       nullthrows: 1.1.1
       source-map: 0.5.7
       vlq: 1.0.1
-    transitivePeerDependencies:
-      - supports-color
 
-  metro-symbolicate@0.84.6(supports-color@8.1.1):
+  metro-symbolicate@0.84.6:
     dependencies:
       flow-enums-runtime: 0.0.6
       invariant: 2.2.4
@@ -8731,8 +8720,6 @@ snapshots:
       nullthrows: 1.1.1
       source-map: 0.5.7
       vlq: 1.0.1
-    transitivePeerDependencies:
-      - supports-color
 
   metro-transform-plugins@0.84.5(supports-color@8.1.1):
     dependencies:
@@ -8826,7 +8813,7 @@ snapshots:
       metro-resolver: 0.84.5
       metro-runtime: 0.84.5
       metro-source-map: 0.84.5(supports-color@8.1.1)
-      metro-symbolicate: 0.84.5(supports-color@8.1.1)
+      metro-symbolicate: 0.84.5
       metro-transform-plugins: 0.84.5(supports-color@8.1.1)
       metro-transform-worker: 0.84.5(supports-color@8.1.1)
       mime-types: 3.0.2
@@ -8871,7 +8858,7 @@ snapshots:
       metro-resolver: 0.84.6
       metro-runtime: 0.84.6
       metro-source-map: 0.84.6(supports-color@8.1.1)
-      metro-symbolicate: 0.84.6(supports-color@8.1.1)
+      metro-symbolicate: 0.84.6
       metro-transform-plugins: 0.84.6(supports-color@8.1.1)
       metro-transform-worker: 0.84.6(supports-color@8.1.1)
       mime-types: 3.0.2

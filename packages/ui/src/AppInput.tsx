@@ -1,5 +1,6 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { TextInput, View, type TextInputProps } from 'react-native';
+import { useWowColors } from '@wow/theme';
 import { AppText } from './AppText';
 import { rtlProps, rtlStyles } from './rtl';
 
@@ -10,19 +11,40 @@ export type AppInputProps = TextInputProps & {
   containerClassName?: string;
 };
 
-export function AppInput({ label, hint, error, containerClassName, className, style, editable = true, accessibilityLabel, nativeID, ...props }: AppInputProps) {
+export function AppInput({ label, hint, error, containerClassName, className, style, editable = true,
+  accessibilityLabel, nativeID, placeholderTextColor, ...props }: AppInputProps) {
   const id = useId();
   const inputId = nativeID ?? id;
+  const colors = useWowColors();
+  const [focused, setFocused] = useState(false);
 
   return (
     <View {...rtlProps} style={rtlStyles.layout} className={`gap-2 ${containerClassName ?? ''}`}>
       {label ? <AppText variant="label" nativeID={`${inputId}-label`}>{label}</AppText> : null}
-      <TextInput {...rtlProps} {...props} style={[rtlStyles.layout, rtlStyles.text, style]} nativeID={inputId} editable={editable}
+      <TextInput
+        {...rtlProps}
+        {...props}
+        style={[rtlStyles.layout, rtlStyles.text, {
+          color: colors.foreground,
+          backgroundColor: colors.background,
+          borderColor: error ? colors.danger : (focused ? colors.focusRing : colors.controlBorder),
+          borderWidth: focused ? 2 : 1,
+        }, style]}
+        nativeID={inputId}
+        onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+        onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
+        editable={editable}
+        placeholderTextColor={placeholderTextColor ?? colors.mutedForeground}
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityHint={props.accessibilityHint ?? error ?? hint}
-        aria-invalid={!!error}
-        className={`min-h-12 rounded-xl border bg-background px-4 py-3 text-right font-tajawal text-base text-foreground placeholder:text-muted-foreground ${error ? 'border-red-500' : 'border-border'} ${editable ? '' : 'opacity-50'} ${className ?? ''}`} />
-      {error || hint ? <AppText variant="caption" muted={!error} accessibilityLiveRegion={error ? 'polite' : 'none'} className={error ? 'text-red-500' : ''}>{error || hint}</AppText> : null}
+        aria-invalid={Boolean(error)}
+        className={`min-h-12 rounded-xl border px-4 py-3 text-right font-tajawal text-base ${editable ? '' : 'opacity-50'} ${className ?? ''}`}
+      />
+      {error || hint ? (
+        <AppText variant="caption" muted={!error} tone={error ? 'danger' : 'muted'} accessibilityLiveRegion={error ? 'polite' : 'none'}>
+          {error || hint}
+        </AppText>
+      ) : null}
     </View>
   );
 }
