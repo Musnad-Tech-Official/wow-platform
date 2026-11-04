@@ -24,7 +24,6 @@ import { CategoryFilters } from './CategoryFilters';
 import { MerchantGridCard } from './MerchantGridCard';
 import { OfferMediaImage } from './OfferMediaImage';
 import { RegionSelectorSheet } from './RegionSelectorSheet';
-import { SearchSheet } from './SearchSheet';
 import { BottomNavBar, type BottomNavTabId } from './BottomNavBar';
 
 export function CustomerHomeScreen() {
@@ -38,11 +37,9 @@ export function CustomerHomeScreen() {
   const [activeTab, setActiveTab] = useState<BottomNavTabId>('explore');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedArea, setSelectedArea] = useState<AreaId>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [activeSearchFilter, setActiveSearchFilter] = useState('');
 
   // Modals state
-  const [showSearchSheet, setShowSearchSheet] = useState(false);
   const [showRegionSheet, setShowRegionSheet] = useState(false);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [activeNotice, setActiveNotice] = useState<{
@@ -111,7 +108,6 @@ export function CustomerHomeScreen() {
   // Reset all filters action
   function handleResetFilters() {
     setActiveSearchFilter('');
-    setSearchQuery('');
     setSelectedCategoryId(null);
     setSelectedArea('all');
   }
@@ -192,7 +188,7 @@ export function CustomerHomeScreen() {
     >
       {/* 1. Header with original transparent WOW logo & compact search + location buttons */}
       <HomeHeader
-        onOpenSearch={() => setShowSearchSheet(true)}
+        onOpenSearch={() => router.push('/discover')}
         onOpenLocation={() => setShowRegionSheet(true)}
         selectedAreaName={selectedAreaName}
         isLocationFiltered={selectedArea !== 'all'}
@@ -486,18 +482,6 @@ export function CustomerHomeScreen() {
       <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} />
 
       {/* Modals & Sheets */}
-      <SearchSheet
-        visible={showSearchSheet}
-        query={searchQuery}
-        onChangeQuery={setSearchQuery}
-        onApplySearch={() => setActiveSearchFilter(searchQuery)}
-        onClearSearch={() => {
-          setSearchQuery('');
-          setActiveSearchFilter('');
-        }}
-        onClose={() => setShowSearchSheet(false)}
-      />
-
       <RegionSelectorSheet
         visible={showRegionSheet}
         selectedArea={selectedArea}

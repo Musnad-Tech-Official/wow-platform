@@ -59,6 +59,22 @@ const regionSheetSrc = fs.readFileSync(
   path.join(root, 'apps/customer/src/features/home/RegionSelectorSheet.tsx'),
   'utf8',
 );
+const discoverRouteSrc = fs.readFileSync(
+  path.join(root, 'apps/customer/src/app/discover/index.tsx'),
+  'utf8',
+);
+const discoverScreenSrc = fs.readFileSync(
+  path.join(root, 'apps/customer/src/features/discovery/CustomerDiscoverScreen.tsx'),
+  'utf8',
+);
+const discoveryDataSrc = fs.readFileSync(
+  path.join(root, 'apps/customer/src/features/discovery/discovery-data.ts'),
+  'utf8',
+);
+const searchMerchantCardSrc = fs.readFileSync(
+  path.join(root, 'apps/customer/src/features/discovery/SearchMerchantCard.tsx'),
+  'utf8',
+);
 
 const ts = require(apiRequire.resolve('typescript'));
 const homeDataTranspiled = ts.transpileModule(homeDataSrc, {
@@ -68,6 +84,16 @@ const homeData = {};
 new Function('exports', 'require', homeDataTranspiled)(homeData, (req) =>
   req === '@wow/api' ? {} : require(req),
 );
+
+const discoveryDataTranspiled = ts.transpileModule(discoveryDataSrc, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS },
+}).outputText;
+const discoveryData = {};
+new Function('exports', 'require', discoveryDataTranspiled)(discoveryData, (req) => {
+  if (req === '@wow/api') return {};
+  if (req.includes('home-data')) return homeData;
+  return require(req);
+});
 
 const { Module } = require('node:module');
 
@@ -828,4 +854,269 @@ test('13. Live database integration: local isolated Supabase PostgreSQL environm
     assert.equal(postCategories.length, initialCategories.length, 'Categories must be restored to initial state');
     assert.equal(postSearch.total, 0, 'No synthetic businesses must remain in discovery');
   }
+});
+
+// ---------------------------------------------------------------------------
+// 14. CUS-02 Navigation & Route Architecture
+// ---------------------------------------------------------------------------
+test('14. CUS-02 Navigation: CUS-01 search icon navigates directly to /discover route', () => {
+  // CUS-01 Home search icon must route immediately to /discover without interim bottom sheet
+  assert.match(
+    homeScreenSrc,
+    /onOpenSearch=\{\(\)\s*=>\s*router\.push\(['"]\/discover['"]\)\}/,
+    'CUS-01 HomeHeader onOpenSearch must call router.push("/discover")',
+  );
+  assert.doesNotMatch(
+    homeScreenSrc,
+    /<SearchSheet/,
+    'Obsolete SearchSheet modal must not be rendered on CUS-01 Home',
+  );
+
+  // Discover route file must export default rendering CustomerDiscoverScreen
+  assert.match(
+    discoverRouteSrc,
+    /export default function DiscoverRoute\(\)/,
+    '/discover route must export default DiscoverRoute',
+  );
+  assert.match(
+    discoverRouteSrc,
+    /<CustomerDiscoverScreen\s*\/>/,
+    '/discover route must render CustomerDiscoverScreen',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 15. CUS-02 Search Field: Max Length, Autofocus, and Clear Affordance
+// ---------------------------------------------------------------------------
+test('15. CUS-02 Search field: safe autofocus, 100 char limit, and clear affordance', () => {
+  assert.match(
+    discoverScreenSrc,
+    /placeholder=['"]ابحث عن تاجر أو عرض\.\.\.['"]/,
+    'Search input must have approved Arabic placeholder',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /maxLength=\{100\}/,
+    'Search input must enforce maximum 100 character limit',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /autoFocus=\{true\}/,
+    'Search input must be safely auto-focused on arrival',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /query:\s*trimmedQuery\.length\s*>\s*0\s*\?\s*trimmedQuery\s*:\s*null/,
+    'Search query must be trimmed and empty query browsing all businesses (null)',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 16. CUS-02 Category UUID Mapping & Sorting Contracts
+// ---------------------------------------------------------------------------
+test('16. CUS-02 Category UUID mapping and sorting options: genuine UUIDs and recent/discount/name', () => {
+  // Persistent "الكل" chip mapping to null
+  assert.match(
+    discoverScreenSrc,
+    /\{\s*id:\s*null,\s*label:\s*['"]الكل['"]\s*\}/,
+    'Category rail must persistent "الكل" with null ID',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /usePublicCategories\(\)/,
+    'Categories must use public usePublicCategories hook',
+  );
+
+  // Sorting options must match API exactly
+  assert.equal(discoveryData.SORT_OPTIONS.length, 3);
+  assert.deepEqual(
+    discoveryData.SORT_OPTIONS.map((o) => o.value),
+    ['recent', 'discount', 'name'],
+    'Sort options must strictly map to recent, discount, and name',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 17. CUS-02 Merchant Count Formatting & Card Presentation Model
+// ---------------------------------------------------------------------------
+test('17. CUS-02 Merchant count formatting: authentic Arabic inflection (تاجر / تجار)', () => {
+  const { formatMerchantCount, mapPublicBusinessToDiscoveryCard } = discoveryData;
+
+  assert.equal(formatMerchantCount(0), '0 تاجر');
+  assert.equal(formatMerchantCount(1), 'تاجر واحد');
+  assert.equal(formatMerchantCount(2), 'تاجران');
+  assert.equal(formatMerchantCount(3), '٣ تجار');
+  assert.equal(formatMerchantCount(10), '١٠ تجار');
+  assert.equal(formatMerchantCount(15), '١٥ تاجر');
+
+  // Test mapPublicBusinessToDiscoveryCard
+  const mockCard = {
+    id: 'b1111111-1111-4111-8111-111111111111',
+    name: '  مطعم الرافدين  ',
+    description: 'أشهى المأكولات',
+    logo_url: null,
+    cover_url: null,
+    offer_count: 2,
+    max_discount_percent: 25,
+    newest_offer_start: '2026-01-01',
+    categories: [{ id: 'c1', name_ar: 'مطاعم وكافيهات', is_primary: true }],
+    offers: [
+      {
+        offer_id: 'o1',
+        title: 'وجبة غداء كاملة',
+        final_price: 3500,
+        original_price: 4500,
+        currency: 'YER',
+        discount_percent: 22,
+        starts_at: '2026-01-01',
+        ends_at: '2026-02-01',
+      },
+    ],
+  };
+
+  const mapped = mapPublicBusinessToDiscoveryCard(mockCard);
+  assert.equal(mapped.id, mockCard.id);
+  assert.equal(mapped.name, 'مطعم الرافدين');
+  assert.equal(mapped.initial, 'م');
+  assert.equal(mapped.categoryName, 'مطاعم وكافيهات');
+  assert.equal(mapped.offerCount, 2);
+  assert.equal(mapped.offers.length, 1);
+  assert.equal(mapped.offers[0].id, 'o1');
+  assert.equal(mapped.offers[0].price, '٣٬٥٠٠ ر.ي');
+  assert.equal(mapped.offers[0].originalPrice, '٤٬٥٠٠ ر.ي');
+  assert.equal(mapped.offers[0].discountPercent, 22);
+});
+
+// ---------------------------------------------------------------------------
+// 18. CUS-02 Landscape Card & Offer Preview Carousel
+// ---------------------------------------------------------------------------
+test('18. CUS-02 Landscape card: authorized OfferMediaImage, isolated LTR counter, accessible controls', () => {
+  // Landscape card structure in SearchMerchantCard
+  assert.match(
+    searchMerchantCardSrc,
+    /<OfferMediaImage/,
+    'SearchMerchantCard must render authorized OfferMediaImage',
+  );
+  assert.match(
+    searchMerchantCardSrc,
+    /\\u200E\$\{String\(safeIndex \+ 1\)/,
+    'Carousel counter must isolate LTR numerals 01 / 02 with \\u200E marks',
+  );
+  assert.match(
+    searchMerchantCardSrc,
+    /accessibilityLabel=['"]العرض السابق['"]/,
+    'Carousel must provide accessible previous label',
+  );
+  assert.match(
+    searchMerchantCardSrc,
+    /accessibilityLabel=['"]العرض التالي['"]/,
+    'Carousel must provide accessible next label',
+  );
+  assert.match(
+    searchMerchantCardSrc,
+    /title=['"]عرض التفاصيل['"]/,
+    'Card must offer details view action button',
+  );
+  assert.match(
+    searchMerchantCardSrc,
+    /minWidth:\s*48,\s*minHeight:\s*48/,
+    'Carousel navigation controls must enforce minimum 48pt touch targets',
+  );
+  assert.match(
+    searchMerchantCardSrc,
+    /minHeight:\s*48,\s*flexDirection:\s*['"]row['"]/,
+    'Merchant header pressable must enforce minimum 48pt touch target',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 19. CUS-02 Pagination & Incremental Loading
+// ---------------------------------------------------------------------------
+test('19. CUS-02 Pagination: limit 20, deduplication on append, and reset on filter change', () => {
+  assert.match(
+    discoverScreenSrc,
+    /limit:\s*20/,
+    'Search query must use bounded page size 20',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /nextOffset\s*=\s*offset\s*\+\s*20/,
+    'Pagination must increment by 20 on load more',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /new\s+Set\(baseList\.map\(\(m\)\s*=>\s*m\.id\)\)/,
+    'Incremental loading must deduplicate cards by ID',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /function handleResetFilters\(\)/,
+    'Must provide handleResetFilters resetting offset and search parameters',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 20. CUS-02 Responsive Layout Branches & Honest States
+// ---------------------------------------------------------------------------
+test('20. CUS-02 Responsive layout branches and honest states', () => {
+  // Responsive layout via useWowViewport
+  assert.match(
+    discoverScreenSrc,
+    /useWowViewport\(\)/,
+    'Must use responsive viewport hook useWowViewport',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /isDesktop\s*\?/,
+    'Must have dedicated desktop branch with sidebar',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /width:\s*260/,
+    'Desktop must provide filter sidebar',
+  );
+
+  // States
+  assert.match(
+    discoverScreenSrc,
+    /title=['"]جاري البحث عن العروض\.\.\.['"]/,
+    'Must render loading progress state',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /title=['"]لا توجد عروض منشورة حاليًا['"]/,
+    'Must render honest empty database state',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /title=['"]لا توجد نتائج مطابقة['"]/,
+    'Must render filtered no-match state',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /title=['"]تعذّر تحميل نتائج البحث['"]/,
+    'Must render honest error retry state',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /غير متاحة حالياً حتى توفر دليل المناطق المعتمد/,
+    'Must honestly explain unverified region capability',
+  );
+
+  // 48pt touch targets enforcement
+  assert.match(
+    discoverScreenSrc,
+    /width:\s*48,\s*height:\s*48,\s*minWidth:\s*48,\s*minHeight:\s*48/,
+    'Back button must strictly enforce 48pt minimum touch target',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /minHeight:\s*48,\s*minWidth:\s*56/,
+    'Category chips must enforce 48pt minimum touch target',
+  );
+  assert.match(
+    discoverScreenSrc,
+    /minHeight:\s*48,\s*flexDirection:\s*['"]row['"],\s*alignItems:\s*['"]center['"],\s*gap:\s*8/,
+    'Sort button must enforce 48pt minimum touch target',
+  );
 });

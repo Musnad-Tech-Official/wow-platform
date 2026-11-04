@@ -11,9 +11,19 @@ export interface OfferMediaImageProps {
   offerId: string;
   isDark: boolean;
   title: string;
+  height?: number | `${number}%`;
+  width?: number | `${number}%`;
+  borderRadius?: number;
 }
 
-export function OfferMediaImage({ offerId, isDark, title }: OfferMediaImageProps) {
+export function OfferMediaImage({
+  offerId,
+  isDark,
+  title,
+  height = 108,
+  width = '100%',
+  borderRadius = 0,
+}: OfferMediaImageProps) {
   const getClient = useWowPublicSupabaseClient();
   const { data: mediaList, isLoading: isMediaLoading } = usePublicOfferMedia(offerId);
 
@@ -78,8 +88,9 @@ export function OfferMediaImage({ offerId, isDark, title }: OfferMediaImageProps
     return (
       <View
         style={{
-          height: 108,
-          width: '100%',
+          height,
+          width,
+          borderRadius,
           backgroundColor: isDark ? '#1C2433' : '#CBD5E1',
           position: 'relative',
           overflow: 'hidden',
@@ -87,7 +98,7 @@ export function OfferMediaImage({ offerId, isDark, title }: OfferMediaImageProps
       >
         <Image
           source={{ uri: signedUrl }}
-          style={{ width: '100%', height: 108 }}
+          style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
           accessibilityLabel={title}
           onError={() => setHasError(true)}
@@ -100,8 +111,9 @@ export function OfferMediaImage({ offerId, isDark, title }: OfferMediaImageProps
   return (
     <View
       style={{
-        height: 108,
-        width: '100%',
+        height,
+        width,
+        borderRadius,
         backgroundColor: isDark ? '#1C2433' : '#CBD5E1',
         position: 'relative',
         alignItems: 'center',
