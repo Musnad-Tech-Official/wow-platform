@@ -3,10 +3,11 @@ import { Pressable, View } from 'react-native';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react-native';
 import { useTheme, useWowColors, wowBrandColors } from '@wow/theme';
 import { AppText } from '@wow/ui';
-import type { HomeMerchant } from './home-data';
+import type { LiveMerchantCard } from './home-data';
+import { OfferMediaImage } from './OfferMediaImage';
 
 export interface MerchantGridCardProps {
-  merchant: HomeMerchant;
+  merchant: LiveMerchantCard;
   onOfferPress: (offerId: string) => void;
   onMerchantPress: (merchantId: string) => void;
 }
@@ -22,8 +23,14 @@ export function MerchantGridCard({
   const [offerIndex, setOfferIndex] = useState(0);
 
   const offers = merchant.offers;
-  const safeIndex = Math.min(offerIndex, offers.length - 1);
-  const currentOffer = offers[safeIndex] ?? offers[0];
+  const safeIndex = Math.min(offerIndex, Math.max(0, offers.length - 1));
+  const currentOffer = offers[safeIndex] ?? {
+    id: merchant.id,
+    title: merchant.name,
+    price: '',
+    benefit: '',
+    areaName: null,
+  };
 
   function handlePrev() {
     if (offers.length <= 1) return;
@@ -36,7 +43,7 @@ export function MerchantGridCard({
   }
 
   // Explicit LTR string with directional marks to prevent Arabic BiDi reversal
-  const pageStr = `\u200E${String(safeIndex + 1).padStart(2, '0')} / ${String(offers.length).padStart(2, '0')}\u200E`;
+  const pageStr = `\u200E${String(safeIndex + 1).padStart(2, '0')} / ${String(Math.max(1, offers.length)).padStart(2, '0')}\u200E`;
 
   return (
     <View
@@ -54,7 +61,7 @@ export function MerchantGridCard({
       {/* Merchant Header */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`متجر ${merchant.name} - ${merchant.categoryName}`}
+        accessibilityLabel={`متجر ${merchant.name}${merchant.categoryName ? ` - ${merchant.categoryName}` : ''}`}
         onPress={() => onMerchantPress(merchant.id)}
         style={{
           flexDirection: 'row',
@@ -107,16 +114,18 @@ export function MerchantGridCard({
             >
               {merchant.name}
             </AppText>
-            <AppText
-              numberOfLines={1}
-              style={{
-                fontSize: 11,
-                color: isDark ? colors.neutral : colors.mutedForeground,
-                textAlign: 'right',
-              }}
-            >
-              {merchant.categoryName}
-            </AppText>
+            {merchant.categoryName ? (
+              <AppText
+                numberOfLines={1}
+                style={{
+                  fontSize: 11,
+                  color: isDark ? colors.neutral : colors.mutedForeground,
+                  textAlign: 'right',
+                }}
+              >
+                {merchant.categoryName}
+              </AppText>
+            ) : null}
           </View>
         </View>
 
@@ -127,60 +136,17 @@ export function MerchantGridCard({
       {/* Offer Image & Details Container */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`عرض ${currentOffer.title} بسعر ${currentOffer.price}`}
+        accessibilityLabel={`عرض ${currentOffer.title}${currentOffer.price ? ` بسعر ${currentOffer.price}` : ''}`}
         onPress={() => onOfferPress(currentOffer.id)}
         style={{ flex: 1 }}
       >
-        {/* Offer Visual / Watermark Area */}
-        <View
-          style={{
-            height: 108,
-            width: '100%',
-            backgroundColor: isDark ? '#1C2433' : '#CBD5E1',
-            position: 'relative',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Soft gradient tone */}
-          <View
-            aria-hidden={true}
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              backgroundColor: isDark ? '#172030' : '#B5C4D0',
-              opacity: 0.85,
-            }}
+        {/* Offer Visual / Watermark Area with live signed image support */}
+        <View style={{ position: 'relative' }}>
+          <OfferMediaImage
+            offerId={currentOffer.id}
+            isDark={isDark}
+            title={currentOffer.title}
           />
-          <View
-            aria-hidden={true}
-            style={{
-              position: 'absolute',
-              top: -20,
-              right: -20,
-              width: 100,
-              height: 100,
-              borderRadius: 50,
-              backgroundColor: 'rgba(251, 188, 14, 0.28)',
-            }}
-          />
-
-          {/* WOW Watermark */}
-          <AppText
-            aria-hidden={true}
-            style={{
-              fontSize: 24,
-              fontWeight: '900',
-              color: isDark ? 'rgba(255, 255, 255, 0.30)' : 'rgba(255, 255, 255, 0.55)',
-              letterSpacing: 2,
-            }}
-          >
-            WOW
-          </AppText>
 
           {/* Page Counter Badge: 01 / 02 - Explicit LTR */}
           {offers.length > 1 && (
@@ -227,50 +193,56 @@ export function MerchantGridCard({
               {currentOffer.title}
             </AppText>
 
-            <AppText
-              style={{
-                fontSize: 15,
-                fontWeight: '800',
-                color: isDark ? '#FACC15' : colors.foreground,
-                textAlign: 'right',
-              }}
-            >
-              {currentOffer.price}
-            </AppText>
+            {currentOffer.price ? (
+              <AppText
+                style={{
+                  fontSize: 15,
+                  fontWeight: '800',
+                  color: isDark ? '#FACC15' : colors.foreground,
+                  textAlign: 'right',
+                }}
+              >
+                {currentOffer.price}
+              </AppText>
+            ) : null}
 
-            <AppText
-              numberOfLines={1}
-              style={{
-                fontSize: 11,
-                color: isDark ? colors.neutral : colors.mutedForeground,
-                textAlign: 'right',
-                lineHeight: 16,
-              }}
-            >
-              {currentOffer.benefit}
-            </AppText>
+            {currentOffer.benefit ? (
+              <AppText
+                numberOfLines={1}
+                style={{
+                  fontSize: 11,
+                  color: isDark ? colors.neutral : colors.mutedForeground,
+                  textAlign: 'right',
+                  lineHeight: 16,
+                }}
+              >
+                {currentOffer.benefit}
+              </AppText>
+            ) : null}
           </View>
 
-          {/* Area / Branch tag */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 4,
-              marginTop: 4,
-            }}
-          >
-            <MapPin size={11} color={isDark ? colors.neutral : colors.mutedForeground} />
-            <AppText
+          {/* Area / Branch tag - only rendered when authentic branch is present */}
+          {currentOffer.areaName ? (
+            <View
               style={{
-                fontSize: 11,
-                color: isDark ? colors.neutral : colors.mutedForeground,
-                textAlign: 'right',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                marginTop: 4,
               }}
             >
-              {currentOffer.areaName}
-            </AppText>
-          </View>
+              <MapPin size={11} color={isDark ? colors.neutral : colors.mutedForeground} />
+              <AppText
+                style={{
+                  fontSize: 11,
+                  color: isDark ? colors.neutral : colors.mutedForeground,
+                  textAlign: 'right',
+                }}
+              >
+                {currentOffer.areaName}
+              </AppText>
+            </View>
+          ) : null}
         </View>
       </Pressable>
 

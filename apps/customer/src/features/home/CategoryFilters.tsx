@@ -1,17 +1,19 @@
 import { ScrollView } from 'react-native';
 import { FilterChip } from '@wow/ui';
-import type { CategoryId, CategoryItem } from './home-data';
+import type { CategoryFilterItem } from './home-data';
 
 export interface CategoryFiltersProps {
-  categories: CategoryItem[];
-  selectedCategory: CategoryId;
-  onSelectCategory: (id: CategoryId) => void;
+  categories: CategoryFilterItem[];
+  selectedCategoryId: string | null;
+  onSelectCategory: (id: string | null) => void;
+  isLoading?: boolean;
 }
 
 export function CategoryFilters({
   categories,
-  selectedCategory,
+  selectedCategoryId,
   onSelectCategory,
+  isLoading = false,
 }: CategoryFiltersProps) {
   return (
     <ScrollView
@@ -24,14 +26,18 @@ export function CategoryFilters({
         flexDirection: 'row',
       }}
     >
-      {categories.map((category) => (
-        <FilterChip
-          key={category.id}
-          label={category.label}
-          selected={selectedCategory === category.id}
-          onPress={() => onSelectCategory(category.id)}
-        />
-      ))}
+      {categories.map((category) => {
+        const isSelected = selectedCategoryId === category.id;
+        return (
+          <FilterChip
+            key={category.id ?? 'all'}
+            label={category.label}
+            selected={isSelected}
+            onPress={() => onSelectCategory(category.id)}
+            disabled={isLoading}
+          />
+        );
+      })}
     </ScrollView>
   );
 }
