@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { Check, MapPin } from 'lucide-react-native';
+import { Check, Info, MapPin } from 'lucide-react-native';
 import { useWowColors } from '@wow/theme';
 import { AppText, BottomSheet } from '@wow/ui';
 import { APPROVED_AREAS, type AreaId } from './home-data';
@@ -21,7 +21,7 @@ export function RegionSelectorSheet({
 
   return (
     <BottomSheet visible={visible} title="اختر المنطقة" onClose={onClose}>
-      <View style={{ gap: 12 }}>
+      <View style={{ gap: 14 }}>
         <View style={{ gap: 8 }}>
           {APPROVED_AREAS.map((area) => {
             const isSelected = selectedArea === area.id;
@@ -58,7 +58,7 @@ export function RegionSelectorSheet({
                     style={{
                       fontSize: 15,
                       fontWeight: isSelected ? '800' : '500',
-                      color: isSelected ? colors.foreground : colors.foreground,
+                      color: colors.foreground,
                     }}
                   >
                     {area.label}
@@ -84,10 +84,44 @@ export function RegionSelectorSheet({
           })}
         </View>
 
+        {/* Clear, honest unavailable state for granular city/district filtering */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 10,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: colors.neutralSurface,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Info size={18} color={colors.mutedForeground} style={{ marginTop: 2 }} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <AppText
+              variant="label"
+              style={{ fontSize: 13, fontWeight: '700', color: colors.foreground }}
+            >
+              دليل المناطق قيد الاعتماد
+            </AppText>
+            <AppText
+              variant="caption"
+              style={{
+                fontSize: 12,
+                color: colors.mutedForeground,
+                lineHeight: 18,
+              }}
+            >
+              يتم حالياً استكشاف العروض من كافة المناطق. خاصية تصفية المتاجر حسب المدن والأحياء قيد الاعتماد وستتوفر فور اكتمال دليل المناطق الجغرافية المعتمد.
+            </AppText>
+          </View>
+        </View>
+
         <AppText
           variant="caption"
           muted
-          style={{ textAlign: 'center', marginTop: 8, fontSize: 11 }}
+          style={{ textAlign: 'center', marginTop: 4, fontSize: 11 }}
         >
           لا نستخدم موقع جهازك تلقائياً
         </AppText>

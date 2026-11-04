@@ -1,24 +1,28 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { AlertCircle } from 'lucide-react-native';
 import { useAuth } from '@wow/auth';
+import {
+  usePublicCategories,
+  usePublicOffer,
+  usePublicSearchBusinesses,
+} from '@wow/api';
 import { useTheme, useWowColors } from '@wow/theme';
 import { AppButton, AppText, BottomSheet } from '@wow/ui';
 import {
   APPROVED_AREAS,
-  APPROVED_CATEGORIES,
-  APPROVED_MERCHANTS,
-  DEFAULT_SPONSORED_OFFER,
+  formatDiscoveryPrice,
+  mapPublicBusinessToCard,
   type AreaId,
-  type CategoryId,
-  type HomeMerchant,
-  type HomeOffer,
+  type CategoryFilterItem,
+  type LiveMerchantCard,
 } from './home-data';
 import { HomeHeader } from './HomeHeader';
 import { WelcomeBanner } from './WelcomeBanner';
 import { CategoryFilters } from './CategoryFilters';
-import { SponsoredOfferCard } from './SponsoredOfferCard';
 import { MerchantGridCard } from './MerchantGridCard';
+import { OfferMediaImage } from './OfferMediaImage';
 import { RegionSelectorSheet } from './RegionSelectorSheet';
 import { SearchSheet } from './SearchSheet';
 import { BottomNavBar, type BottomNavTabId } from './BottomNavBar';
@@ -30,9 +34,9 @@ export function CustomerHomeScreen() {
   const isDark = resolvedTheme === 'dark';
   const { isSignedIn } = useAuth();
 
-  // Local navigation and filter state
+  // Navigation & Filter state
   const [activeTab, setActiveTab] = useState<BottomNavTabId>('explore');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedArea, setSelectedArea] = useState<AreaId>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearchFilter, setActiveSearchFilter] = useState('');
@@ -40,7 +44,7 @@ export function CustomerHomeScreen() {
   // Modals state
   const [showSearchSheet, setShowSearchSheet] = useState(false);
   const [showRegionSheet, setShowRegionSheet] = useState(false);
-  const [selectedOffer, setSelectedOffer] = useState<HomeOffer | null>(null);
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [activeNotice, setActiveNotice] = useState<{
     title: string;
     message: string;
@@ -48,48 +52,69 @@ export function CustomerHomeScreen() {
     onAction?: () => void;
   } | null>(null);
 
-  // Selected area label for header location pill
+  // Selected area item for header label & API query (all areas active by default)
   const selectedAreaItem = APPROVED_AREAS.find((a) => a.id === selectedArea);
   const selectedAreaName = selectedAreaItem?.label ?? 'كل المناطق';
+  const activeCity = null;
 
-  // Filter merchants based on category, area, and search query
-  const filteredMerchants = useMemo(() => {
-    const q = activeSearchFilter.trim().toLowerCase();
-    return APPROVED_MERCHANTS.map((merchant) => {
-      // Filter offers
-      const matchedOffers = merchant.offers.filter((offer) => {
-        const matchesCategory =
-          selectedCategory === 'all' || offer.category === selectedCategory;
-        const matchesArea =
-          selectedArea === 'all' || offer.areaId === selectedArea;
-        const matchesQuery =
-          !q ||
-          merchant.name.toLowerCase().includes(q) ||
-          merchant.categoryName.toLowerCase().includes(q) ||
-          offer.title.toLowerCase().includes(q) ||
-          offer.benefit.toLowerCase().includes(q);
+  // 1. Live Categories Query (Public RPC)
+  const categoriesQuery = usePublicCategories();
 
-        return matchesCategory && matchesArea && matchesQuery;
-      });
+  // Transform live categories for the rail (Root categories + "الكل" always present)
+  const categoryRailItems: CategoryFilterItem[] = useMemo(() => {
+    const list: CategoryFilterItem[] = [{ id: null, label: 'الكل' }];
+    if (categoriesQuery.data && Array.isArray(categoriesQuery.data)) {
+      const rootCategories = categoriesQuery.data.filter((c) => c.parent_id === null);
+      const displayCategories = rootCategories.length > 0 ? rootCategories : categoriesQuery.data;
+      for (const cat of displayCategories) {
+        list.push({ id: cat.id, label: cat.name_ar });
+      }
+    }
+    return list;
+  }, [categoriesQuery.data]);
 
-      return {
-        ...merchant,
-        offers: matchedOffers,
-      };
-    }).filter((merchant) => merchant.offers.length > 0);
-  }, [selectedCategory, selectedArea, activeSearchFilter]);
+  // Active category display name for active filter pill
+  const activeCategoryLabel = useMemo(() => {
+    if (!selectedCategoryId || !categoriesQuery.data) return null;
+    return categoriesQuery.data.find((c) => c.id === selectedCategoryId)?.name_ar ?? null;
+  }, [selectedCategoryId, categoriesQuery.data]);
 
-  // Featured sponsored offer
-  const sponsoredOffer = DEFAULT_SPONSORED_OFFER;
+  // 2. Live Search Businesses Query (Public RPC)
+  const searchQueryObj = usePublicSearchBusinesses({
+    query: activeSearchFilter.trim() || null,
+    categoryId: selectedCategoryId,
+    city: activeCity,
+    sort: 'recent',
+    limit: 20,
+    offset: 0,
+  });
+
+  // Map public businesses to typed presentation card models
+  const searchItems = searchQueryObj.data?.items;
+  const merchantCards: LiveMerchantCard[] = useMemo(() => {
+    if (!searchItems) return [];
+    return searchItems.map(mapPublicBusinessToCard);
+  }, [searchItems]);
 
   // Split merchants into rows of 2 for grid layout
   const merchantRows = useMemo(() => {
-    const rows: HomeMerchant[][] = [];
-    for (let i = 0; i < filteredMerchants.length; i += 2) {
-      rows.push(filteredMerchants.slice(i, i + 2));
+    const rows: LiveMerchantCard[][] = [];
+    for (let i = 0; i < merchantCards.length; i += 2) {
+      rows.push(merchantCards.slice(i, i + 2));
     }
     return rows;
-  }, [filteredMerchants]);
+  }, [merchantCards]);
+
+  // 3. Live Selected Offer Details Query (Public RPC)
+  const offerDetailQuery = usePublicOffer(selectedOfferId);
+
+  // Reset all filters action
+  function handleResetFilters() {
+    setActiveSearchFilter('');
+    setSearchQuery('');
+    setSelectedCategoryId(null);
+    setSelectedArea('all');
+  }
 
   // Handle Tab navigation
   function handleSelectTab(tabId: BottomNavTabId) {
@@ -112,7 +137,7 @@ export function CustomerHomeScreen() {
       } else {
         setActiveNotice({
           title: 'المفضلة',
-          message: 'شاشة المفضلة قيد التطوير وستتوفر قريباً.',
+          message: 'ميزة المفضلة قيد التطوير وستتوفر في التحديث القادم.',
         });
       }
       return;
@@ -135,26 +160,25 @@ export function CustomerHomeScreen() {
     }
   }
 
-  // Handle Offer details
   function handleOfferPress(offerId: string) {
-    for (const m of APPROVED_MERCHANTS) {
-      const found = m.offers.find((o) => o.id === offerId);
-      if (found) {
-        setSelectedOffer(found);
-        return;
-      }
-    }
+    setSelectedOfferId(offerId);
   }
 
   function handleMerchantPress(merchantId: string) {
-    const merchant = APPROVED_MERCHANTS.find((m) => m.id === merchantId);
-    if (merchant) {
+    const card = merchantCards.find((m) => m.id === merchantId);
+    if (card) {
       setActiveNotice({
-        title: merchant.name,
-        message: `تصفح عروض ${merchant.name} ضمن قسم ${merchant.categoryName}. يتم تحديث تفاصيل المتجر باستمرار.`,
+        title: card.name,
+        message: `متجر ${card.name}${card.categoryName ? ` ضمن قسم ${card.categoryName}` : ''}. صفحة المتجر التفصيلية قيد التطوير في المرحلة القادمة.`,
       });
     }
   }
+
+  const isInitialLoading =
+    (searchQueryObj.isLoading || categoriesQuery.isLoading) && !searchQueryObj.data;
+  const hasError = (searchQueryObj.isError || categoriesQuery.isError) && !searchQueryObj.data;
+  const isFiltered =
+    Boolean(activeSearchFilter) || selectedArea !== 'all' || selectedCategoryId !== null;
 
   return (
     <View
@@ -189,15 +213,16 @@ export function CustomerHomeScreen() {
           <WelcomeBanner />
         </View>
 
-        {/* 3. Category filters (natural full-width horizontal scrolling, no clipping or negative margins) */}
+        {/* 3. Category filters (Live categories from usePublicCategories with "الكل") */}
         <CategoryFilters
-          categories={APPROVED_CATEGORIES}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
+          categories={categoryRailItems}
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={setSelectedCategoryId}
+          isLoading={categoriesQuery.isLoading}
         />
 
-        {/* Active search or area filter badge if applied */}
-        {(activeSearchFilter.length > 0 || selectedArea !== 'all') && (
+        {/* Active search, area, or category filter badge if applied */}
+        {isFiltered && (
           <View style={{ paddingHorizontal: 16 }}>
             <View
               style={{
@@ -212,8 +237,10 @@ export function CustomerHomeScreen() {
             >
               <AppText variant="caption" style={{ color: colors.foreground, fontWeight: '700' }}>
                 تصفية مفعلة:{' '}
-                {selectedArea !== 'all' && `المنطقة (${selectedArea === 'center' ? 'وسط المدينة' : 'المنطقة الشرقية'})`}
-                {selectedArea !== 'all' && activeSearchFilter && ' • '}
+                {selectedArea !== 'all' && `المنطقة (${selectedAreaName})`}
+                {selectedArea !== 'all' && (activeSearchFilter || activeCategoryLabel) && ' • '}
+                {activeCategoryLabel && `القسم (${activeCategoryLabel})`}
+                {activeCategoryLabel && activeSearchFilter && ' • '}
                 {activeSearchFilter && `البحث: "${activeSearchFilter}"`}
               </AppText>
 
@@ -221,33 +248,20 @@ export function CustomerHomeScreen() {
                 title="إلغاء التصفية"
                 variant="quiet"
                 size="sm"
-                onPress={() => {
-                  setActiveSearchFilter('');
-                  setSearchQuery('');
-                  setSelectedArea('all');
-                }}
+                onPress={handleResetFilters}
               />
             </View>
           </View>
         )}
 
-        {/* 4. Sponsored offers */}
-        <View style={{ paddingHorizontal: 16 }}>
-          <SponsoredOfferCard
-            offer={sponsoredOffer.offer}
-            merchantName={sponsoredOffer.merchantName}
-            onPress={handleOfferPress}
-          />
-        </View>
-
-        {/* 5. Merchants Section Header */}
+        {/* 4. Merchants Section Header */}
         <View style={{ paddingHorizontal: 16 }}>
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginTop: 6,
+              marginTop: 4,
             }}
           >
             <View style={{ gap: 2 }}>
@@ -265,7 +279,7 @@ export function CustomerHomeScreen() {
               </AppText>
             </View>
 
-            {/* Count Badge: theme-aware contrast */}
+            {/* Live Count Badge: theme-aware contrast */}
             <View
               style={{
                 backgroundColor: isDark ? 'rgba(250, 204, 21, 0.15)' : '#FFF5D9',
@@ -283,47 +297,148 @@ export function CustomerHomeScreen() {
                   fontWeight: '800',
                 }}
               >
-                {filteredMerchants.length} تجار
+                {searchQueryObj.data?.total ?? merchantCards.length} تجار
               </AppText>
             </View>
           </View>
         </View>
 
-        {/* 6. 2-Column Grid of Merchant Cards */}
+        {/* 5. Main Content Area: Loading, Error, Empty, or 2-Column Grid */}
         <View style={{ paddingHorizontal: 16 }}>
-          {merchantRows.length === 0 ? (
+          {isInitialLoading ? (
+            /* Loading State */
             <View
               style={{
-                paddingVertical: 32,
+                paddingVertical: 48,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                gap: 12,
               }}
             >
-              <AppText variant="heading">لا توجد عروض مطابقة</AppText>
+              <ActivityIndicator size="large" color="#FACC15" />
               <AppText
                 variant="caption"
                 style={{
-                  textAlign: 'center',
                   color: isDark ? colors.neutral : colors.mutedForeground,
+                  fontSize: 12,
                 }}
               >
-                جرّب تغيير الفئة أو المنطقة أو كلمات البحث لعرض العروض المتاحة.
+                جاري استكشاف العروض المتاحة...
               </AppText>
-              <View style={{ marginTop: 8 }}>
-                <AppButton
-                  title="عرض جميع العروض"
-                  variant="secondary"
-                  onPress={() => {
-                    setSelectedCategory('all');
-                    setSelectedArea('all');
-                    setActiveSearchFilter('');
-                    setSearchQuery('');
-                  }}
-                />
-              </View>
+            </View>
+          ) : hasError ? (
+            /* Error State with retry action */
+            <View
+              style={{
+                paddingVertical: 40,
+                paddingHorizontal: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                backgroundColor: colors.neutralSurface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <AlertCircle size={32} color={colors.warning} />
+              <AppText variant="heading" style={{ fontSize: 16, textAlign: 'center' }}>
+                تعذر الاتصال بالخادم
+              </AppText>
+              <AppText
+                variant="caption"
+                style={{
+                  color: isDark ? colors.neutral : colors.mutedForeground,
+                  textAlign: 'center',
+                  fontSize: 12,
+                  lineHeight: 18,
+                }}
+              >
+                حدث خطأ أثناء تحميل بيانات العروض. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.
+              </AppText>
+              <AppButton
+                title="إعادة المحاولة"
+                variant="primary"
+                size="sm"
+                onPress={() => {
+                  void categoriesQuery.refetch();
+                  void searchQueryObj.refetch();
+                }}
+              />
+            </View>
+          ) : merchantRows.length === 0 ? (
+            /* Empty State: Differentiates filtered search from an empty database */
+            <View
+              style={{
+                paddingVertical: 40,
+                paddingHorizontal: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                backgroundColor: colors.neutralSurface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              {isFiltered ? (
+                <>
+                  <AppText variant="heading" style={{ fontSize: 16, textAlign: 'center' }}>
+                    لا توجد عروض مطابقة
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    style={{
+                      textAlign: 'center',
+                      color: isDark ? colors.neutral : colors.mutedForeground,
+                      fontSize: 12,
+                      lineHeight: 18,
+                    }}
+                  >
+                    لم نجد أي عروض تطابق خيارات التصفية الحالية. جرّب تغيير الفئة أو كلمات البحث.
+                  </AppText>
+                  <View style={{ marginTop: 6 }}>
+                    <AppButton
+                      title="عرض جميع العروض"
+                      variant="secondary"
+                      size="sm"
+                      onPress={handleResetFilters}
+                    />
+                  </View>
+                </>
+              ) : (
+                /* Honest Empty Database State without mock fallback */
+                <>
+                  <AppText variant="heading" style={{ fontSize: 16, textAlign: 'center' }}>
+                    لا توجد عروض منشورة حالياً
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    style={{
+                      textAlign: 'center',
+                      color: isDark ? colors.neutral : colors.mutedForeground,
+                      fontSize: 12,
+                      lineHeight: 18,
+                    }}
+                  >
+                    يتم تحديث العروض وإضافة متاجر جديدة باستمرار. ترقبوا انطلاق العروض قريباً!
+                  </AppText>
+                  <View style={{ marginTop: 6 }}>
+                    <AppButton
+                      title="تحديث الصفحة"
+                      variant="secondary"
+                      size="sm"
+                      onPress={() => {
+                        void searchQueryObj.refetch();
+                        void categoriesQuery.refetch();
+                      }}
+                    />
+                  </View>
+                </>
+              )}
             </View>
           ) : (
+            /* 2-Column Grid of Live Merchant Cards */
             <View style={{ gap: 12 }}>
               {merchantRows.map((row, rowIndex) => (
                 <View
@@ -350,7 +465,7 @@ export function CustomerHomeScreen() {
           )}
         </View>
 
-        {/* 7. Footnote Disclaimer */}
+        {/* 6. Footnote Disclaimer */}
         <View style={{ paddingHorizontal: 16 }}>
           <AppText
             variant="caption"
@@ -367,7 +482,7 @@ export function CustomerHomeScreen() {
         </View>
       </ScrollView>
 
-      {/* 8. Bottom Navigation with small yellow underline and NO background highlight */}
+      {/* 7. Bottom Navigation with small yellow underline and NO background highlight */}
       <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} />
 
       {/* Modals & Sheets */}
@@ -390,69 +505,147 @@ export function CustomerHomeScreen() {
         onClose={() => setShowRegionSheet(false)}
       />
 
-      {/* Offer Detail Preview BottomSheet */}
-      {selectedOffer && (
+      {/* Live Offer Detail BottomSheet */}
+      {selectedOfferId && (
         <BottomSheet
-          visible={!!selectedOffer}
+          visible={!!selectedOfferId}
           title="تفاصيل العرض"
-          onClose={() => setSelectedOffer(null)}
+          onClose={() => setSelectedOfferId(null)}
         >
-          <View style={{ gap: 14 }}>
-            <View style={{ gap: 4 }}>
-              <AppText variant="heading" style={{ fontSize: 18, fontWeight: '800' }}>
-                {selectedOffer.title}
-              </AppText>
-              <AppText variant="title" style={{ fontSize: 20, color: colors.foreground, fontWeight: '800' }}>
-                {selectedOffer.price}
-              </AppText>
-              <AppText style={{ color: colors.mutedForeground, fontSize: 13 }}>
-                {selectedOffer.benefit}
-              </AppText>
+          {offerDetailQuery.isLoading ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator size="small" color="#FACC15" />
             </View>
+          ) : offerDetailQuery.data ? (
+            <View style={{ gap: 14 }}>
+              <View style={{ borderRadius: 14, overflow: 'hidden' }}>
+                <OfferMediaImage
+                  offerId={selectedOfferId}
+                  isDark={isDark}
+                  title={offerDetailQuery.data.title}
+                />
+              </View>
+              <View style={{ gap: 4 }}>
+                <AppText variant="heading" style={{ fontSize: 18, fontWeight: '800' }}>
+                  {offerDetailQuery.data.title}
+                </AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                  <AppText
+                    variant="title"
+                    style={{ fontSize: 20, color: colors.foreground, fontWeight: '800' }}
+                  >
+                    {formatDiscoveryPrice(
+                      offerDetailQuery.data.final_price,
+                      offerDetailQuery.data.currency,
+                    )}
+                  </AppText>
+                  {offerDetailQuery.data.original_price != null && (
+                    <AppText
+                      style={{
+                        fontSize: 14,
+                        color: colors.mutedForeground,
+                        textDecorationLine: 'line-through',
+                      }}
+                    >
+                      {formatDiscoveryPrice(
+                        offerDetailQuery.data.original_price,
+                        offerDetailQuery.data.currency,
+                      )}
+                    </AppText>
+                  )}
+                </View>
 
-            <View
-              style={{
-                backgroundColor: colors.neutralSurface,
-                borderRadius: 12,
-                padding: 12,
-                gap: 6,
-              }}
-            >
-              <AppText variant="label" style={{ fontWeight: '700' }}>
-                شروط العرض:
-              </AppText>
-              <AppText variant="caption" style={{ color: colors.mutedForeground, lineHeight: 18 }}>
-                {selectedOffer.conditions}
-              </AppText>
-            </View>
+                {offerDetailQuery.data.benefit_details || offerDetailQuery.data.description ? (
+                  <AppText style={{ color: colors.mutedForeground, fontSize: 13 }}>
+                    {offerDetailQuery.data.benefit_details ?? offerDetailQuery.data.description}
+                  </AppText>
+                ) : null}
+              </View>
 
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-              <View style={{ flex: 1 }}>
-                <AppButton
-                  title="حفظ في المفضلة"
-                  variant="primary"
-                  onPress={() => {
-                    setSelectedOffer(null);
-                    if (!isSignedIn) {
-                      router.push('/sign-in');
-                    } else {
-                      setActiveNotice({
-                        title: 'تم الحفظ',
-                        message: 'تمت إضافة العرض إلى قائمتك المفضلة بنجاح.',
-                      });
-                    }
+              {offerDetailQuery.data.terms ? (
+                <View
+                  style={{
+                    backgroundColor: colors.neutralSurface,
+                    borderRadius: 12,
+                    padding: 12,
+                    gap: 6,
                   }}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <AppButton
-                  title="إغلاق"
-                  variant="outline"
-                  onPress={() => setSelectedOffer(null)}
-                />
+                >
+                  <AppText variant="label" style={{ fontWeight: '700' }}>
+                    شروط العرض:
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    style={{ color: colors.mutedForeground, lineHeight: 18 }}
+                  >
+                    {offerDetailQuery.data.terms}
+                  </AppText>
+                </View>
+              ) : null}
+
+              {offerDetailQuery.data.branches?.length > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.neutralSurface,
+                    borderRadius: 12,
+                    padding: 12,
+                    gap: 6,
+                  }}
+                >
+                  <AppText variant="label" style={{ fontWeight: '700' }}>
+                    الفروع المتاحة:
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    style={{ color: colors.mutedForeground, lineHeight: 18 }}
+                  >
+                    {offerDetailQuery.data.branches
+                      .map((b) => `${b.name} (${b.city}${b.district ? ` - ${b.district}` : ''})`)
+                      .join(' • ')}
+                  </AppText>
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                <View style={{ flex: 1 }}>
+                  <AppButton
+                    title="حفظ في المفضلة"
+                    variant="primary"
+                    onPress={() => {
+                      if (!isSignedIn) {
+                        setSelectedOfferId(null);
+                        router.push('/sign-in');
+                      } else {
+                        setActiveNotice({
+                          title: 'المفضلة',
+                          message:
+                            'ميزة المفضلة المباشرة قيد الإطلاق وسيتم حفظ عروضك تلقائياً بمجرد اكتمالها.',
+                        });
+                      }
+                    }}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppButton
+                    title="إغلاق"
+                    variant="outline"
+                    onPress={() => setSelectedOfferId(null)}
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          ) : (
+            <View style={{ paddingVertical: 16, gap: 10 }}>
+              <AppText style={{ textAlign: 'center', color: colors.mutedForeground }}>
+                تعذر تحميل تفاصيل العرض أو أن العرض لم يعد متاحاً.
+              </AppText>
+              <AppButton
+                title="إغلاق"
+                variant="outline"
+                onPress={() => setSelectedOfferId(null)}
+              />
+            </View>
+          )}
         </BottomSheet>
       )}
 
@@ -464,7 +657,14 @@ export function CustomerHomeScreen() {
           onClose={() => setActiveNotice(null)}
         >
           <View style={{ gap: 16 }}>
-            <AppText style={{ fontSize: 14, color: colors.foreground, lineHeight: 22, textAlign: 'right' }}>
+            <AppText
+              style={{
+                fontSize: 14,
+                color: colors.foreground,
+                lineHeight: 22,
+                textAlign: 'right',
+              }}
+            >
               {activeNotice.message}
             </AppText>
 
