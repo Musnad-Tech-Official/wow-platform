@@ -176,13 +176,7 @@ export function CustomerDiscoverScreen() {
   }
 
   function handleMerchantPress(merchantId: string) {
-    const card = displayedMerchants.find((m) => m.id === merchantId);
-    if (card) {
-      setActiveNotice({
-        title: card.name,
-        message: `متجر ${card.name}${card.categoryName ? ` ضمن قسم ${card.categoryName}` : ''}. صفحة المتجر التفصيلية قيد التطوير في المرحلة القادمة.`,
-      });
-    }
+    router.push({ pathname: '/business/[id]', params: { id: merchantId } });
   }
 
   return (
