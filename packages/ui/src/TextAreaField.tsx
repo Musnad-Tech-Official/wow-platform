@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { TextInput, View, type TextInputProps } from 'react-native';
 import { useWowColors } from '@wow/theme';
 import { AppText } from './AppText';
@@ -11,12 +11,14 @@ export type TextAreaFieldProps = Omit<TextInputProps, 'multiline'> & {
   required?: boolean;
   minHeight?: number;
   maxLength?: number;
+  showCount?: boolean;
+  leading?: ReactNode;
 };
 
 /** Accessible, RTL controlled multi-line field. Never writes to an API itself. */
 export function TextAreaField({
-  label, hint, error, required, minHeight = 120, maxLength, value, editable = true,
-  style, accessibilityLabel, nativeID, ...props
+  label, hint, error, required, minHeight = 120, maxLength, showCount = false, value, editable = true,
+  leading, style, accessibilityLabel, nativeID, ...props
 }: TextAreaFieldProps) {
   const generatedId = useId();
   const id = nativeID ?? generatedId;
@@ -24,28 +26,38 @@ export function TextAreaField({
   const [focused, setFocused] = useState(false);
   return (
     <View {...rtlProps} className="gap-2" style={rtlStyles.layout}>
-      <AppText variant="label" nativeID={`${id}-label`}>{label}{required ? ' *' : ''}</AppText>
-      <TextInput
-        {...rtlProps} {...props} multiline numberOfLines={4} value={value} maxLength={maxLength}
-        onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
-        onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
-        nativeID={id} editable={editable} accessibilityLabel={accessibilityLabel ?? label}
-        accessibilityHint={error ?? hint} aria-invalid={!!error}
-        placeholderTextColor={colors.mutedForeground}
-        style={[rtlStyles.layout, rtlStyles.text, {
-          minHeight, paddingHorizontal: 16, paddingVertical: 12,
-          borderWidth: focused ? 2 : 1.5, borderRadius: 12,
-          borderColor: error ? colors.danger : (focused ? colors.focusRing : colors.controlBorder),
-          backgroundColor: colors.background, color: colors.foreground,
-          fontFamily: 'Tajawal-Regular', fontSize: 16, textAlignVertical: 'top',
-        }, style]}
-      />
+      <AppText variant="label" nativeID={`${id}-label`}>
+        {label}
+        {required ? <AppText style={{ color: colors.warning }}> *</AppText> : ''}
+      </AppText>
+      <View style={{ position: 'relative', width: '100%' }}>
+        {leading ? (
+          <View style={{ position: 'absolute', top: 14, right: 14, zIndex: 1 }} pointerEvents="none">
+            {leading}
+          </View>
+        ) : null}
+        <TextInput
+          {...rtlProps} {...props} multiline numberOfLines={4} value={value} maxLength={maxLength}
+          onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+          onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
+          nativeID={id} editable={editable} accessibilityLabel={accessibilityLabel ?? label}
+          accessibilityHint={error ?? hint} aria-invalid={!!error}
+          placeholderTextColor={colors.mutedForeground}
+          style={[rtlStyles.layout, rtlStyles.text, {
+            minHeight, paddingHorizontal: 16, paddingVertical: 12,
+            borderWidth: focused ? 2 : 1.5, borderRadius: 12,
+            borderColor: error ? colors.danger : (focused ? colors.focusRing : colors.controlBorder),
+            backgroundColor: colors.background, color: colors.foreground,
+            fontFamily: 'Tajawal-Regular', fontSize: 16, textAlignVertical: 'top',
+          }, leading ? { paddingRight: 40 } : undefined, style]}
+        />
+      </View>
       <View className="flex-row items-center justify-between gap-2">
         {error || hint ? (
           <AppText variant="caption" muted={!error} style={error ? { color: colors.danger } : undefined}
             accessibilityLiveRegion={error ? 'polite' : 'none'}>{error ?? hint}</AppText>
         ) : <View />}
-        {maxLength !== undefined ? <AppText variant="caption" muted>{String(value?.length ?? 0)} / {maxLength}</AppText> : null}
+        {maxLength !== undefined && showCount ? <AppText variant="caption" muted>{String(value?.length ?? 0)} / {maxLength}</AppText> : null}
       </View>
     </View>
   );

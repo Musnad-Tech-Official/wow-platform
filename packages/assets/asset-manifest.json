@@ -445,6 +445,20 @@
         640,
         611
       ]
+    },
+    {
+      "id": "onboarding-beacon-and-store",
+      "sourceBundle": "merchant",
+      "sourcePath": "Cheerful Mascot Outside a Cozy Shop.png",
+      "targetPath": "assets/illustrations/merchant/onboarding-beacon-and-store.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 1238742,
+      "sha256": "5658e8fd9da9dafbe5a2c147d53f576dc6a67d5a8055f76211ddfb79d5b382e8",
+      "dimensions": [
+        1774,
+        887
+      ]
     }
   ]
 }

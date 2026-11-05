@@ -16,7 +16,7 @@ export { createWowQueryClient } from './query/query-client';
 export { wowQueryKeys } from './query/query-keys';
 export { useWowSupabaseClient, type WowSupabaseOptions } from './query/use-wow-supabase-client';
 export { useCurrentUser } from './query/hooks/use-current-user';
-export { useMyBusinesses, useBusiness, useCreateBusiness } from './query/hooks/use-businesses';
+export { useMyBusinesses, useBusiness, useBusinessDraftDetails, useCreateBusiness, useCreateBusinessWithCategory, useUpdateBusinessDraft } from './query/hooks/use-businesses';
 export { useBusinessBranches, useCreateBranch } from './query/hooks/use-branches';
 export {
   useBusinessVerifications,

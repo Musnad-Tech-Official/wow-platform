@@ -102,7 +102,7 @@ afterEach(async () => {
 });
 
 test('exports, v5 defaults, query keys and workspace React instances are consistent', () => {
-  for (const name of ['WowQueryProvider', 'createWowQueryClient', 'useWowSupabaseClient', 'getCurrentUser', 'getMyBusinesses', 'getBusiness', 'createBusiness', 'getBusinessBranches', 'createBranch', 'useCurrentUser', 'useMyBusinesses', 'useBusiness', 'useCreateBusiness', 'useBusinessBranches', 'useCreateBranch', 'getBusinessVerifications', 'submitBusinessVerification', 'resubmitBusinessVerification', 'listAdminBusinessVerifications', 'getAdminBusinessVerification', 'decideAdminBusinessVerification', 'useBusinessVerifications', 'useSubmitBusinessVerification', 'useResubmitBusinessVerification', 'useAdminBusinessVerifications', 'useAdminBusinessVerification', 'useAdminDecideBusinessVerification']) assert.equal(typeof api[name], 'function', name);
+  for (const name of ['WowQueryProvider', 'createWowQueryClient', 'useWowSupabaseClient', 'getCurrentUser', 'getMyBusinesses', 'getBusiness', 'getBusinessDraftDetails', 'createBusiness', 'createBusinessWithCategory', 'updateBusinessDraft', 'getBusinessBranches', 'createBranch', 'useCurrentUser', 'useMyBusinesses', 'useBusiness', 'useBusinessDraftDetails', 'useCreateBusiness', 'useCreateBusinessWithCategory', 'useUpdateBusinessDraft', 'useBusinessBranches', 'useCreateBranch', 'getBusinessVerifications', 'submitBusinessVerification', 'resubmitBusinessVerification', 'listAdminBusinessVerifications', 'getAdminBusinessVerification', 'decideAdminBusinessVerification', 'useBusinessVerifications', 'useSubmitBusinessVerification', 'useResubmitBusinessVerification', 'useAdminBusinessVerifications', 'useAdminBusinessVerification', 'useAdminDecideBusinessVerification']) assert.equal(typeof api[name], 'function', name);
   const first = api.createWowQueryClient();
   const second = api.createWowQueryClient();
   assert.notEqual(first, second);
@@ -1254,4 +1254,123 @@ test('session replacement cancels in-flight reads through the Supabase AbortSign
   await update(renderer, provider(h(Inspect), { userId: null, sessionScopeKey: null }));
   assert.equal(aborted, true);
   assert.equal(clients[0].getQueryCache().getAll().length, 0);
+});
+
+test('W03.1 MER-02-01 merchant onboarding RPCs match create and draft-update contracts', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    calls.push({ path, body: options.body ? JSON.parse(options.body) : {} });
+    if (path.endsWith('/wow_update_business_draft')) return response(true);
+    return response(id);
+  };
+
+  const client = makeClient();
+  const createdId = await api.createBusinessWithCategory(client, {
+    name: 'متجر الألوان',
+    requestedCategoryId: otherId,
+    description: 'وصف متجر تجريبي',
+  });
+  assert.equal(createdId, id);
+
+  const updated = await api.updateBusinessDraft(client, {
+    businessId: id,
+    name: 'متجر الألوان المحدث',
+    requestedCategoryId: otherId,
+    description: 'وصف محدث',
+  });
+  assert.equal(updated, true);
+
+  assert.deepEqual(calls, [
+    {
+      path: '/rest/v1/rpc/wow_create_business_with_category',
+      body: { p_name: 'متجر الألوان', p_requested_category_id: otherId, p_description: 'وصف متجر تجريبي' },
+    },
+    {
+      path: '/rest/v1/rpc/wow_update_business_draft',
+      body: { p_business_id: id, p_name: 'متجر الألوان المحدث', p_requested_category_id: otherId, p_description: 'وصف محدث' },
+    },
+  ]);
+});
+
+test('W03.1 MER-02-01 mutations stay idle when signed out and invalidate owner queries on success', async () => {
+  let createMutation;
+  let updateMutation;
+  let queryClient;
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ path: new URL(url).pathname, body: options.body ? JSON.parse(options.body) : {} });
+    if (url.includes('wow_update_business_draft')) return response(true);
+    return response(id);
+  };
+
+  function Inspect() {
+    queryClient = recordClient();
+    createMutation = api.useCreateBusinessWithCategory();
+    updateMutation = api.useUpdateBusinessDraft();
+    return null;
+  }
+
+  // 1. Idle when signed out
+  await mount(provider(h(Inspect), { userId: null, sessionScopeKey: null }));
+  assert.equal(createMutation.status, 'idle');
+  assert.equal(updateMutation.status, 'idle');
+
+  // 2. Authenticated user can execute mutations and invalidates target queries
+  await mount(provider(h(Inspect)));
+  const mineKey = api.wowQueryKeys.businesses.mine('user_a');
+  const detailKey = api.wowQueryKeys.businesses.detail(id, 'user_a');
+  queryClient.setQueryData(mineKey, []);
+  queryClient.setQueryData(detailKey, { id, name: 'Shop' });
+
+  await act(async () => {
+    assert.equal(await createMutation.mutateAsync({ name: 'Shop', requestedCategoryId: otherId }), id);
+  });
+  assert(queryClient.getQueryState(mineKey).isInvalidated);
+  assert(queryClient.getQueryState(detailKey).isInvalidated);
+
+  queryClient.setQueryData(detailKey, { id, name: 'Shop' });
+  await act(async () => {
+    assert.equal(await updateMutation.mutateAsync({ businessId: id, name: 'Shop Updated', requestedCategoryId: otherId }), true);
+  });
+  assert(queryClient.getQueryState(mineKey).isInvalidated);
+  assert(queryClient.getQueryState(detailKey).isInvalidated);
+});
+
+test('P0 pre-migration regression: existing business queries use baseline projections and draft query handles missing column gracefully', async () => {
+  const requests = [];
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url);
+    requests.push({ pathname: parsed.pathname, search: parsed.search });
+
+    // Simulate pre-migration database:
+    // If query requests requested_category_id, PostgREST returns 400 with code 42703
+    if (parsed.search.includes('requested_category_id')) {
+      return response({ code: '42703', message: 'column businesses.requested_category_id does not exist' }, 400);
+    }
+
+    if (parsed.pathname.endsWith('/businesses')) {
+      return response([{ id, name: 'Shop', owner_user_id: 'user_a', status: 'draft', description: 'Sample Description' }]);
+    }
+    return response([]);
+  };
+
+  const client = makeClient();
+
+  // 1. Existing getMyBusinesses selects only baseline columns and succeeds
+  const myBusinesses = await api.getMyBusinesses(client, 'user_a');
+  assert.equal(myBusinesses.length, 1);
+  assert.equal(myBusinesses[0].name, 'Shop');
+  assert(!requests[0].search.includes('requested_category_id'), 'Existing getMyBusinesses must NOT query requested_category_id');
+
+  // 2. Existing getBusiness selects only baseline columns and succeeds
+  const single = await api.getBusiness(client, id);
+  assert.equal(single?.name, 'Shop');
+  assert(!requests[1].search.includes('requested_category_id'), 'Existing getBusiness must NOT query requested_category_id');
+
+  // 3. getBusinessDraftDetails detects missing column error and falls back gracefully to baseline projection
+  const draftDetails = await api.getBusinessDraftDetails(client, id);
+  assert.equal(draftDetails?.name, 'Shop');
+  assert.equal(draftDetails?.description, 'Sample Description');
+  assert.equal(draftDetails?.requested_category_id, null);
 });
