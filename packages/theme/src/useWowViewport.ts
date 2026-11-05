@@ -1,15 +1,25 @@
-import { useWindowDimensions } from 'react-native';
+import { useSyncExternalStore } from 'react';
+import { useWindowDimensions, Platform } from 'react-native';
 import { wowResponsiveTokens } from './tokens';
+
+const emptySubscribe = () => () => {};
 
 /** Responsive viewport widths independent from Android/iOS/Web platform labels. */
 export function useWowViewport() {
   const { width, height, fontScale } = useWindowDimensions();
-  const size = width < wowResponsiveTokens.compact ? 'compact'
-    : width < wowResponsiveTokens.desktop ? 'medium'
-    : width < wowResponsiveTokens.wide ? 'desktop'
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+
+  const effectiveWidth = (Platform.OS === 'web' && !isClient) ? 390 : width;
+  const size = effectiveWidth < wowResponsiveTokens.compact ? 'compact'
+    : effectiveWidth < wowResponsiveTokens.desktop ? 'medium'
+    : effectiveWidth < wowResponsiveTokens.wide ? 'desktop'
     : 'wide';
   return {
-    width,
+    width: effectiveWidth,
     height,
     fontScale,
     size,

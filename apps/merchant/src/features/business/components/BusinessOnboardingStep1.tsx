@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Pressable, ActivityIndicator, BackHandler, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft, ChevronDown, Store, Tag, Pencil, Info } from 'lucide-react-native';
-import { useTheme, useWowColors } from '@wow/theme';
+import { useTheme, useWowColors, useWowViewport } from '@wow/theme';
 import {
   AppButton,
   AppInput,
@@ -24,6 +24,7 @@ import {
 export function BusinessOnboardingStep1(props: UseBusinessOnboardingStep1Props) {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
+  const viewport = useWowViewport();
   const isDark = resolvedTheme === 'dark';
   const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -138,17 +139,18 @@ export function BusinessOnboardingStep1(props: UseBusinessOnboardingStep1Props) 
   return (
     <PageScaffold app="merchant" maxWidth={600} className="bg-background">
       {/* 1. Header Bar */}
-      <View className="w-full flex-row items-center justify-between gap-3 pt-2">
+      <View className="w-full flex-row items-center justify-between gap-2.5 pt-2">
         {/* Right side in RTL: Back button and Title/Eyebrow */}
-        <View className="min-w-0 flex-1 flex-row items-center gap-3">
+        <View className="min-w-0 flex-1 flex-row items-center gap-2.5">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="رجوع"
             onPress={handleBackPress}
-            className="min-h-12 min-w-12 items-center justify-center rounded-xl bg-surface active:opacity-75"
+            className="min-h-12 min-w-12 items-center justify-center rounded-xl active:opacity-75"
             style={{
               width: 48,
               height: 48,
+              backgroundColor: colors.surface,
               borderWidth: 1,
               borderColor: colors.border,
             }}
@@ -160,7 +162,15 @@ export function BusinessOnboardingStep1(props: UseBusinessOnboardingStep1Props) 
             <AppText variant="caption" muted className="font-tajawal-medium">
               طلب تأهيل نشاط
             </AppText>
-            <AppText variant="title" className="font-tajawal-bold" accessibilityRole="header">
+            <AppText
+              variant="heading"
+              className="font-tajawal-bold"
+              accessibilityRole="header"
+              style={{
+                fontSize: viewport.width <= 340 ? 17 : viewport.width < 420 ? 19 : 24,
+                lineHeight: viewport.width <= 340 ? 24 : viewport.width < 420 ? 26 : 32,
+              }}
+            >
               إضافة نشاط تجاري
             </AppText>
           </View>
@@ -169,13 +179,13 @@ export function BusinessOnboardingStep1(props: UseBusinessOnboardingStep1Props) 
         {/* Left side in RTL: Step Badge */}
         <View
           accessibilityLabel="الخطوة 1 من 4"
-          className="shrink-0 rounded-full px-3 py-1.5"
+          className="shrink-0 rounded-full px-2.5 py-1.5"
           style={{ backgroundColor: isDark ? '#422006' : '#FEF3C7' }}
         >
           <AppText
             variant="caption"
             className="font-tajawal-bold"
-            style={{ color: isDark ? '#FDE047' : '#D97706', fontSize: 13 }}
+            style={{ color: isDark ? '#FDE047' : '#D97706', fontSize: 12 }}
           >
             الخطوة 1 من 4
           </AppText>

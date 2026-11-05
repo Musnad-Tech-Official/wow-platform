@@ -3,10 +3,11 @@ import {
   useContext,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 import { VariableContextProvider } from 'nativewind';
 import { wowColorSchemes } from './tokens';
 
@@ -45,6 +46,8 @@ const ThemeContext = createContext<ThemeContextValue | null>(
   null
 );
 
+const emptySubscribe = () => () => {};
+
 export function ThemeProvider({
   children,
 }: {
@@ -52,12 +55,19 @@ export function ThemeProvider({
 }) {
   const systemTheme = useColorScheme();
   const [mode, setMode] = useState<ThemeMode>('system');
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 
   const resolvedTheme: ResolvedTheme =
     mode === 'system'
-      ? systemTheme === 'dark'
-        ? 'dark'
-        : 'light'
+      ? (Platform.OS === 'web' && !isClient)
+        ? 'light'
+        : systemTheme === 'dark'
+          ? 'dark'
+          : 'light'
       : mode;
 
   const contextValue = useMemo(
