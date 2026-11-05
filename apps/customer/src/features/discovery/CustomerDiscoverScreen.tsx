@@ -172,7 +172,7 @@ export function CustomerDiscoverScreen() {
 
   // Detail actions
   function handleOfferPress(offerId: string) {
-    setSelectedOfferId(offerId);
+    router.push({ pathname: '/offer/[id]', params: { id: offerId } });
   }
 
   function handleMerchantPress(merchantId: string) {

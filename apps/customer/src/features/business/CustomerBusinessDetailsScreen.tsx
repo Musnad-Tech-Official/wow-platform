@@ -752,7 +752,18 @@ export function CustomerBusinessDetailsScreen({ businessId }: CustomerBusinessDe
                 </View>
               )}
 
-              <View style={{ marginTop: 8 }}>
+              <View style={{ marginTop: 8, gap: 10 }}>
+                <AppButton
+                  title="عرض صفحة العرض الكاملة"
+                  variant="primary"
+                  onPress={() => {
+                    const targetId = selectedOfferId;
+                    setSelectedOfferId(null);
+                    if (targetId) {
+                      router.push({ pathname: '/offer/[id]', params: { id: targetId } });
+                    }
+                  }}
+                />
                 <AppButton
                   title="إغلاق"
                   variant="outline"
