@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { router } from 'expo-router';
 import { useAuth } from '@wow/auth';
 import {
   useBusinessDraftDetails,
@@ -12,6 +13,7 @@ export interface UseBusinessOnboardingStep1Props {
   businessId?: string | null;
   onBusinessIdCaptured?: (id: string) => void;
   fixtureAuth?: { isLoaded: boolean; isSignedIn: boolean; userId: string | null };
+  onNavigateToStep2?: (businessId: string) => void;
 }
 
 export type FeedbackTone = 'success' | 'error' | 'warning' | 'info';
@@ -41,11 +43,13 @@ export function useBusinessOnboardingStep1({
   businessId: propBusinessId,
   onBusinessIdCaptured,
   fixtureAuth,
+  onNavigateToStep2,
 }: UseBusinessOnboardingStep1Props = {}) {
   const auth = useAuth();
   const isAuthLoaded = fixtureAuth ? fixtureAuth.isLoaded : auth.isLoaded;
   const isSignedIn = fixtureAuth ? fixtureAuth.isSignedIn : auth.isSignedIn;
   const userId = fixtureAuth ? fixtureAuth.userId : auth.userId;
+  const isSyntheticPreview = Boolean(fixtureAuth);
   const [activeBusinessId, setActiveBusinessId] = useState<string | null>(propBusinessId ?? null);
 
   // Scope tracking for strict account and business isolation
@@ -197,6 +201,15 @@ export function useBusinessOnboardingStep1({
     setFeedback(null);
     setIsUncertain(false);
 
+    if (isSyntheticPreview) {
+      setHasUnsavedChanges(false);
+      setFeedback({
+        tone: 'success',
+        text: 'تم حفظ المسودة. يمكنك استكمال الطلب لاحقًا.',
+      });
+      return true;
+    }
+
     try {
       if (activeBusinessId) {
         // Update existing draft
@@ -265,6 +278,7 @@ export function useBusinessOnboardingStep1({
     isReadOnly,
     isSaving,
     validateForDraft,
+    isSyntheticPreview,
     activeBusinessId,
     name,
     categoryId,
@@ -281,6 +295,26 @@ export function useBusinessOnboardingStep1({
 
     setFeedback(null);
     setIsUncertain(false);
+
+    if (isSyntheticPreview) {
+      const syntheticId = activeBusinessId || 'dev-synthetic-business-uuid';
+      setActiveBusinessId(syntheticId);
+      onBusinessIdCaptured?.(syntheticId);
+      setHasUnsavedChanges(false);
+      setFeedback({
+        tone: 'success',
+        text: 'تم حفظ بيانات النشاط. يمكنك استكمال الخطوات التالية عند توفرها.',
+      });
+      if (onNavigateToStep2) {
+        onNavigateToStep2(syntheticId);
+      } else {
+        router.push({
+          pathname: '/business/onboarding/representative',
+          params: { businessId: syntheticId, preview: '1' },
+        });
+      }
+      return true;
+    }
 
     try {
       let currentId = activeBusinessId;
@@ -304,12 +338,20 @@ export function useBusinessOnboardingStep1({
       }
 
       setHasUnsavedChanges(false);
-      // Because MER-02-02 (Step 2) is not yet implemented in this assignment,
-      // report truthful progression status rather than jumping to a fake route.
+      // Retain approved feedback string for backwards compatibility and screen state
       setFeedback({
         tone: 'success',
         text: 'تم حفظ بيانات النشاط. يمكنك استكمال الخطوات التالية عند توفرها.',
       });
+
+      if (onNavigateToStep2) {
+        onNavigateToStep2(currentId);
+      } else {
+        router.push({
+          pathname: '/business/onboarding/representative',
+          params: { businessId: currentId },
+        });
+      }
       return true;
     } catch (err: unknown) {
       if (isDeploymentPendingError(err)) {
@@ -346,6 +388,7 @@ export function useBusinessOnboardingStep1({
     isReadOnly,
     isSaving,
     validateForContinue,
+    isSyntheticPreview,
     activeBusinessId,
     name,
     categoryId,
@@ -353,6 +396,7 @@ export function useBusinessOnboardingStep1({
     updateMutation,
     createMutation,
     onBusinessIdCaptured,
+    onNavigateToStep2,
   ]);
 
   // Reconcile uncertain state

@@ -33,6 +33,29 @@ export interface UpdateBusinessDraftInput {
   description?: string | null;
 }
 
+export type RepresentativeRole = 'owner' | 'authorized_representative' | 'legal_agent' | 'manager';
+
+export interface BusinessRepresentativeDraft {
+  business_id: string;
+  name: string;
+  role: RepresentativeRole;
+  evidence_storage_key?: string | null;
+  evidence_file_name?: string | null;
+  evidence_file_size?: number | null;
+  evidence_content_type?: string | null;
+  updated_at?: string;
+}
+
+export interface SaveBusinessRepresentativeDraftInput {
+  businessId: string;
+  name: string;
+  role: RepresentativeRole;
+  evidenceStorageKey?: string | null;
+  evidenceFileName?: string | null;
+  evidenceFileSize?: number | null;
+  evidenceContentType?: string | null;
+}
+
 /** Existing business listing query; preserves baseline schema projection without requiring new migrations. */
 export async function getMyBusinesses(client: WowSupabaseClient, userId: string, signal?: AbortSignal): Promise<Business[]> {
   let request = client.from('businesses').select('id,name,owner_user_id,status').eq('owner_user_id', userId).order('id');
@@ -122,6 +145,55 @@ export async function updateBusinessDraft(
     p_name: input.name,
     p_requested_category_id: input.requestedCategoryId ?? null,
     p_description: input.description ?? null,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/** Scoped representative draft loader with pre-migration database tolerance. */
+export async function getBusinessRepresentativeDraft(
+  client: WowSupabaseClient,
+  businessId: string,
+  signal?: AbortSignal
+): Promise<BusinessRepresentativeDraft | null> {
+  let request = client.rpc('wow_get_business_representative_draft', {
+    p_business_id: businessId,
+  });
+  if (signal) request = request.abortSignal(signal);
+
+  const { data, error } = await request;
+  if (error) {
+    const isMissing =
+      error.code === '42883' ||
+      error.code === 'PGRST202' ||
+      error.code === '42P01' ||
+      Boolean(
+        error.message &&
+          /could not find the function|function .* does not exist|relation .* does not exist/i.test(
+            error.message
+          )
+      );
+
+    if (isMissing) {
+      return null;
+    }
+    throw error;
+  }
+  return (data as BusinessRepresentativeDraft | null) ?? null;
+}
+
+export async function saveBusinessRepresentativeDraft(
+  client: WowSupabaseClient,
+  input: SaveBusinessRepresentativeDraftInput
+): Promise<boolean> {
+  const { data, error } = await client.rpc('wow_save_business_representative_draft', {
+    p_business_id: input.businessId,
+    p_name: input.name,
+    p_role: input.role,
+    p_evidence_storage_key: input.evidenceStorageKey ?? null,
+    p_evidence_file_name: input.evidenceFileName ?? null,
+    p_evidence_file_size: input.evidenceFileSize ?? null,
+    p_evidence_content_type: input.evidenceContentType ?? null,
   });
   if (error) throw error;
   return Boolean(data);

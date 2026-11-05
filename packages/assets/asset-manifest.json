@@ -459,6 +459,20 @@
         1774,
         887
       ]
+    },
+    {
+      "id": "onboarding-beacon-delegate",
+      "sourceBundle": "merchant",
+      "sourcePath": "MER-02-02_BEACON_DELEGATE_OWNER_FINAL_NO_LETTER.png",
+      "targetPath": "assets/illustrations/merchant/onboarding-beacon-delegate.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 1520149,
+      "sha256": "036732745cd1875b27612564d03bdd71b257161b2cfdcb360c9b98e27460ccc9",
+      "dimensions": [
+        1815,
+        866
+      ]
     }
   ]
 }

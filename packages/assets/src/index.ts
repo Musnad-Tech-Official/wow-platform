@@ -35,6 +35,7 @@ export const wowIllustrations = {
     beaconThinking: require("../assets/illustrations/merchant/beacon-thinking.webp"),
     beaconWelcome: require("../assets/illustrations/merchant/beacon-welcome.webp"),
     onboardingBeaconStore: require("../assets/illustrations/merchant/onboarding-beacon-and-store.png"),
+    onboardingBeaconDelegate: require("../assets/illustrations/merchant/onboarding-beacon-delegate.png"),
   },
   admin: {
     beaconEmpty: require("../assets/illustrations/admin/beacon-empty.webp"),

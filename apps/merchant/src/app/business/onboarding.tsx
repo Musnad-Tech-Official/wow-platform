@@ -42,6 +42,16 @@ export default function BusinessOnboardingScreen() {
       onBusinessIdCaptured={(newId) => {
         router.setParams({ businessId: newId });
       }}
+      onNavigateToStep2={(savedBusinessId) => {
+        const params: Record<string, string> = { businessId: savedBusinessId };
+        if (isPreview) {
+          params.preview = '1';
+        }
+        router.push({
+          pathname: '/business/onboarding/representative',
+          params,
+        });
+      }}
     />
   );
 }
