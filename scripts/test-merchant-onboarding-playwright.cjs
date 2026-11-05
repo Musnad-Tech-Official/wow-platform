@@ -9,7 +9,27 @@ const os = require('os');
 const { execSync } = require('child_process');
 const { chromium } = require('playwright');
 
-const APPROVED_REFERENCE_PATH = '/home/shaher/.gemini/antigravity-cli/brain/3c6704f2-e6e5-4696-8c46-6f7d8b570f48/.user_uploaded/uploaded_media_1793726185212.png';
+// Reference image path: configurable via environment variable WOW_MER_02_01_REFERENCE_PNG.
+// Never hardcodes developer-specific absolute paths in source code.
+const APPROVED_REFERENCE_PATH = process.env.WOW_MER_02_01_REFERENCE_PNG || '';
+
+function resolveBrowserExecutable() {
+  if (process.env.PLAYWRIGHT_CHROME_EXECUTABLE && fs.existsSync(process.env.PLAYWRIGHT_CHROME_EXECUTABLE)) {
+    return process.env.PLAYWRIGHT_CHROME_EXECUTABLE;
+  }
+  const candidates = [
+    '/usr/bin/brave-browser',
+    '/usr/bin/brave',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return undefined;
+}
 
 const VIEWPORTS = [
   { width: 320, height: 700, label: '320x700' },
@@ -114,15 +134,16 @@ async function runSuite() {
     const baseUrl = `http://127.0.0.1:${port}`;
     console.log(`[Playwright] Server running at ${baseUrl}`);
 
-    console.log('[Playwright] Launching Brave Browser in headless mode...');
+    const browserExec = resolveBrowserExecutable();
+    console.log(`[Playwright] Launching Chromium-compatible browser (${browserExec ? browserExec : 'Playwright bundled'})...`);
     browser = await chromium.launch({
-      executablePath: '/usr/bin/brave',
+      executablePath: browserExec,
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
     });
 
     const browserVersion = browser.version();
-    console.log(`[Playwright] Browser launched: Brave ${browserVersion}`);
+    console.log(`[Playwright] Browser launched successfully: version ${browserVersion}`);
 
     // Helper to setup mock routes for safe fixtures
     const setupMockRoutes = async (context, categoryResponse = MOCK_CATEGORIES, categoryStatus = 200) => {
@@ -563,85 +584,270 @@ async function runSuite() {
     }
 
     // ============================================================
-    // TEST 8: In-Memory Reference Visual Fidelity Comparison by Region
+    // TEST 8: Ephemeral Reference Visual Fidelity Comparison by Region
     // ============================================================
-    console.log('[Playwright] Comparing live 390x844 render against approved reference image in memory...');
-    {
+    console.log('[Playwright] Reviewing visual fidelity against approved reference image...');
+    if (!APPROVED_REFERENCE_PATH || !fs.existsSync(APPROVED_REFERENCE_PATH)) {
+      console.log('[Playwright] WOW_MER_02_01_REFERENCE_PNG environment variable not provided or file does not exist.');
+      results.tests.push({
+        name: 'Approved reference visual fidelity review',
+        pass: false,
+        status: 'BLOCKED',
+        details: `REFERENCE-FIDELITY: BLOCKED / NOT VERIFIED — WOW_MER_02_01_REFERENCE_PNG environment variable not set or file not found at "${APPROVED_REFERENCE_PATH || ''}". Supply an absolute path to the approved reference PNG to execute quantitative visual verification.`,
+      });
+    } else {
+      console.log(`[Playwright] Approved reference found at "${APPROVED_REFERENCE_PATH}". Executing quantitative region-by-region review...`);
       const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
       await setupMockRoutes(context);
       const page = await context.newPage();
       await page.goto(`${baseUrl}/business/onboarding?preview=1`, { waitUntil: 'domcontentloaded' });
       await page.evaluate(() => document.fonts.ready);
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(600);
+
+      // Measure full scrollable content height to capture complete unclipped screen
+      const contentHeight = await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('*')).filter((el) => el.innerText === 'حفظ كمسودة');
+        if (btns.length > 0) {
+          const rect = btns[0].getBoundingClientRect();
+          return Math.ceil(rect.bottom + window.scrollY + 60);
+        }
+        return 1280;
+      });
+
+      await page.setViewportSize({ width: 390, height: Math.max(contentHeight, 844) });
+      await page.waitForTimeout(300);
 
       // Ephemeral screenshot in-memory
       const liveBuffer = await page.screenshot({ fullPage: true });
 
-      // Measure exact rendered artwork bounding box
-      const bannerImgBox = await page.locator('img[alt="شخصية بيكن أمام المتجر"]').boundingBox();
-      const bx = Math.max(0, Math.round(bannerImgBox?.x ?? 20));
-      const by = Math.max(0, Math.round(bannerImgBox?.y ?? 150));
-      const bw = Math.round(bannerImgBox?.width ?? 140);
-      const bh = Math.round(bannerImgBox?.height ?? 70);
-
       // Save liveBuffer ephemerally in OS temp only for visual comparison tool, then immediately delete
       const tempLiveFile = path.join(ephemeralTempDir, 'live_eval.png');
+      const tempPyFile = path.join(ephemeralTempDir, 'compare_regions.py');
       fs.writeFileSync(tempLiveFile, liveBuffer);
 
-      // Run Python visual comparison script
-      const tempPyFile = path.join(ephemeralTempDir, 'compare.py');
       const compScript = `
+import sys
+import json
 from PIL import Image
 
-ref = Image.open('${APPROVED_REFERENCE_PATH}')
-live = Image.open('${tempLiveFile}')
+ref_path = ${JSON.stringify(APPROVED_REFERENCE_PATH)}
+live_path = ${JSON.stringify(tempLiveFile)}
+
+try:
+    ref = Image.open(ref_path).convert('RGB')
+    live = Image.open(live_path).convert('RGB')
+except Exception as e:
+    print(json.dumps({'error': f'Failed to load images: {e}'}))
+    sys.exit(0)
 
 rw, rh = ref.size
 lw, lh = live.size
 
-print(f'Reference size: {rw}x{rh}, Live render size: {lw}x{lh}')
+# Validate reference image dimensions (portrait ~941x1672 or aspect ratio ~1.777 +- 0.05)
+aspect_ratio = rh / rw
+if rw < 600 or rh < 1000 or abs(aspect_ratio - (1672 / 941)) > 0.08:
+    print(json.dumps({
+        'error': f'Invalid reference image dimensions: {rw}x{rh} (aspect ratio {aspect_ratio:.3f}, expected ~1.777)'
+    }))
+    sys.exit(0)
 
-# Check exact banner artwork bounding box crop for composite art presence
-banner_crop = live.crop((${bx}, ${by}, ${bx + bw}, ${by + bh}))
-has_composite_art = False
-for pixel in banner_crop.convert('RGB').getdata():
-    r, g, b = pixel[:3]
-    if r > 200 and g > 150 and b < 80:
-        has_composite_art = True
-        break
+# Crop ref to content area (exclude status bar ~90px and home bar ~62px)
+ref_content = ref.crop((0, int(0.054 * rh), rw, int(0.963 * rh)))
+rcw, rch = ref_content.size
 
-has_primary_yellow = False
-has_info_amber = False
-for pixel in live.convert('RGB').getdata():
-    r, g, b = pixel[:3]
-    if r > 240 and g > 190 and b < 70:
-        has_primary_yellow = True
-    if r > 240 and g > 230 and b < 200:
-        has_info_amber = True
-    if has_primary_yellow and has_info_amber:
-        break
+ref_px = ref_content.load()
+live_px = live.load()
 
-print(f'Primary yellow detected: {has_primary_yellow}')
-print(f'Info amber detected: {has_info_amber}')
-print(f'Composite artwork detected: {has_composite_art}')
+results = {}
+
+# 1. Header (y: 0.00 .. 0.08)
+# Verify back arrow on right and step badge on left
+r_h_end = int(0.08 * rch)
+l_h_end = int(0.08 * lh)
+r_arrow = sum(1 for y in range(0, r_h_end) for x in range(int(0.75 * rcw), rcw) if sum(ref_px[x, y]) < 150)
+l_arrow = sum(1 for y in range(0, l_h_end) for x in range(int(0.75 * lw), lw) if sum(live_px[x, y]) < 150)
+r_badge = sum(1 for y in range(0, r_h_end) for x in range(0, int(0.35 * rcw)) if ref_px[x, y][0] > 240 and ref_px[x, y][1] > 220 and ref_px[x, y][2] > 180)
+l_badge = sum(1 for y in range(0, l_h_end) for x in range(0, int(0.35 * lw)) if live_px[x, y][0] > 240 and live_px[x, y][1] > 220 and live_px[x, y][2] > 180)
+results['header'] = {
+    'pass': bool(r_arrow > 20 and l_arrow > 10 and r_badge > 200 and l_badge > 100),
+    'details': f'Back arrow right (ref={r_arrow}, live={l_arrow}), Step badge left (ref={r_badge}, live={l_badge})'
+}
+
+# 2. Stepper (y: 0.08 .. 0.17)
+# Verify step 1 yellow circle on right, track line across middle
+r_s_start, r_s_end = int(0.08 * rch), int(0.17 * rch)
+l_s_start, l_s_end = int(0.08 * lh), int(0.17 * lh)
+r_s1 = sum(1 for y in range(r_s_start, r_s_end) for x in range(int(0.65 * rcw), rcw) if ref_px[x, y][0] > 240 and ref_px[x, y][1] > 180 and ref_px[x, y][2] < 70)
+l_s1 = sum(1 for y in range(l_s_start, l_s_end) for x in range(int(0.65 * lw), lw) if live_px[x, y][0] > 240 and live_px[x, y][1] > 180 and live_px[x, y][2] < 70)
+r_line = sum(1 for y in range(r_s_start, r_s_end) for x in range(int(0.2 * rcw), int(0.8 * rcw)) if 200 < sum(ref_px[x, y])/3 < 240)
+l_line = sum(1 for y in range(l_s_start, l_s_end) for x in range(int(0.2 * lw), int(0.8 * lw)) if 200 < sum(live_px[x, y])/3 < 240)
+results['stepper'] = {
+    'pass': bool(r_s1 > 100 and l_s1 > 50 and r_line > 500 and l_line > 200),
+    'details': f'Step 1 yellow right (ref={r_s1}, live={l_s1}), Track line (ref={r_line}, live={l_line})'
+}
+
+# 3. Banner (y: 0.17 .. 0.30)
+# Verify composite mascot artwork on left, no duplicate mascot on right, warm container background
+r_b_start, r_b_end = int(0.17 * rch), int(0.30 * rch)
+l_b_start, l_b_end = int(0.17 * lh), int(0.30 * lh)
+r_mascot_l = sum(1 for y in range(r_b_start, r_b_end) for x in range(0, int(0.45 * rcw)) if ref_px[x, y][0] > 230 and ref_px[x, y][1] > 180 and ref_px[x, y][2] < 70)
+l_mascot_l = sum(1 for y in range(l_b_start, l_b_end) for x in range(0, int(0.45 * lw)) if live_px[x, y][0] > 230 and live_px[x, y][1] > 180 and live_px[x, y][2] < 70)
+r_mascot_r = sum(1 for y in range(r_b_start, r_b_end) for x in range(int(0.50 * rcw), rcw) if ref_px[x, y][0] > 230 and ref_px[x, y][1] > 180 and ref_px[x, y][2] < 70)
+l_mascot_r = sum(1 for y in range(l_b_start, l_b_end) for x in range(int(0.50 * lw), lw) if live_px[x, y][0] > 230 and live_px[x, y][1] > 180 and live_px[x, y][2] < 70)
+results['banner'] = {
+    'pass': bool(r_mascot_l > 200 and l_mascot_l > 100 and r_mascot_r < 50 and l_mascot_r < 50),
+    'details': f'Mascot on left (ref={r_mascot_l}, live={l_mascot_l}), Mascot absent on right (ref={r_mascot_r}, live={l_mascot_r})'
+}
+
+# 4. Form Card (y: 0.30 .. 0.72)
+# Verify bordered card and input field containers
+r_f_start, r_f_end = int(0.30 * rch), int(0.72 * rch)
+l_f_start, l_f_end = int(0.30 * lh), int(0.72 * lh)
+r_fld = sum(1 for y in range(r_f_start, r_f_end) for x in range(int(0.05 * rcw), int(0.95 * rcw)) if 200 < sum(ref_px[x, y])/3 < 240)
+l_fld = sum(1 for y in range(l_f_start, l_f_end) for x in range(int(0.05 * lw), int(0.95 * lw)) if 200 < sum(live_px[x, y])/3 < 240)
+results['form_card'] = {
+    'pass': bool(r_fld > 2000 and l_fld > 1000),
+    'details': f'Card field borders & backgrounds (ref={r_fld}, live={l_fld})'
+}
+
+# 5. Info Notice (y: 0.72 .. 0.83)
+# Verify amber notice box
+r_i_start, r_i_end = int(0.72 * rch), int(0.83 * rch)
+l_i_start, l_i_end = int(0.72 * lh), int(0.83 * lh)
+r_amber = sum(1 for y in range(r_i_start, r_i_end) for x in range(0, rcw) if ref_px[x, y][0] > 240 and ref_px[x, y][1] > 230 and 180 < ref_px[x, y][2] < 240)
+l_amber = sum(1 for y in range(l_i_start, l_i_end) for x in range(0, lw) if live_px[x, y][0] > 240 and live_px[x, y][1] > 230 and 180 < live_px[x, y][2] < 240)
+results['info_notice'] = {
+    'pass': bool(r_amber > 400 and l_amber > 200),
+    'details': f'Amber notice box (ref={r_amber}, live={l_amber})'
+}
+
+# 6. Action CTAs (y: 0.83 .. 1.00)
+# Verify primary yellow button and secondary button
+r_c_start, r_c_end = int(0.83 * rch), rch
+l_c_start, l_c_end = int(0.83 * lh), lh
+r_py = sum(1 for y in range(r_c_start, r_c_end) for x in range(0, rcw) if ref_px[x, y][0] > 240 and ref_px[x, y][1] > 180 and ref_px[x, y][2] < 70)
+l_py = sum(1 for y in range(l_c_start, l_c_end) for x in range(0, lw) if live_px[x, y][0] > 240 and live_px[x, y][1] > 180 and live_px[x, y][2] < 70)
+results['action_ctas'] = {
+    'pass': bool(r_py > 500 and l_py > 250),
+    'details': f'Primary yellow CTA button (ref={r_py}, live={l_py})'
+}
+
+all_pass = all(v['pass'] for v in results.values())
+print(json.dumps({
+    'all_pass': all_pass,
+    'ref_size': f'{rw}x{rh}',
+    'live_size': f'{lw}x{lh}',
+    'regions': results
+}))
 `;
       fs.writeFileSync(tempPyFile, compScript);
-      const compOutput = execSync(`python3 "${tempPyFile}"`, { encoding: 'utf-8' });
-      fs.unlinkSync(tempPyFile);
-      console.log('[Playwright] Ephemeral visual comparison output:\n' + compOutput.trim());
+      let compOutput = '';
+      try {
+        compOutput = execSync(`python3 "${tempPyFile}"`, { encoding: 'utf-8' });
+      } finally {
+        if (fs.existsSync(tempPyFile)) fs.unlinkSync(tempPyFile);
+        if (fs.existsSync(tempLiveFile)) fs.unlinkSync(tempLiveFile);
+      }
 
-      results.tests.push({
-        name: 'Ephemeral reference visual fidelity comparison against approved image',
-        pass: compOutput.includes('Primary yellow detected: True') && compOutput.includes('Composite artwork detected: True'),
-        details: compOutput.trim().replace(/\n/g, '; '),
-      });
+      console.log('[Playwright] Region-by-region visual comparison output:\n' + compOutput.trim());
 
-      // Immediately delete tempLiveFile
-      if (fs.existsSync(tempLiveFile)) {
-        fs.unlinkSync(tempLiveFile);
+      let parsedComparison = null;
+      try {
+        parsedComparison = JSON.parse(compOutput.trim());
+      } catch (parseErr) {
+        parsedComparison = { error: 'Failed to parse visual comparison output: ' + parseErr.message };
+      }
+
+      if (parsedComparison && parsedComparison.all_pass) {
+        const regionSummaries = Object.entries(parsedComparison.regions)
+          .map(([k, v]) => `${k}=PASS (${v.details})`)
+          .join('; ');
+        results.tests.push({
+          name: 'Approved reference visual fidelity review (6 semantic regions evaluated quantitatively)',
+          pass: true,
+          status: 'PASS',
+          details: `Ref: ${parsedComparison.ref_size}, Live: ${parsedComparison.live_size}; ${regionSummaries}`,
+        });
+      } else {
+        const errDetail = parsedComparison?.error || JSON.stringify(parsedComparison?.regions || 'Unknown mismatch');
+        results.tests.push({
+          name: 'Approved reference visual fidelity review (6 semantic regions evaluated quantitatively)',
+          pass: false,
+          status: 'FAIL',
+          details: `Visual region mismatch: ${errDetail}`,
+        });
       }
 
       await context.close();
+    }
+
+    // ============================================================
+    // TEST 9: Production Web Build: Preview Isolation Gate
+    // Verify that ?preview=1 / ?preview=unsigned / crafted params
+    // are completely inert in a non---dev release export.
+    // ============================================================
+    console.log('[Playwright] Building ephemeral production web bundle in OS temp (non---dev)...');
+    const prodExportDir = path.join(ephemeralTempDir, 'export-prod');
+    execSync(`pnpm --filter merchant exec expo export -p web --output-dir "${prodExportDir}"`, {
+      stdio: 'pipe',
+      timeout: 180000,
+    });
+
+    const prodServer = createStaticServer(prodExportDir);
+    await new Promise((resolve) => prodServer.listen(0, '127.0.0.1', resolve));
+    const prodPort = prodServer.address().port;
+    const prodBaseUrl = `http://127.0.0.1:${prodPort}`;
+    console.log(`[Playwright] Production static server running at ${prodBaseUrl}`);
+
+    try {
+      const prodContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      // Block all network requests to remote Supabase to guarantee test isolation
+      await prodContext.route(/supabase\.co/, (route) => {
+        route.abort('blockedbyclient');
+      });
+
+      const prodPage = await prodContext.newPage();
+
+      // 1. ?preview=1 in production must NOT expose synthetic merchant session or form inputs
+      await prodPage.goto(`${prodBaseUrl}/business/onboarding?preview=1`, { waitUntil: 'domcontentloaded' });
+      await prodPage.waitForTimeout(1000);
+
+      const formInputCountPreview1 = await prodPage.locator('input[placeholder="مثال: دار الألوان"]').count();
+      const syntheticUserExposed = await prodPage.evaluate(() => {
+        return document.body.innerText.includes('dev_synthetic_merchant_user');
+      });
+      const hasAuthProtection = await prodPage.evaluate(() => {
+        const text = document.body.innerText;
+        return text.includes('تسجيل الدخول مطلوب') || text.includes('جارٍ التحقق من تسجيل الدخول');
+      });
+
+      // 2. ?preview=unsigned in production must not bypass Clerk or crash
+      await prodPage.goto(`${prodBaseUrl}/business/onboarding?preview=unsigned`, { waitUntil: 'domcontentloaded' });
+      await prodPage.waitForTimeout(500);
+      const formInputCountPreviewUnsigned = await prodPage.locator('input[placeholder="مثال: دار الألوان"]').count();
+
+      // 3. Crafted query parameters (?preview=admin&preview=true&bypass=1)
+      await prodPage.goto(`${prodBaseUrl}/business/onboarding?preview=admin&preview=true&bypass=1`, { waitUntil: 'domcontentloaded' });
+      await prodPage.waitForTimeout(500);
+      const formInputCountCrafted = await prodPage.locator('input[placeholder="مثال: دار الألوان"]').count();
+
+      const prodIsolationPass =
+        formInputCountPreview1 === 0 &&
+        formInputCountPreviewUnsigned === 0 &&
+        formInputCountCrafted === 0 &&
+        !syntheticUserExposed &&
+        hasAuthProtection;
+
+      results.tests.push({
+        name: 'Production web build: preview parameters (?preview=1, ?preview=unsigned, crafted values) are completely inert in release exports',
+        pass: prodIsolationPass,
+        status: prodIsolationPass ? 'PASS' : 'FAIL',
+        details: `Form exposed in prod: ${formInputCountPreview1 > 0}, Synthetic user exposed: ${syntheticUserExposed}, Auth protection active: ${hasAuthProtection}`,
+      });
+
+      await prodContext.close();
+    } finally {
+      prodServer.close();
     }
 
   } finally {
@@ -672,9 +878,11 @@ runSuite()
     console.log('\n================ PLAYWRIGHT EXECUTION REPORT ================');
     console.log(`Total unit/interaction tests: ${res.tests.length}`);
     let passCount = 0;
+    let blockedCount = 0;
     for (const t of res.tests) {
-      const mark = t.pass ? 'PASS' : 'FAIL';
+      const mark = t.status === 'BLOCKED' ? 'BLOCKED' : t.pass ? 'PASS' : 'FAIL';
       if (t.pass) passCount++;
+      if (t.status === 'BLOCKED') blockedCount++;
       console.log(`[${mark}] ${t.name} (${t.details})`);
     }
 
@@ -689,7 +897,7 @@ runSuite()
     console.log(`\nEphemeral Artifact Cleanup Verified: ${res.cleanupConfirmed ? 'YES - All temporary images and build dirs destroyed' : 'NO'}`);
     console.log('============================================================\n');
 
-    if (passCount !== res.tests.length || vpPass !== res.viewportInspections.length) {
+    if (passCount !== res.tests.length || vpPass !== res.viewportInspections.length || !res.cleanupConfirmed || blockedCount > 0) {
       process.exit(1);
     }
   })
