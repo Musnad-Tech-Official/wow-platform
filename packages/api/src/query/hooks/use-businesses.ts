@@ -4,11 +4,15 @@ import {
   createBusinessWithCategory,
   getBusiness,
   getBusinessDraftDetails,
+  getBusinessRepresentativeDraft,
   getMyBusinesses,
+  saveBusinessRepresentativeDraft,
   updateBusinessDraft,
   type BusinessDraftDetails,
+  type BusinessRepresentativeDraft,
   type CreateBusinessInput,
   type CreateBusinessWithCategoryInput,
+  type SaveBusinessRepresentativeDraftInput,
   type UpdateBusinessDraftInput,
 } from '../../businesses';
 import { requireWowApiSession, useWowApiContext } from '../WowQueryProvider';
@@ -92,6 +96,41 @@ export function useUpdateBusinessDraft() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.mine(context.userId), exact: true }),
         queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(variables.businessId, context.userId), exact: true }),
+      ]);
+    },
+  });
+}
+
+/** Scoped hook for representative draft details with graceful pre-migration fallback. */
+export function useBusinessRepresentativeDraft(businessId?: string | null) {
+  const context = useWowApiContext();
+  return useQuery<BusinessRepresentativeDraft | null>({
+    queryKey: wowQueryKeys.businesses.representativeDraft(businessId ?? null, context.userId),
+    enabled: !!context.userId && !!businessId,
+    queryFn: ({ signal }) => {
+      const { client } = requireWowApiSession(context);
+      if (!businessId) throw new Error('A business ID is required.');
+      return getBusinessRepresentativeDraft(client, businessId, signal);
+    },
+  });
+}
+
+export function useSaveBusinessRepresentativeDraft() {
+  const context = useWowApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SaveBusinessRepresentativeDraftInput) =>
+      saveBusinessRepresentativeDraft(requireWowApiSession(context).client, input),
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: wowQueryKeys.businesses.representativeDraft(variables.businessId, context.userId),
+          exact: true,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: wowQueryKeys.businesses.detail(variables.businessId, context.userId),
+          exact: true,
+        }),
       ]);
     },
   });

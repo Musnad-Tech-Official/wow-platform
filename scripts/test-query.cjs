@@ -1374,3 +1374,123 @@ test('P0 pre-migration regression: existing business queries use baseline projec
   assert.equal(draftDetails?.description, 'Sample Description');
   assert.equal(draftDetails?.requested_category_id, null);
 });
+
+test('W03.2 MER-02-02 merchant onboarding representative RPCs match save and get contracts', async () => {
+  const captured = [];
+  globalThis.fetch = async (url, options) => {
+    const parsed = new URL(url);
+    const body = options?.body ? JSON.parse(options.body) : null;
+    captured.push({ path: parsed.pathname, body });
+    if (parsed.pathname.endsWith('wow_save_business_representative_draft')) {
+      return response(true);
+    }
+    if (parsed.pathname.endsWith('wow_get_business_representative_draft')) {
+      return response({
+        business_id: id,
+        name: 'أحمد محمد صالح',
+        role: 'owner',
+        evidence_storage_key: `business-verifications/${id}/user_a/0123456789abcdef0123456789abcdef0123456789abcdef.pdf`,
+        evidence_file_name: 'تفويض.pdf',
+        evidence_file_size: 1024,
+        evidence_content_type: 'application/pdf',
+      });
+    }
+    return response(null);
+  };
+
+  const client = makeClient();
+
+  // Test saveBusinessRepresentativeDraft
+  const saveSuccess = await api.saveBusinessRepresentativeDraft(client, {
+    businessId: id,
+    name: 'أحمد محمد صالح',
+    role: 'owner',
+    evidenceStorageKey: `business-verifications/${id}/user_a/0123456789abcdef0123456789abcdef0123456789abcdef.pdf`,
+    evidenceFileName: 'تفويض.pdf',
+    evidenceFileSize: 1024,
+    evidenceContentType: 'application/pdf',
+  });
+  assert.equal(saveSuccess, true);
+  assert.deepEqual(captured[0], {
+    path: '/rest/v1/rpc/wow_save_business_representative_draft',
+    body: {
+      p_business_id: id,
+      p_name: 'أحمد محمد صالح',
+      p_role: 'owner',
+      p_evidence_storage_key: `business-verifications/${id}/user_a/0123456789abcdef0123456789abcdef0123456789abcdef.pdf`,
+      p_evidence_file_name: 'تفويض.pdf',
+      p_evidence_file_size: 1024,
+      p_evidence_content_type: 'application/pdf',
+    },
+  });
+
+  // Test getBusinessRepresentativeDraft
+  const repDraft = await api.getBusinessRepresentativeDraft(client, id);
+  assert.equal(repDraft?.name, 'أحمد محمد صالح');
+  assert.equal(repDraft?.role, 'owner');
+  assert.equal(repDraft?.evidence_file_name, 'تفويض.pdf');
+  assert.deepEqual(captured[1], {
+    path: '/rest/v1/rpc/wow_get_business_representative_draft',
+    body: {
+      p_business_id: id,
+    },
+  });
+});
+
+test('W03.2 MER-02-02 mutations stay idle when signed out and invalidate owner queries on success', async () => {
+  let repMutation;
+  let queryClient;
+  const captured = [];
+  globalThis.fetch = async (url, options) => {
+    const parsed = new URL(url);
+    const body = options?.body ? JSON.parse(options.body) : null;
+    captured.push({ path: parsed.pathname, body });
+    if (parsed.pathname.endsWith('wow_save_business_representative_draft')) {
+      return response(true);
+    }
+    return response(null);
+  };
+
+  function InspectRep() {
+    queryClient = recordClient();
+    repMutation = api.useSaveBusinessRepresentativeDraft();
+    return null;
+  }
+
+  // 1. Idle when signed out
+  await mount(provider(h(InspectRep), { userId: null, sessionScopeKey: null }));
+  assert.equal(repMutation.status, 'idle');
+
+  // 2. Authenticated user can execute mutation and invalidates target queries
+  await mount(provider(h(InspectRep)));
+  const repKey = api.wowQueryKeys.businesses.representativeDraft(id, 'user_a');
+  const detailKey = api.wowQueryKeys.businesses.detail(id, 'user_a');
+  queryClient.setQueryData(repKey, null);
+  queryClient.setQueryData(detailKey, { id, name: 'Shop' });
+
+  await act(async () => {
+    assert.equal(
+      await repMutation.mutateAsync({
+        businessId: id,
+        name: 'أحمد محمد صالح',
+        role: 'authorized_representative',
+      }),
+      true
+    );
+  });
+  assert(queryClient.getQueryState(repKey).isInvalidated);
+  assert(queryClient.getQueryState(detailKey).isInvalidated);
+});
+
+test('W03.2 pre-migration regression: representative draft query handles missing RPC gracefully without throwing', async () => {
+  globalThis.fetch = async () => {
+    return response(
+      { code: '42883', message: 'function wow_get_business_representative_draft does not exist' },
+      404
+    );
+  };
+
+  const client = makeClient();
+  const draft = await api.getBusinessRepresentativeDraft(client, id);
+  assert.equal(draft, null, 'Must return null gracefully on missing RPC');
+});
