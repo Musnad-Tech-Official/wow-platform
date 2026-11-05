@@ -1,5 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createBusiness, getBusiness, getMyBusinesses, type CreateBusinessInput } from '../../businesses';
+import {
+  createBusiness,
+  createBusinessWithCategory,
+  getBusiness,
+  getBusinessDraftDetails,
+  getMyBusinesses,
+  updateBusinessDraft,
+  type BusinessDraftDetails,
+  type CreateBusinessInput,
+  type CreateBusinessWithCategoryInput,
+  type UpdateBusinessDraftInput,
+} from '../../businesses';
 import { requireWowApiSession, useWowApiContext } from '../WowQueryProvider';
 import { wowQueryKeys } from '../query-keys';
 
@@ -28,6 +39,20 @@ export function useBusiness(businessId?: string | null) {
   });
 }
 
+/** Scoped hook for onboarding draft details with graceful pre-migration fallback. */
+export function useBusinessDraftDetails(businessId?: string | null) {
+  const context = useWowApiContext();
+  return useQuery<BusinessDraftDetails | null>({
+    queryKey: wowQueryKeys.businesses.detail(businessId ?? null, context.userId),
+    enabled: !!context.userId && !!businessId,
+    queryFn: ({ signal }) => {
+      const { client } = requireWowApiSession(context);
+      if (!businessId) throw new Error('A business ID is required.');
+      return getBusinessDraftDetails(client, businessId, signal);
+    },
+  });
+}
+
 export function useCreateBusiness() {
   const context = useWowApiContext();
   const queryClient = useQueryClient();
@@ -37,6 +62,36 @@ export function useCreateBusiness() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.mine(context.userId), exact: true }),
         queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(businessId, context.userId), exact: true }),
+      ]);
+    },
+  });
+}
+
+export function useCreateBusinessWithCategory() {
+  const context = useWowApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateBusinessWithCategoryInput) =>
+      createBusinessWithCategory(requireWowApiSession(context).client, input),
+    onSuccess: async businessId => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.mine(context.userId), exact: true }),
+        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(businessId, context.userId), exact: true }),
+      ]);
+    },
+  });
+}
+
+export function useUpdateBusinessDraft() {
+  const context = useWowApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateBusinessDraftInput) =>
+      updateBusinessDraft(requireWowApiSession(context).client, input),
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.mine(context.userId), exact: true }),
+        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(variables.businessId, context.userId), exact: true }),
       ]);
     },
   });
