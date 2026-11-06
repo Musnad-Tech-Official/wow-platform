@@ -72,6 +72,7 @@ export function AppButton({
     <AnimatedPressable
       {...rtlProps}
       {...props}
+      role="button"
       accessibilityRole="button"
       accessibilityLabel={props.accessibilityLabel ?? title}
       accessibilityState={{ ...accessibilityState, disabled: inactive, busy: loading }}

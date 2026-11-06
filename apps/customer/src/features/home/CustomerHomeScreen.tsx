@@ -26,7 +26,11 @@ import { OfferMediaImage } from './OfferMediaImage';
 import { RegionSelectorSheet } from './RegionSelectorSheet';
 import { BottomNavBar, type BottomNavTabId } from './BottomNavBar';
 
-export function CustomerHomeScreen() {
+export interface CustomerHomeScreenProps {
+  showBottomNav?: boolean;
+}
+
+export function CustomerHomeScreen({ showBottomNav = false }: CustomerHomeScreenProps = {}) {
   const router = useRouter();
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
@@ -472,8 +476,8 @@ export function CustomerHomeScreen() {
         </View>
       </ScrollView>
 
-      {/* 7. Bottom Navigation with small yellow underline and NO background highlight */}
-      <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} />
+      {/* 7. Bottom Navigation (rendered only in standalone mode; otherwise provided by Expo Router Tabs) */}
+      {showBottomNav && <BottomNavBar activeTab={activeTab} onSelectTab={handleSelectTab} />}
 
       {/* Modals & Sheets */}
       <RegionSelectorSheet
