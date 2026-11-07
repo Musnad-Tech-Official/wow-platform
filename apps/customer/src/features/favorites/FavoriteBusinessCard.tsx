@@ -14,7 +14,10 @@ import {
   isSafePublicImageUrl,
   type SavedBusinessItem,
 } from './favorites-display';
-import { UnavailableFavoriteCard } from './UnavailableFavoriteCard';
+import {
+  FavoriteErrorRetryCard,
+  UnavailableFavoriteCard,
+} from './UnavailableFavoriteCard';
 
 export interface FavoriteBusinessCardProps {
   item: SavedBusinessItem;
@@ -36,7 +39,13 @@ export function FavoriteBusinessCard({
   const isDark = resolvedTheme === 'dark';
 
   // Live public discovery query for this business ID (automatically cached/deduplicated by TanStack Query)
-  const { data: queryBusiness, isLoading: isQueryLoading, isError: isQueryError } = usePublicBusiness(item.details ? null : item.businessId);
+  const {
+    data: queryBusiness,
+    isLoading: isQueryLoading,
+    isError: isQueryError,
+    refetch,
+    isRefetching,
+  } = usePublicBusiness(item.details ? null : item.businessId);
   const business = item.details ?? queryBusiness;
   const isLoading = !item.details && isQueryLoading;
   const isError = !item.details && isQueryError;
@@ -67,8 +76,21 @@ export function FavoriteBusinessCard({
     );
   }
 
-  // 2. Handle removed or unavailable public items gracefully
-  if (isError || !business) {
+  // 2. Transient network/API failure: render retryable card, preserve favorite
+  if (isError) {
+    return (
+      <FavoriteErrorRetryCard
+        id={item.id}
+        kind="business"
+        cardWidth={cardWidth}
+        onRetry={() => void refetch()}
+        isRetrying={isRefetching}
+      />
+    );
+  }
+
+  // 3. Confirmed missing/unpublished/deleted public item: allow user to remove it
+  if (!business) {
     return (
       <UnavailableFavoriteCard
         id={item.id}

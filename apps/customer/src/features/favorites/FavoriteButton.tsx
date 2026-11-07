@@ -45,6 +45,8 @@ export function FavoriteButton({
     try {
       setLocalPending(true);
       await onToggle?.(!isSaved);
+    } catch {
+      // Catch mutation rejection safely to prevent unhandled promise rejections
     } finally {
       setLocalPending(false);
     }

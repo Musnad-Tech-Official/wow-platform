@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wowIllustrations } from '@wow/assets';
 import { useTheme, useWowColors, useWowViewport, wowBrandColors } from '@wow/theme';
-import { AppButton, AppText, DataState } from '@wow/ui';
+import { AppButton, AppText, DataState, ToastBanner } from '@wow/ui';
 import { FavoriteBusinessCard } from './FavoriteBusinessCard';
 import { FavoriteOfferCard } from './FavoriteOfferCard';
 import type { SavedBusinessItem, SavedOfferItem } from './favorites-display';
@@ -226,6 +226,18 @@ export function CustomerFavoritesTabScreen({
   // Exact card width calculation to maintain pixel-perfect gap and alignment
   const totalGapsWidth = gridGap * (numColumns - 1);
   const cardWidth = Math.floor((contentMaxWidth - totalGapsWidth) / numColumns);
+
+  const feedback = liveDetails.feedback;
+  const clearFeedback = liveDetails.clearFeedback;
+
+  // Auto-dismiss feedback notice after 4 seconds
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = setTimeout(() => {
+      clearFeedback();
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [feedback, clearFeedback]);
 
   // Pull to refresh handler
   async function handleRefresh() {
@@ -517,6 +529,18 @@ export function CustomerFavoritesTabScreen({
             alignSelf: 'center',
           }}
         >
+          {/* Subtle user feedback notice for removal success or Arabic error on failure */}
+          {feedback && (
+            <View style={{ width: '100%', paddingBottom: 4 }}>
+              <ToastBanner
+                visible={Boolean(feedback)}
+                message={feedback.message}
+                tone={feedback.tone}
+                onDismiss={clearFeedback}
+              />
+            </View>
+          )}
+
           {/* 3. Segmented Tabs: Saved Offers vs Saved Businesses */}
           <View
             accessibilityRole="tablist"

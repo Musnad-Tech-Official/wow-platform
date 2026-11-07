@@ -9,7 +9,10 @@ import {
   getOfferStatus,
   type SavedOfferItem,
 } from './favorites-display';
-import { UnavailableFavoriteCard } from './UnavailableFavoriteCard';
+import {
+  FavoriteErrorRetryCard,
+  UnavailableFavoriteCard,
+} from './UnavailableFavoriteCard';
 
 export interface FavoriteOfferCardProps {
   item: SavedOfferItem;
@@ -31,7 +34,13 @@ export function FavoriteOfferCard({
   const isDark = resolvedTheme === 'dark';
 
   // Live public discovery query for this offer ID (automatically cached/deduplicated by TanStack Query)
-  const { data: queryOffer, isLoading: isQueryLoading, isError: isQueryError } = usePublicOffer(item.details ? null : item.offerId);
+  const {
+    data: queryOffer,
+    isLoading: isQueryLoading,
+    isError: isQueryError,
+    refetch,
+    isRefetching,
+  } = usePublicOffer(item.details ? null : item.offerId);
   const offer = item.details ?? queryOffer;
   const isLoading = !item.details && isQueryLoading;
   const isError = !item.details && isQueryError;
@@ -62,8 +71,21 @@ export function FavoriteOfferCard({
     );
   }
 
-  // 2. Handle removed or unavailable public items gracefully
-  if (isError || !offer) {
+  // 2. Transient network/API failure: render retryable card, preserve favorite
+  if (isError) {
+    return (
+      <FavoriteErrorRetryCard
+        id={item.id}
+        kind="offer"
+        cardWidth={cardWidth}
+        onRetry={() => void refetch()}
+        isRetrying={isRefetching}
+      />
+    );
+  }
+
+  // 3. Confirmed missing/unpublished/deleted public item: allow user to remove it
+  if (!offer) {
     return (
       <UnavailableFavoriteCard
         id={item.id}

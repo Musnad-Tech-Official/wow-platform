@@ -8,6 +8,12 @@ import {
 } from '@wow/api';
 import type { SavedBusinessItem, SavedOfferItem } from './favorites-display';
 
+export interface FavoritesFeedback {
+  id: string;
+  message: string;
+  tone: 'success' | 'danger';
+}
+
 export function useFavoritesDetails() {
   const { userId, isSignedIn } = useAuth();
 
@@ -50,18 +56,38 @@ export function useFavoritesDetails() {
     return items;
   }, [isSignedIn, savedBusinessesQuery.data]);
 
-  // 3. Mutations with per-item pending state and duplicate request prevention
+  // 3. User feedback state for mutation success / failure
+  const [feedback, setFeedback] = useState<FavoritesFeedback | null>(null);
+
+  const clearFeedback = useCallback(() => {
+    setFeedback(null);
+  }, []);
+
+  // 4. Mutations with per-item pending state, duplicate prevention, and user feedback
   const setSavedOfferMutation = useSetSavedOffer();
   const setSavedBusinessMutation = useSetSavedBusiness();
   const [pendingOfferIds, setPendingOfferIds] = useState<Set<string>>(new Set());
   const [pendingBusinessIds, setPendingBusinessIds] = useState<Set<string>>(new Set());
 
   const removeOffer = useCallback(
-    async (offerId: string) => {
-      if (pendingOfferIds.has(offerId)) return;
+    async (offerId: string): Promise<boolean> => {
+      if (pendingOfferIds.has(offerId)) return false;
       setPendingOfferIds((prev) => new Set(prev).add(offerId));
       try {
         await setSavedOfferMutation.mutateAsync({ offerId, save: false });
+        setFeedback({
+          id: `offer-success-${offerId}-${Date.now()}`,
+          message: 'تمت إزالة العرض من المفضلة بنجاح',
+          tone: 'success',
+        });
+        return true;
+      } catch {
+        setFeedback({
+          id: `offer-error-${offerId}-${Date.now()}`,
+          message: 'تعذر إزالة العرض من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
+          tone: 'danger',
+        });
+        return false;
       } finally {
         setPendingOfferIds((prev) => {
           const next = new Set(prev);
@@ -74,11 +100,24 @@ export function useFavoritesDetails() {
   );
 
   const removeBusiness = useCallback(
-    async (businessId: string) => {
-      if (pendingBusinessIds.has(businessId)) return;
+    async (businessId: string): Promise<boolean> => {
+      if (pendingBusinessIds.has(businessId)) return false;
       setPendingBusinessIds((prev) => new Set(prev).add(businessId));
       try {
         await setSavedBusinessMutation.mutateAsync({ businessId, save: false });
+        setFeedback({
+          id: `biz-success-${businessId}-${Date.now()}`,
+          message: 'تمت إزالة المتجر من المفضلة بنجاح',
+          tone: 'success',
+        });
+        return true;
+      } catch {
+        setFeedback({
+          id: `biz-error-${businessId}-${Date.now()}`,
+          message: 'تعذر إزالة المتجر من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
+          tone: 'danger',
+        });
+        return false;
       } finally {
         setPendingBusinessIds((prev) => {
           const next = new Set(prev);
@@ -111,6 +150,8 @@ export function useFavoritesDetails() {
     isError,
     pendingOfferIds,
     pendingBusinessIds,
+    feedback,
+    clearFeedback,
     removeOffer,
     removeBusiness,
     refetch,
