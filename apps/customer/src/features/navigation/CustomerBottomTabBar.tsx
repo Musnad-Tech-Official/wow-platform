@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Tabs } from 'expo-router';
 import { Heart, House, UserRound } from 'lucide-react-native';
-import { useWowColors, wowBrandColors } from '@wow/theme';
+import { useTheme, useWowColors, wowBrandColors } from '@wow/theme';
 import { AppText } from '@wow/ui';
 
 export type CustomerBottomTabBarProps = Parameters<
@@ -17,6 +17,8 @@ export function CustomerBottomTabBar({
 }: CustomerBottomTabBarProps) {
   const colors = useWowColors();
   const insets = useSafeAreaInsets();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   const tabConfig: Record<string, { label: string; icon: typeof House }> = {
     index: { label: 'استكشف', icon: House },
@@ -32,81 +34,95 @@ export function CustomerBottomTabBar({
         borderTopColor: colors.border,
         paddingBottom: Math.max(insets.bottom, 6),
         paddingTop: 6,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
         alignItems: 'center',
+        width: '100%',
         minHeight: 62 + Math.max(insets.bottom, 6),
       }}
     >
-      {state.routes.map((route, index) => {
-        const descriptor = descriptors[route.key];
-        const isSelected = state.index === index;
-        const config = tabConfig[route.name] ?? {
-          label: descriptor?.options?.title ?? route.name,
-          icon: House,
-        };
-        const IconComponent = config.icon;
-        const tint = isSelected ? colors.foreground : colors.mutedForeground;
+      {/* Balanced responsive container for mobile and desktop */}
+      <View
+        style={{
+          width: '100%',
+          maxWidth: 520,
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+        }}
+      >
+        {state.routes.map((route, index) => {
+          const descriptor = descriptors[route.key];
+          const isSelected = state.index === index;
+          const config = tabConfig[route.name] ?? {
+            label: descriptor?.options?.title ?? route.name,
+            icon: House,
+          };
+          const IconComponent = config.icon;
+          const tint = isSelected
+            ? colors.foreground
+            : isDark
+              ? '#94A3B8'
+              : '#64748B';
 
-        function onPress() {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
+          function onPress() {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
 
-          if (!isSelected && !event.defaultPrevented) {
-            navigation.navigate(route.name);
+            if (!isSelected && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
           }
-        }
 
-        return (
-          <Pressable
-            key={route.key}
-            accessibilityRole="tab"
-            accessibilityLabel={config.label}
-            accessibilityState={{ selected: isSelected }}
-            onPress={onPress}
-            style={{
-              minWidth: 74,
-              minHeight: 48,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'transparent',
-              gap: 2,
-            }}
-          >
-            <IconComponent size={21} color={tint} strokeWidth={isSelected ? 2.2 : 1.8} />
-
-            <AppText
-              variant="caption"
+          return (
+            <Pressable
+              key={route.key}
+              accessibilityRole="tab"
+              accessibilityLabel={config.label}
+              accessibilityState={{ selected: isSelected }}
+              onPress={onPress}
               style={{
-                fontSize: 11,
-                fontWeight: isSelected ? '800' : '500',
-                color: tint,
-                textAlign: 'center',
+                minWidth: 74,
+                minHeight: 48,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'transparent',
+                gap: 2,
               }}
             >
-              {config.label}
-            </AppText>
+              <IconComponent size={21} color={tint} strokeWidth={isSelected ? 2.2 : 1.8} />
 
-            {/* Small yellow underline only for the selected tab */}
-            {isSelected ? (
-              <View
+              <AppText
+                variant="caption"
                 style={{
-                  width: 20,
-                  height: 3,
-                  borderRadius: 2,
-                  backgroundColor: wowBrandColors.yellow,
-                  marginTop: 2,
+                  fontSize: 12,
+                  fontWeight: isSelected ? '800' : '600',
+                  color: tint,
+                  textAlign: 'center',
                 }}
-              />
-            ) : (
-              <View style={{ width: 20, height: 3, marginTop: 2, backgroundColor: 'transparent' }} />
-            )}
-          </Pressable>
-        );
-      })}
+              >
+                {config.label}
+              </AppText>
+
+              {/* Small yellow underline only for the selected tab */}
+              {isSelected ? (
+                <View
+                  style={{
+                    width: 20,
+                    height: 3,
+                    borderRadius: 2,
+                    backgroundColor: wowBrandColors.yellow,
+                    marginTop: 2,
+                  }}
+                />
+              ) : (
+                <View style={{ width: 20, height: 3, marginTop: 2, backgroundColor: 'transparent' }} />
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
