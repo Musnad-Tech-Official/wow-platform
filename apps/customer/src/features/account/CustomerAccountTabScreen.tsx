@@ -1,37 +1,125 @@
-import { useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShieldCheck, User } from 'lucide-react-native';
+import { ChevronLeft, Compass } from 'lucide-react-native';
 import { useAuth, useClerk, useUser } from '@wow/auth';
-import { wowIllustrations } from '@wow/assets';
-import { useTheme, useWowColors } from '@wow/theme';
-import { AppButton, AppText } from '@wow/ui';
+import { useCurrentUser } from '@wow/api';
+import { useTheme, useWowColors, useWowViewport } from '@wow/theme';
+import {
+  AppButton,
+  AppText,
+  ConfirmDialog,
+  ToastBanner,
+} from '@wow/ui';
 import { useGuestStore } from '../../state/guest-store';
+import { AccountSummaryCard } from './AccountSummaryCard';
+import { AccountInformationModal } from './AccountInformationModal';
+import { ComplaintsNoticeModal } from './ComplaintsNoticeModal';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
+import { CustomerActivitySection } from './CustomerActivitySection';
+import { AccountSettingsSection } from './AccountSettingsSection';
+import { PrivacyClosureSection } from './PrivacyClosureSection';
+import { GuestAccountView } from './GuestAccountView';
+import type { CustomerUserLike } from './account-display';
 
-export function CustomerAccountTabScreen() {
+export interface CustomerAccountTabScreenProps {
+  previewMode?: 'live' | 'signed-in' | 'guest' | 'privacy' | 'profile' | 'sign-out';
+  syntheticUser?: CustomerUserLike;
+  initialNotice?: string | null;
+  forcedTheme?: 'light' | 'dark';
+}
+
+export function CustomerAccountTabScreen({
+  previewMode = 'live',
+  syntheticUser,
+  initialNotice = null,
+  forcedTheme,
+}: CustomerAccountTabScreenProps = {}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useWowColors();
-  const { resolvedTheme } = useTheme();
+  const { mode, setMode, resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const viewport = useWowViewport();
+  const rtlWebProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
 
-  const { isSignedIn } = useAuth();
-  const { user } = useUser();
+  useEffect(() => {
+    if (forcedTheme && mode !== forcedTheme) {
+      setMode(forcedTheme);
+    }
+  }, [forcedTheme, mode, setMode]);
+
+  // Auth & Session
+  const { isSignedIn: realIsSignedIn } = useAuth();
+  const { user: realUser } = useUser();
   const clerk = useClerk();
+  const enterGuest = useGuestStore((s) => s.enterGuest);
   const exitGuest = useGuestStore((s) => s.exitGuest);
 
-  const [loading, setLoading] = useState(false);
+  // Profile data from Supabase users table
+  const { data: currentUserData } = useCurrentUser();
 
-  async function handleSignOut() {
-    if (loading) return;
-    setLoading(true);
+  // Determine state based on previewMode or live auth
+  const isPreview = previewMode !== 'live';
+  const effectiveIsSignedIn = isPreview
+    ? previewMode !== 'guest'
+    : Boolean(realIsSignedIn);
+
+  const effectiveUser: CustomerUserLike | null = isPreview
+    ? (syntheticUser ?? {
+        id: 'usr_preview_synthetic_123',
+        fullName: 'عمر أحمد المحمدي',
+        firstName: 'عمر',
+        lastName: 'المحمدي',
+        primaryEmailAddress: {
+          emailAddress: 'omar.almohammadi@example.com',
+          verification: { status: 'verified' },
+        },
+        primaryPhoneNumber: {
+          phoneNumber: '+967 770 123 456',
+        },
+      })
+    : (realUser as unknown as CustomerUserLike | null);
+
+  // Authoritative account status backed by verified session/profile data
+  const effectiveAccountStatus = isPreview
+    ? (syntheticUser?.id ? 'active' : 'active')
+    : (currentUserData?.account_status ?? (realIsSignedIn ? 'active' : null));
+
+  // UI state
+  const [signingOut, setSigningOut] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(previewMode === 'sign-out');
+  const [showProfileModal, setShowProfileModal] = useState(previewMode === 'profile');
+  const [showComplaintsModal, setShowComplaintsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(previewMode === 'privacy');
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(initialNotice);
+  const [noticeTone, setNoticeTone] = useState<'info' | 'warning' | 'danger' | 'success'>('info');
+
+  // Sign out confirmation handler: strictly awaits clerk.signOut() BEFORE enterGuest()
+  async function handleConfirmSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
     try {
-      exitGuest();
+      // 1. Perform Clerk signOut first. Do NOT transition to guest before signOut succeeds.
       await clerk.signOut();
-      router.replace('/access');
+      // 2. Only after signOut succeeds, transition into guest mode to preserve public browsing
+      enterGuest();
+      setShowSignOutConfirm(false);
+      setNoticeTone('info');
+      setNoticeMessage('تم تسجيل الخروج بنجاح. يمكنك مواصلة التصفح كضيف.');
+    } catch (err) {
+      console.error('Customer sign out error:', err);
+      setShowSignOutConfirm(false);
+      setNoticeTone('danger');
+      setNoticeMessage('تعذر تسجيل الخروج في الوقت الحالي. يرجى إعادة المحاولة.');
     } finally {
-      setLoading(false);
+      setSigningOut(false);
     }
   }
 
@@ -40,196 +128,237 @@ export function CustomerAccountTabScreen() {
     router.replace('/access');
   }
 
-  const displayName =
-    user?.fullName ||
-    user?.firstName ||
-    user?.primaryEmailAddress?.emailAddress ||
-    'مستخدم مسجل';
+  function handleExploreNavigation() {
+    router.push('/');
+  }
 
-  const email = user?.primaryEmailAddress?.emailAddress;
+  function handleFavoritesNavigation() {
+    router.push('/(tabs)/favorites');
+  }
+
+  function handlePrivacyRequestAction(title: string) {
+    setNoticeTone('info');
+    setNoticeMessage(`ميزة "${title}" قيد التجهيز الإلكتروني وفق المتطلبات التنظيمية وسياسات الاحتفاظ المعتمدة.`);
+  }
+
+  // Responsive container width: max 640px centered for desktop, 100% for mobile
+  const contentMaxWidth = Math.min(viewport.width - 32, 640);
 
   return (
     <View
+      {...rtlWebProps}
       style={{
         flex: 1,
         backgroundColor: colors.background,
-        paddingTop: Math.max(insets.top, 16),
+        paddingTop: Math.max(insets.top, 14),
       }}
     >
-      {/* Header */}
+      {/* Top Header */}
       <View
         style={{
           paddingHorizontal: 20,
           paddingBottom: 12,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
+          backgroundColor: colors.surface,
+          width: '100%',
+          alignItems: 'center',
         }}
       >
-        <AppText
+        <View
           style={{
-            fontSize: 20,
-            fontWeight: '900',
-            color: colors.foreground,
-            textAlign: 'right',
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          حسابي
-        </AppText>
+          {/* Title on the right in RTL */}
+          <AppText
+            variant="heading"
+            style={{
+              fontSize: 20,
+              fontWeight: '900',
+              color: colors.foreground,
+              textAlign: 'right',
+            }}
+          >
+            حسابي
+          </AppText>
+
+          {/* Explore shortcut link on the left in RTL */}
+          <Pressable
+            onPress={handleExploreNavigation}
+            accessibilityRole="button"
+            accessibilityLabel="الذهاب إلى صفحة الاستكشاف"
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              minHeight: 48,
+              minWidth: 48,
+              paddingHorizontal: 8,
+              borderRadius: 8,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Compass size={16} color={colors.mutedForeground} strokeWidth={2} />
+            <AppText
+              variant="caption"
+              style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: colors.mutedForeground,
+              }}
+            >
+              استكشف
+            </AppText>
+            <ChevronLeft size={14} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
       </View>
 
-      {/* Main Content */}
+      {/* Main Scrollable Content */}
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
-          justifyContent: 'center',
           alignItems: 'center',
-          paddingHorizontal: 24,
-          paddingVertical: 32,
+          paddingHorizontal: 16,
+          paddingVertical: 20,
+          paddingBottom: Math.max(insets.bottom + 24, 40),
         }}
       >
-        <View style={{ alignItems: 'center', width: '100%', maxWidth: 380, gap: 20 }}>
-          {isSignedIn ? (
-            /* Authenticated Account Profile */
-            <>
-              {/* Avatar Icon */}
-              <View
-                style={{
-                  width: 90,
-                  height: 90,
-                  borderRadius: 45,
-                  backgroundColor: '#FACC15',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
-                  elevation: 4,
-                }}
-              >
-                <User size={44} color="#0F172A" />
-              </View>
+        <View style={{ width: '100%', maxWidth: contentMaxWidth, gap: 20 }}>
+          {/* Notification banner if present */}
+          <ToastBanner
+            visible={Boolean(noticeMessage)}
+            message={noticeMessage ?? ''}
+            tone={noticeTone}
+            onDismiss={() => setNoticeMessage(null)}
+          />
 
-              {/* Name & Email */}
-              <View style={{ alignItems: 'center', gap: 4 }}>
+          {effectiveIsSignedIn ? (
+            /* ==========================================================
+               AUTHENTICATED ACCOUNT VIEW (CUS-06)
+               Information Hierarchy:
+               1. Account Summary & Info (FIRST)
+               2. Customer Activity
+               3. Account Settings
+               4. Privacy & Closure Information
+               5. Session & Sign Out
+               ========================================================== */
+            <>
+              {/* Section 1: Account Information & Summary (FIRST) */}
+              <View style={{ gap: 10, width: '100%' }}>
                 <AppText
+                  variant="heading"
                   style={{
-                    fontSize: 20,
-                    fontWeight: '900',
+                    fontSize: 16,
+                    fontWeight: '800',
                     color: colors.foreground,
-                    textAlign: 'center',
+                    textAlign: 'right',
+                    paddingHorizontal: 4,
                   }}
                 >
-                  {displayName}
+                  معلومات الحساب
                 </AppText>
 
-                {email && (
-                  <AppText
-                    style={{
-                      fontSize: 14,
-                      color: colors.mutedForeground,
-                      textAlign: 'center',
-                    }}
-                  >
-                    {email}
-                  </AppText>
-                )}
-
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 12,
-                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
-                    marginTop: 6,
-                  }}
-                >
-                  <ShieldCheck size={14} color="#10B981" />
-                  <AppText style={{ fontSize: 12, fontWeight: '700', color: '#10B981' }}>
-                    حساب موثق ومحمي
-                  </AppText>
-                </View>
+                <AccountSummaryCard
+                  user={effectiveUser}
+                  accountStatus={effectiveAccountStatus}
+                  onPressViewProfile={() => setShowProfileModal(true)}
+                />
               </View>
 
-              {/* Sign Out Action */}
-              <View style={{ width: '100%', marginTop: 24 }}>
+              {/* Section 2: Customer Activity ("نشاطي") */}
+              <CustomerActivitySection
+                onPressComplaints={() => setShowComplaintsModal(true)}
+                onPressFavorites={handleFavoritesNavigation}
+              />
+
+              {/* Section 3: Account Settings ("إعدادات الحساب") */}
+              <AccountSettingsSection />
+
+              {/* Section 4: Privacy Requests & Account Closure near the end */}
+              <PrivacyClosureSection
+                onPressViewPolicy={() => setShowPrivacyModal(true)}
+                onPressRequestAction={handlePrivacyRequestAction}
+              />
+
+              {/* Section 5: Session & Sign Out */}
+              <View style={{ gap: 10, width: '100%', marginTop: 8 }}>
+                <AppText
+                  variant="heading"
+                  style={{
+                    fontSize: 16,
+                    fontWeight: '800',
+                    color: colors.foreground,
+                    textAlign: 'right',
+                    paddingHorizontal: 4,
+                  }}
+                >
+                  الجلسة
+                </AppText>
+
                 <AppButton
                   title="تسجيل الخروج"
                   variant="outline"
-                  onPress={handleSignOut}
-                  disabled={loading}
+                  onPress={() => setShowSignOutConfirm(true)}
+                  disabled={signingOut}
                   style={{
                     height: 50,
                     borderRadius: 25,
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : '#FCA5A5',
                   }}
                 />
-                {loading && <ActivityIndicator style={{ marginTop: 12 }} color="#FACC15" />}
               </View>
             </>
           ) : (
-            /* Guest Account State */
-            <>
-              <View style={{ width: 140, height: 140, marginBottom: 8 }}>
-                <Image
-                  source={wowIllustrations.customer.secureAccess}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="contain"
-                  accessibilityLabel="تسجيل الدخول"
-                />
-              </View>
-
-              <AppText
-                style={{
-                  fontSize: 18,
-                  fontWeight: '800',
-                  color: colors.foreground,
-                  textAlign: 'center',
-                }}
-              >
-                أنت تتصفح تطبيق WOW كضيف
-              </AppText>
-
-              <AppText
-                style={{
-                  fontSize: 14,
-                  color: colors.mutedForeground,
-                  textAlign: 'center',
-                  lineHeight: 22,
-                }}
-              >
-                يمكنك تسجيل الدخول في أي وقت للاستفادة من كامل المزايا وحفظ العروض ومزامنة تفضيلاتك.
-              </AppText>
-
-              <View style={{ width: '100%', gap: 12, marginTop: 16 }}>
-                <AppButton
-                  title="تسجيل الدخول"
-                  variant="primary"
-                  onPress={() => router.push('/sign-in')}
-                  style={{
-                    height: 50,
-                    borderRadius: 25,
-                  }}
-                />
-
-                <AppButton
-                  title="الخروج من وضع الضيف"
-                  variant="outline"
-                  onPress={handleExitGuest}
-                  style={{
-                    height: 50,
-                    borderRadius: 25,
-                    borderColor: isDark ? '#334155' : '#CBD5E1',
-                  }}
-                />
-              </View>
-            </>
+            /* ==========================================================
+               GUEST ACCOUNT STATE (CUS-06-S02)
+               ========================================================== */
+            <GuestAccountView
+              onPressSignIn={() => router.push('/sign-in')}
+              onPressExplore={handleExploreNavigation}
+              onPressExitGuest={handleExitGuest}
+            />
           )}
         </View>
       </ScrollView>
+
+      {/* Account Details Modal (View permitted fields) */}
+      <AccountInformationModal
+        visible={showProfileModal}
+        user={effectiveUser}
+        accountStatus={effectiveAccountStatus}
+        onClose={() => setShowProfileModal(false)}
+      />
+
+      {/* Complaints Notice Modal (CUS-08 Development state notice) */}
+      <ComplaintsNoticeModal
+        visible={showComplaintsModal}
+        onClose={() => setShowComplaintsModal(false)}
+      />
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        visible={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
+
+      {/* Sign Out Confirmation Dialog */}
+      <ConfirmDialog
+        visible={showSignOutConfirm}
+        title="تأكيد تسجيل الخروج"
+        description="هل أنت متأكد من رغبتك في تسجيل الخروج من حسابك؟ يمكنك مواصلة التصفح كضيف دون أن تفقد قدرتك على استكشاف العروض والمتاجر."
+        confirmLabel="نعم، تسجيل الخروج"
+        cancelLabel="إلغاء"
+        destructive
+        busy={signingOut}
+        onConfirm={handleConfirmSignOut}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
     </View>
   );
 }
