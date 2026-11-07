@@ -82,6 +82,55 @@ new Function('exports', 'require', displayTranspiled)(favoritesDisplay, (req) =>
   return require(req);
 });
 
+// Transpile production favorites details module to execute real executeGuardedRemoval
+const useFavoritesDetailsTranspiled = ts.transpileModule(useFavoritesDetailsSrc, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS },
+}).outputText;
+const useFavoritesDetailsModule = {};
+new Function('exports', 'require', useFavoritesDetailsTranspiled)(
+  useFavoritesDetailsModule,
+  (req) => {
+    if (req === 'react') {
+      return {
+        useState: (init) => [init, () => {}],
+        useCallback: (fn) => fn,
+        useMemo: (fn) => fn(),
+        useRef: (init) => ({ current: init }),
+        useEffect: () => {},
+      };
+    }
+    if (req.includes('favorites-display')) {
+      return favoritesDisplay;
+    }
+    return {};
+  },
+);
+const { executeGuardedRemoval } = useFavoritesDetailsModule;
+
+// Transpile production favorite button module to execute real executeFavoriteToggle
+const favoriteButtonTranspiled = ts.transpileModule(favoriteButtonSrc, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React },
+}).outputText;
+const favoriteButtonModule = {};
+new Function('exports', 'require', favoriteButtonTranspiled)(
+  favoriteButtonModule,
+  (req) => {
+    if (req === 'react') {
+      return {
+        useState: (init) => [init, () => {}],
+      };
+    }
+    if (req === 'react-native') {
+      return {
+        ActivityIndicator: () => null,
+        Pressable: () => null,
+      };
+    }
+    return {};
+  },
+);
+const { executeFavoriteToggle } = favoriteButtonModule;
+
 // ---------------------------------------------------------------------------
 // 1. Navigation & Route Architecture
 // ---------------------------------------------------------------------------
@@ -154,15 +203,16 @@ test('5. Removed/unavailable public items vs transient errors distinction', () =
 // ---------------------------------------------------------------------------
 // 6. Mutation-Pending State, Feedback & Duplicate Prevention
 // ---------------------------------------------------------------------------
-test('6. Mutation pending state: per-item pending set, duplicate prevention, and user feedback', () => {
-  assert.match(useFavoritesDetailsSrc, /pendingOfferIds\.has\(offerId\)/, 'Must check pendingOfferIds before initiating mutation');
-  assert.match(useFavoritesDetailsSrc, /pendingBusinessIds\.has\(businessId\)/, 'Must check pendingBusinessIds before initiating mutation');
+test('6. Mutation pending state: synchronous refs, duplicate prevention, and user feedback', () => {
+  assert.match(useFavoritesDetailsSrc, /pendingOfferIdsRef/, 'Hook must use pendingOfferIdsRef for synchronous race-safe protection');
+  assert.match(useFavoritesDetailsSrc, /pendingBusinessIdsRef/, 'Hook must use pendingBusinessIdsRef for synchronous race-safe protection');
+  assert.match(useFavoritesDetailsSrc, /executeGuardedRemoval/, 'Hook must invoke executeGuardedRemoval');
   assert.match(useFavoritesDetailsSrc, /FavoritesFeedback/, 'Hook must define FavoritesFeedback interface');
   assert.match(useFavoritesDetailsSrc, /feedback,\s*clearFeedback/, 'Hook must expose feedback and clearFeedback');
   assert.match(favoritesScreenSrc, /<ToastBanner/, 'Favorites screen must render ToastBanner for user feedback');
   assert.match(favoriteButtonSrc, /ActivityIndicator/, 'FavoriteButton must render ActivityIndicator during pending mutations');
   assert.match(favoriteButtonSrc, /disabled=\{disabled\s*\|\|\s*isPending\}/, 'FavoriteButton must disable interaction during pending mutations');
-  assert.match(favoriteButtonSrc, /try\s*\{\s*setLocalPending\(true\);\s*await\s*onToggle\?\.\(!isSaved\);\s*\}\s*catch/, 'FavoriteButton must catch onToggle rejection');
+  assert.match(favoriteButtonSrc, /executeFavoriteToggle/, 'FavoriteButton must invoke executeFavoriteToggle');
 });
 
 // ---------------------------------------------------------------------------
@@ -225,222 +275,269 @@ test('10. Accessibility & Touch Targets: minimum 48pt and ARIA roles', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 11. Behavioral Regression: Transient error vs missing entity decision logic
+// 11. Production Logic Execution: Card presentation resolution (favorites-display.ts)
 // ---------------------------------------------------------------------------
-test('11. Behavioral: Card presentation distinguishes transient query failure from confirmed missing data', () => {
-  function resolveCardPresentation(queryState) {
-    const isError = !queryState.details && queryState.isQueryError;
-    const entity = queryState.details ?? queryState.data;
-    if (isError) {
-      return { card: 'FavoriteErrorRetryCard', canRetry: true, canRemove: false };
-    }
-    if (!entity) {
-      return { card: 'UnavailableFavoriteCard', canRetry: false, canRemove: true };
-    }
-    return { card: 'StandardCard', canRetry: false, canRemove: false };
-  }
-
-  // Transient network/API failure (isQueryError: true) -> must prompt retry, NOT mark as deleted
-  const transientError = resolveCardPresentation({ details: null, data: undefined, isQueryError: true });
-  assert.equal(transientError.card, 'FavoriteErrorRetryCard');
-  assert.equal(transientError.canRetry, true);
-  assert.equal(transientError.canRemove, false);
-
-  // Confirmed missing or unpublished item (query returned null without error) -> allow user removal
-  const confirmedMissing = resolveCardPresentation({ details: null, data: null, isQueryError: false });
-  assert.equal(confirmedMissing.card, 'UnavailableFavoriteCard');
-  assert.equal(confirmedMissing.canRetry, false);
-  assert.equal(confirmedMissing.canRemove, true);
-
-  // Normal valid item
-  const validItem = resolveCardPresentation({ details: null, data: { title: 'وجبة غداء' }, isQueryError: false });
-  assert.equal(validItem.card, 'StandardCard');
-});
-
-// ---------------------------------------------------------------------------
-// 12. Behavioral Regression: Hook removal mutation success path
-// ---------------------------------------------------------------------------
-test('12. Behavioral: Removal mutation success path provides positive Arabic feedback and clears pending state', async () => {
-  let feedback = null;
-  const pendingOfferIds = new Set();
-  let mutateCalls = 0;
-
-  const mockMutation = {
-    mutateAsync: async ({ offerId, save }) => {
-      mutateCalls++;
-      assert.equal(save, false);
-      assert.equal(offerId, 'offer-123');
-      assert.equal(pendingOfferIds.has('offer-123'), true, 'ID must be in pending set during execution');
-      return { success: true };
-    },
-  };
-
-  async function removeOffer(offerId) {
-    if (pendingOfferIds.has(offerId)) return false;
-    pendingOfferIds.add(offerId);
-    try {
-      await mockMutation.mutateAsync({ offerId, save: false });
-      feedback = {
-        id: `offer-success-${offerId}-${Date.now()}`,
-        message: 'تمت إزالة العرض من المفضلة بنجاح',
-        tone: 'success',
-      };
-      return true;
-    } catch {
-      feedback = {
-        id: `offer-error-${offerId}-${Date.now()}`,
-        message: 'تعذر إزالة العرض من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
-        tone: 'danger',
-      };
-      return false;
-    } finally {
-      pendingOfferIds.delete(offerId);
-    }
-  }
-
-  const result = await removeOffer('offer-123');
-  assert.equal(result, true, 'Must return true on success');
-  assert.equal(mutateCalls, 1, 'Must invoke mutateAsync once');
-  assert.equal(feedback.tone, 'success', 'Must set feedback tone to success');
-  assert.match(feedback.message, /تمت إزالة العرض من المفضلة بنجاح/, 'Must display clear Arabic confirmation');
-  assert.equal(pendingOfferIds.has('offer-123'), false, 'Pending state must be cleared after resolution');
-});
-
-// ---------------------------------------------------------------------------
-// 13. Behavioral Regression: Hook removal mutation failure path
-// ---------------------------------------------------------------------------
-test('13. Behavioral: Removal mutation failure path catches rejection, provides Arabic error, and preserves item', async () => {
-  let feedback = null;
-  const pendingOfferIds = new Set();
-  let mutateCalls = 0;
-
-  const failingMutation = {
-    mutateAsync: async () => {
-      mutateCalls++;
-      throw new Error('Supabase network timeout / fetch failed');
-    },
-  };
-
-  async function removeOffer(offerId) {
-    if (pendingOfferIds.has(offerId)) return false;
-    pendingOfferIds.add(offerId);
-    try {
-      await failingMutation.mutateAsync({ offerId, save: false });
-      feedback = {
-        id: `offer-success-${offerId}-${Date.now()}`,
-        message: 'تمت إزالة العرض من المفضلة بنجاح',
-        tone: 'success',
-      };
-      return true;
-    } catch {
-      feedback = {
-        id: `offer-error-${offerId}-${Date.now()}`,
-        message: 'تعذر إزالة العرض من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
-        tone: 'danger',
-      };
-      return false;
-    } finally {
-      pendingOfferIds.delete(offerId);
-    }
-  }
-
-  // Must not throw an unhandled promise rejection
-  const result = await removeOffer('offer-fail-999');
-  assert.equal(result, false, 'Must return false on failure');
-  assert.equal(mutateCalls, 1, 'Must have attempted mutateAsync once');
-  assert.equal(feedback.tone, 'danger', 'Must set feedback tone to danger');
-  assert.match(feedback.message, /تعذر إزالة العرض من المفضلة/, 'Must display Arabic failure guidance');
-  assert.equal(pendingOfferIds.has('offer-fail-999'), false, 'Pending state must be cleared in finally block');
-});
-
-// ---------------------------------------------------------------------------
-// 14. Behavioral Regression: Duplicate in-flight request suppression
-// ---------------------------------------------------------------------------
-test('14. Behavioral: Concurrent removal calls suppress duplicates while in-flight', async () => {
-  let feedback = null;
-  const pendingBusinessIds = new Set();
-  let mutateCalls = 0;
-  let resolvePromise;
-
-  const slowMutation = {
-    mutateAsync: async () => {
-      mutateCalls++;
-      return new Promise((resolve) => {
-        resolvePromise = resolve;
-      });
-    },
-  };
-
-  async function removeBusiness(businessId) {
-    if (pendingBusinessIds.has(businessId)) return false;
-    pendingBusinessIds.add(businessId);
-    try {
-      await slowMutation.mutateAsync({ businessId, save: false });
-      feedback = {
-        id: `biz-success-${businessId}-${Date.now()}`,
-        message: 'تمت إزالة المتجر من المفضلة بنجاح',
-        tone: 'success',
-      };
-      return true;
-    } catch {
-      feedback = {
-        id: `biz-error-${businessId}-${Date.now()}`,
-        message: 'تعذر إزالة المتجر من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
-        tone: 'danger',
-      };
-      return false;
-    } finally {
-      pendingBusinessIds.delete(businessId);
-    }
-  }
-
-  // First call starts in-flight
-  const promise1 = removeBusiness('biz-dup-1');
-  assert.equal(pendingBusinessIds.has('biz-dup-1'), true, 'ID is registered as pending');
-
-  // Second call attempted while first is still pending
-  const call2Result = await removeBusiness('biz-dup-1');
-  assert.equal(call2Result, false, 'Duplicate concurrent call must return false immediately');
-  assert.equal(mutateCalls, 1, 'Duplicate call must NOT invoke mutateAsync a second time');
-
-  // Complete first call
-  resolvePromise({ success: true });
-  const call1Result = await promise1;
-  assert.equal(call1Result, true, 'First call completes successfully');
-  assert.equal(feedback.tone, 'success');
-  assert.equal(pendingBusinessIds.has('biz-dup-1'), false, 'Pending set is cleared');
-});
-
-// ---------------------------------------------------------------------------
-// 15. Behavioral Regression: FavoriteButton handles rejected onToggle without unhandled rejections
-// ---------------------------------------------------------------------------
-test('15. Behavioral: FavoriteButton press catches rejected promises safely and resets pending state', async () => {
-  let isPending = false;
-  let errorCaught = false;
-
-  async function simulateButtonPress(onToggleFn) {
-    if (isPending) return;
-    try {
-      isPending = true;
-      await onToggleFn();
-    } catch {
-      errorCaught = true;
-    } finally {
-      isPending = false;
-    }
-  }
-
-  // Case 1: onToggle succeeds
-  await simulateButtonPress(async () => {});
-  assert.equal(isPending, false, 'Pending reset after success');
-  assert.equal(errorCaught, false);
-
-  // Case 2: onToggle rejects
-  await simulateButtonPress(async () => {
-    throw new Error('Async network failure');
+test('11. Production execution: resolveFavoriteCardPresentation distinguishes transient failure from confirmed missing data', () => {
+  // Transient network error (isError: true) -> must return retry card
+  const offerError = favoritesDisplay.resolveFavoriteCardPresentation({
+    kind: 'offer',
+    isError: true,
+    hasDetails: false,
   });
-  assert.equal(isPending, false, 'Pending must be reset even after async rejection');
-  assert.equal(errorCaught, true, 'Error was intercepted safely without leaking unhandled rejection');
+  assert.equal(offerError.state, 'retry');
+  assert.equal(offerError.canRetry, true);
+  assert.equal(offerError.canRemove, false);
+  assert.equal(offerError.title, 'تعذر تحميل العرض');
+
+  const businessError = favoritesDisplay.resolveFavoriteCardPresentation({
+    kind: 'business',
+    isError: true,
+    hasDetails: false,
+  });
+  assert.equal(businessError.state, 'retry');
+  assert.equal(businessError.title, 'تعذر تحميل المتجر');
+
+  // Confirmed missing / unpublished data (isError: false, hasDetails: false) -> must return unavailable card
+  const offerMissing = favoritesDisplay.resolveFavoriteCardPresentation({
+    kind: 'offer',
+    isError: false,
+    hasDetails: false,
+  });
+  assert.equal(offerMissing.state, 'unavailable');
+  assert.equal(offerMissing.canRetry, false);
+  assert.equal(offerMissing.canRemove, true);
+  assert.equal(offerMissing.title, 'عرض غير متوفر حالياً');
+
+  const businessMissing = favoritesDisplay.resolveFavoriteCardPresentation({
+    kind: 'business',
+    isError: false,
+    hasDetails: false,
+  });
+  assert.equal(businessMissing.state, 'unavailable');
+  assert.equal(businessMissing.title, 'متجر غير متوفر حالياً');
+
+  // Ready entity (isError: false, hasDetails: true) -> normal card
+  const offerReady = favoritesDisplay.resolveFavoriteCardPresentation({
+    kind: 'offer',
+    isError: false,
+    hasDetails: true,
+  });
+  assert.equal(offerReady.state, 'ready');
+});
+
+// ---------------------------------------------------------------------------
+// 12. Production Logic Execution: executeGuardedRemoval success path (use-favorites-details.ts)
+// ---------------------------------------------------------------------------
+test('12. Production execution: executeGuardedRemoval success path provides Arabic confirmation and clears pending state', async () => {
+  const inFlightSet = new Set();
+  const pendingSnapshots = [];
+  let feedbackResult = null;
+  let mutateCalls = 0;
+
+  const mockMutate = async ({ offerId, save }) => {
+    mutateCalls++;
+    assert.equal(save, false);
+    assert.equal(offerId, 'offer-live-1');
+    assert.equal(inFlightSet.has('offer-live-1'), true, 'ID must be in inFlightSet during mutation execution');
+    return { ok: true };
+  };
+
+  const success = await executeGuardedRemoval({
+    id: 'offer-live-1',
+    kind: 'offer',
+    inFlightSet,
+    mutateAsync: mockMutate,
+    mutationArgs: { offerId: 'offer-live-1', save: false },
+    onPendingChange: (set) => pendingSnapshots.push(new Set(set)),
+    onFeedback: (fb) => {
+      feedbackResult = fb;
+    },
+  });
+
+  assert.equal(success, true, 'Must return true on mutation resolution');
+  assert.equal(mutateCalls, 1, 'Must invoke mutateAsync exactly once');
+  assert.equal(inFlightSet.has('offer-live-1'), false, 'inFlightSet must be cleared after resolution');
+  assert.equal(feedbackResult.tone, 'success');
+  assert.equal(feedbackResult.message, 'تمت إزالة العرض من المفضلة بنجاح');
+  // Verify snapshots: first with id, then empty
+  assert.equal(pendingSnapshots[0].has('offer-live-1'), true);
+  assert.equal(pendingSnapshots[1].size, 0);
+});
+
+// ---------------------------------------------------------------------------
+// 13. Production Logic Execution: executeGuardedRemoval failure and retry path
+// ---------------------------------------------------------------------------
+test('13. Production execution: executeGuardedRemoval failure catches rejection, preserves item, and enables retry', async () => {
+  const inFlightSet = new Set();
+  let feedbackResult = null;
+  let mutateAttempt = 0;
+
+  const flakyMutate = async () => {
+    mutateAttempt++;
+    if (mutateAttempt === 1) {
+      throw new Error('Supabase network timeout / fetch error');
+    }
+    return { ok: true };
+  };
+
+  // Attempt 1: Fails
+  const firstResult = await executeGuardedRemoval({
+    id: 'biz-flaky-99',
+    kind: 'business',
+    inFlightSet,
+    mutateAsync: flakyMutate,
+    mutationArgs: { businessId: 'biz-flaky-99', save: false },
+    onFeedback: (fb) => {
+      feedbackResult = fb;
+    },
+  });
+
+  assert.equal(firstResult, false, 'Failed mutation must return false without unhandled rejection');
+  assert.equal(inFlightSet.has('biz-flaky-99'), false, 'inFlightSet must be cleared after failure so user can retry');
+  assert.equal(feedbackResult.tone, 'danger');
+  assert.equal(feedbackResult.message, 'تعذر إزالة المتجر من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.');
+
+  // Attempt 2: User retries removing the item, and this time connection succeeds
+  const retryResult = await executeGuardedRemoval({
+    id: 'biz-flaky-99',
+    kind: 'business',
+    inFlightSet,
+    mutateAsync: flakyMutate,
+    mutationArgs: { businessId: 'biz-flaky-99', save: false },
+    onFeedback: (fb) => {
+      feedbackResult = fb;
+    },
+  });
+
+  assert.equal(retryResult, true, 'Retry must succeed once connection is restored');
+  assert.equal(mutateAttempt, 2, 'Must have attempted mutate twice');
+  assert.equal(feedbackResult.tone, 'success');
+  assert.equal(feedbackResult.message, 'تمت إزالة المتجر من المفضلة بنجاح');
+});
+
+// ---------------------------------------------------------------------------
+// 14. Production Logic Execution: Synchronous duplicate guard and simultaneous taps
+// ---------------------------------------------------------------------------
+test('14. Production execution: executeGuardedRemoval synchronously blocks simultaneous rapid taps', async () => {
+  const inFlightSet = new Set();
+  let mutateCalls = 0;
+  let resolveFirstCall;
+
+  const slowMutate = async () => {
+    mutateCalls++;
+    return new Promise((resolve) => {
+      resolveFirstCall = resolve;
+    });
+  };
+
+  // Tap 1: starts in-flight
+  const promise1 = executeGuardedRemoval({
+    id: 'offer-double-tap',
+    kind: 'offer',
+    inFlightSet,
+    mutateAsync: slowMutate,
+    mutationArgs: { offerId: 'offer-double-tap', save: false },
+  });
+
+  // Tap 2: simultaneous rapid tap in the exact same tick / microtask before React re-render
+  // Synchronous guard must immediately reject without waiting for promise1
+  const tap2Result = await executeGuardedRemoval({
+    id: 'offer-double-tap',
+    kind: 'offer',
+    inFlightSet,
+    mutateAsync: slowMutate,
+    mutationArgs: { offerId: 'offer-double-tap', save: false },
+  });
+
+  assert.equal(tap2Result, false, 'Simultaneous duplicate tap must be synchronously rejected');
+  assert.equal(mutateCalls, 1, 'Duplicate tap must NOT trigger mutateAsync');
+
+  // Tap 3 on a DIFFERENT item simultaneously must be allowed concurrently
+  let diffMutateCalls = 0;
+  const promise3 = executeGuardedRemoval({
+    id: 'offer-different-item',
+    kind: 'offer',
+    inFlightSet,
+    mutateAsync: async () => {
+      diffMutateCalls++;
+      return { ok: true };
+    },
+    mutationArgs: { offerId: 'offer-different-item', save: false },
+  });
+
+  const tap3Result = await promise3;
+  assert.equal(tap3Result, true, 'Concurrent removal of a different item must be allowed');
+  assert.equal(diffMutateCalls, 1);
+
+  // Complete Tap 1
+  resolveFirstCall({ ok: true });
+  const tap1Result = await promise1;
+  assert.equal(tap1Result, true, 'First tap completes successfully');
+  assert.equal(inFlightSet.size, 0, 'inFlightSet must be completely clear');
+});
+
+// ---------------------------------------------------------------------------
+// 15. Production Logic Execution: executeFavoriteToggle (FavoriteButton.tsx)
+// ---------------------------------------------------------------------------
+test('15. Production execution: executeFavoriteToggle handles success, rejection, and guest guards', async () => {
+  let pendingState = false;
+  let toggleCalledWith = null;
+
+  // Case 1: Signed-in user clicks toggle -> succeeds
+  const successResult = await executeFavoriteToggle({
+    isSaved: true,
+    isSignedIn: true,
+    disabled: false,
+    isPending: false,
+    onToggle: async (nextSaved) => {
+      toggleCalledWith = nextSaved;
+    },
+    setPending: (p) => {
+      pendingState = p;
+    },
+  });
+  assert.equal(successResult, true, 'Must return true on toggle success');
+  assert.equal(toggleCalledWith, false, 'Must toggle from saved (true) to unsaved (false)');
+  assert.equal(pendingState, false, 'Pending state must be false after completion');
+
+  // Case 2: onToggle throws -> catches rejection safely without leaking unhandled error
+  const failResult = await executeFavoriteToggle({
+    isSaved: false,
+    isSignedIn: true,
+    onToggle: async () => {
+      throw new Error('Connection refused / offline');
+    },
+    setPending: (p) => {
+      pendingState = p;
+    },
+  });
+  assert.equal(failResult, false, 'Must return false on mutation failure');
+  assert.equal(pendingState, false, 'Pending state must be reset to false in finally');
+
+  // Case 3: Guest user -> immediately guarded without calling onToggle
+  let guestToggled = false;
+  const guestResult = await executeFavoriteToggle({
+    isSaved: false,
+    isSignedIn: false,
+    onToggle: () => {
+      guestToggled = true;
+    },
+  });
+  assert.equal(guestResult, false, 'Guest user toggle must be rejected');
+  assert.equal(guestToggled, false, 'onToggle must never be invoked for guest');
+
+  // Case 4: Disabled or already pending -> guarded
+  let guardedCall = false;
+  const disabledResult = await executeFavoriteToggle({
+    isSaved: false,
+    isSignedIn: true,
+    disabled: true,
+    onToggle: () => {
+      guardedCall = true;
+    },
+  });
+  assert.equal(disabledResult, false);
+  assert.equal(guardedCall, false);
 });
 
 

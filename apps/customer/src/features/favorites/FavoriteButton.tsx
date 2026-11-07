@@ -17,6 +17,39 @@ export interface FavoriteButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
+export interface FavoriteToggleOptions {
+  isSaved: boolean;
+  isSignedIn: boolean;
+  disabled?: boolean;
+  isPending?: boolean;
+  onToggle?: (nextSaved: boolean) => void | Promise<void>;
+  setPending?: (pending: boolean) => void;
+}
+
+export async function executeFavoriteToggle({
+  isSaved,
+  isSignedIn,
+  disabled = false,
+  isPending = false,
+  onToggle,
+  setPending,
+}: FavoriteToggleOptions): Promise<boolean> {
+  if (disabled || isPending || !isSignedIn) {
+    return false;
+  }
+
+  try {
+    setPending?.(true);
+    await onToggle?.(!isSaved);
+    return true;
+  } catch {
+    // Catch mutation rejection safely to prevent unhandled promise rejections
+    return false;
+  } finally {
+    setPending?.(false);
+  }
+}
+
 export function FavoriteButton({
   isSaved = true,
   onToggle,
@@ -36,20 +69,14 @@ export function FavoriteButton({
   const isPending = externalPending || localPending;
 
   async function handlePress() {
-    if (disabled || isPending) return;
-    if (!isSignedIn) {
-      // Guest users cannot mutate saved items directly
-      return;
-    }
-
-    try {
-      setLocalPending(true);
-      await onToggle?.(!isSaved);
-    } catch {
-      // Catch mutation rejection safely to prevent unhandled promise rejections
-    } finally {
-      setLocalPending(false);
-    }
+    await executeFavoriteToggle({
+      isSaved,
+      isSignedIn: Boolean(isSignedIn),
+      disabled,
+      isPending,
+      onToggle,
+      setPending: setLocalPending,
+    });
   }
 
   const defaultLabel = isSaved ? 'إزالة من المفضلة' : 'إضافة إلى المفضلة';

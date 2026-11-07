@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@wow/auth';
 import {
   useSavedBusinesses,
@@ -12,6 +12,64 @@ export interface FavoritesFeedback {
   id: string;
   message: string;
   tone: 'success' | 'danger';
+}
+
+export interface GuardedRemovalParams<T> {
+  id: string;
+  kind: 'offer' | 'business';
+  inFlightSet: Set<string>;
+  mutateAsync: (args: T) => Promise<unknown>;
+  mutationArgs: T;
+  onPendingChange?: (inFlight: Set<string>) => void;
+  onFeedback?: (feedback: FavoritesFeedback) => void;
+}
+
+/**
+ * Synchronous, race-safe removal execution.
+ * Guards in-flight requests synchronously using inFlightSet before returning a Promise,
+ * preventing race conditions from simultaneous/rapid user taps before React re-renders.
+ */
+export async function executeGuardedRemoval<T>({
+  id,
+  kind,
+  inFlightSet,
+  mutateAsync,
+  mutationArgs,
+  onPendingChange,
+  onFeedback,
+}: GuardedRemovalParams<T>): Promise<boolean> {
+  // Synchronous guard: reject duplicate requests immediately
+  if (inFlightSet.has(id)) {
+    return false;
+  }
+  inFlightSet.add(id);
+  onPendingChange?.(new Set(inFlightSet));
+
+  try {
+    await mutateAsync(mutationArgs);
+    onFeedback?.({
+      id: `${kind}-success-${id}-${Date.now()}`,
+      message:
+        kind === 'offer'
+          ? 'تمت إزالة العرض من المفضلة بنجاح'
+          : 'تمت إزالة المتجر من المفضلة بنجاح',
+      tone: 'success',
+    });
+    return true;
+  } catch {
+    onFeedback?.({
+      id: `${kind}-error-${id}-${Date.now()}`,
+      message:
+        kind === 'offer'
+          ? 'تعذر إزالة العرض من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.'
+          : 'تعذر إزالة المتجر من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
+      tone: 'danger',
+    });
+    return false;
+  } finally {
+    inFlightSet.delete(id);
+    onPendingChange?.(new Set(inFlightSet));
+  }
 }
 
 export function useFavoritesDetails() {
@@ -63,70 +121,49 @@ export function useFavoritesDetails() {
     setFeedback(null);
   }, []);
 
-  // 4. Mutations with per-item pending state, duplicate prevention, and user feedback
-  const setSavedOfferMutation = useSetSavedOffer();
-  const setSavedBusinessMutation = useSetSavedBusiness();
+  // 4. Synchronous race-safe tracking refs + React UI state for per-item pending indicators
+  const pendingOfferIdsRef = useRef<Set<string>>(new Set());
+  const pendingBusinessIdsRef = useRef<Set<string>>(new Set());
   const [pendingOfferIds, setPendingOfferIds] = useState<Set<string>>(new Set());
   const [pendingBusinessIds, setPendingBusinessIds] = useState<Set<string>>(new Set());
 
+  // Session isolation: reset in-flight ref tracking on account change or sign-out
+  useEffect(() => {
+    pendingOfferIdsRef.current.clear();
+    pendingBusinessIdsRef.current.clear();
+  }, [userId, isSignedIn]);
+
+  const setSavedOfferMutation = useSetSavedOffer();
+  const setSavedBusinessMutation = useSetSavedBusiness();
+
   const removeOffer = useCallback(
     async (offerId: string): Promise<boolean> => {
-      if (pendingOfferIds.has(offerId)) return false;
-      setPendingOfferIds((prev) => new Set(prev).add(offerId));
-      try {
-        await setSavedOfferMutation.mutateAsync({ offerId, save: false });
-        setFeedback({
-          id: `offer-success-${offerId}-${Date.now()}`,
-          message: 'تمت إزالة العرض من المفضلة بنجاح',
-          tone: 'success',
-        });
-        return true;
-      } catch {
-        setFeedback({
-          id: `offer-error-${offerId}-${Date.now()}`,
-          message: 'تعذر إزالة العرض من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
-          tone: 'danger',
-        });
-        return false;
-      } finally {
-        setPendingOfferIds((prev) => {
-          const next = new Set(prev);
-          next.delete(offerId);
-          return next;
-        });
-      }
+      return executeGuardedRemoval({
+        id: offerId,
+        kind: 'offer',
+        inFlightSet: pendingOfferIdsRef.current,
+        mutateAsync: setSavedOfferMutation.mutateAsync,
+        mutationArgs: { offerId, save: false },
+        onPendingChange: setPendingOfferIds,
+        onFeedback: setFeedback,
+      });
     },
-    [pendingOfferIds, setSavedOfferMutation],
+    [setSavedOfferMutation.mutateAsync],
   );
 
   const removeBusiness = useCallback(
     async (businessId: string): Promise<boolean> => {
-      if (pendingBusinessIds.has(businessId)) return false;
-      setPendingBusinessIds((prev) => new Set(prev).add(businessId));
-      try {
-        await setSavedBusinessMutation.mutateAsync({ businessId, save: false });
-        setFeedback({
-          id: `biz-success-${businessId}-${Date.now()}`,
-          message: 'تمت إزالة المتجر من المفضلة بنجاح',
-          tone: 'success',
-        });
-        return true;
-      } catch {
-        setFeedback({
-          id: `biz-error-${businessId}-${Date.now()}`,
-          message: 'تعذر إزالة المتجر من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
-          tone: 'danger',
-        });
-        return false;
-      } finally {
-        setPendingBusinessIds((prev) => {
-          const next = new Set(prev);
-          next.delete(businessId);
-          return next;
-        });
-      }
+      return executeGuardedRemoval({
+        id: businessId,
+        kind: 'business',
+        inFlightSet: pendingBusinessIdsRef.current,
+        mutateAsync: setSavedBusinessMutation.mutateAsync,
+        mutationArgs: { businessId, save: false },
+        onPendingChange: setPendingBusinessIds,
+        onFeedback: setFeedback,
+      });
     },
-    [pendingBusinessIds, setSavedBusinessMutation],
+    [setSavedBusinessMutation.mutateAsync],
   );
 
   const isLoading =

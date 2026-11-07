@@ -64,4 +64,40 @@ export function formatSavedBusinessesCount(count: number): string {
   return `${numAr} تاجر`;
 }
 
+export type FavoriteCardPresentation =
+  | { state: 'retry'; title: string; description: string; canRetry: true; canRemove: false }
+  | { state: 'unavailable'; title: string; description: string; canRetry: false; canRemove: true }
+  | { state: 'ready'; canRetry: false; canRemove: false };
+
+/** Resolves favorite card UI presentation based on query error status and data presence. */
+export function resolveFavoriteCardPresentation(options: {
+  kind: 'offer' | 'business';
+  isError: boolean;
+  hasDetails: boolean;
+}): FavoriteCardPresentation {
+  if (options.isError) {
+    return {
+      state: 'retry',
+      title: options.kind === 'offer' ? 'تعذر تحميل العرض' : 'تعذر تحميل المتجر',
+      description: 'حدث خطأ أثناء الاتصال بالخادم. يمكنك إعادة المحاولة.',
+      canRetry: true,
+      canRemove: false,
+    };
+  }
+  if (!options.hasDetails) {
+    return {
+      state: 'unavailable',
+      title: options.kind === 'offer' ? 'عرض غير متوفر حالياً' : 'متجر غير متوفر حالياً',
+      description: 'تمت إزالة هذا العنصر من العرض العام أو انتهت صلاحيته.',
+      canRetry: false,
+      canRemove: true,
+    };
+  }
+  return {
+    state: 'ready',
+    canRetry: false,
+    canRemove: false,
+  };
+}
+
 export { formatDiscoveryPrice, formatOfferCount, isSafePublicImageUrl };
