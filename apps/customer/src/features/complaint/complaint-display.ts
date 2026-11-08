@@ -249,12 +249,18 @@ export function mapComplaintSubmissionError(err: unknown): {
   isAmbiguous: boolean;
 } {
   const rawMessage = err instanceof Error ? err.message : String(err ?? '');
+  const normalizedMessage = rawMessage.toLowerCase();
 
   if (
     rawMessage.includes('UUID') ||
     rawMessage.includes('check write outcome') ||
     rawMessage.includes('timeout') ||
-    rawMessage.includes('Ambiguous')
+    rawMessage.includes('Ambiguous') ||
+    // The server may have committed the complaint before a transport failure.
+    normalizedMessage.includes('network') ||
+    normalizedMessage.includes('fetch') ||
+    normalizedMessage.includes('connection') ||
+    normalizedMessage.includes('abort')
   ) {
     return {
       message:
@@ -280,13 +286,6 @@ export function mapComplaintSubmissionError(err: unknown): {
   if (rawMessage.includes('Invalid complaint') || rawMessage.includes('evidence')) {
     return {
       message: 'تعذّر قبول البيانات: يرجى التحقق من صحة الحقول وإعادة المحاولة.',
-      isAmbiguous: false,
-    };
-  }
-
-  if (rawMessage.includes('Network') || rawMessage.includes('fetch')) {
-    return {
-      message: 'تعذّر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة لاحقاً.',
       isAmbiguous: false,
     };
   }
