@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { router } from 'expo-router';
 import { useAuth } from '@wow/auth';
 import {
   useBusinessDraftDetails,
@@ -15,6 +16,7 @@ export interface UseBusinessOnboardingStep2Props {
   fixtureAuth?: { isLoaded: boolean; isSignedIn: boolean; userId: string | null };
   fixtureBusiness?: { id: string; name: string; status: string };
   fixtureRepresentative?: Partial<BusinessRepresentativeDraft> & { name: string; role: RepresentativeRole };
+  onNavigateToStep3?: (businessId: string) => void;
 }
 
 export type FeedbackTone = 'success' | 'error' | 'warning' | 'info';
@@ -46,6 +48,7 @@ export function useBusinessOnboardingStep2({
   fixtureAuth,
   fixtureBusiness,
   fixtureRepresentative,
+  onNavigateToStep3,
 }: UseBusinessOnboardingStep2Props = {}) {
   const auth = useAuth();
   const isAuthLoaded = fixtureAuth ? fixtureAuth.isLoaded : auth.isLoaded;
@@ -195,9 +198,20 @@ export function useBusinessOnboardingStep2({
       setFeedback({
         tone: 'success',
         text: isContinue
-          ? 'تم حفظ بيانات المفوض بنجاح. الخطوة التالية (الفروع) قيد التطوير ولم تُتح بعد.'
+          ? 'تم حفظ بيانات المفوض بنجاح. جارٍ الانتقال إلى الفروع...'
           : 'تم حفظ المسودة. يمكنك استكمال الطلب لاحقًا.',
       });
+      if (isContinue) {
+        const syntheticId = activeBusinessId || 'dev-synthetic-business-uuid';
+        if (onNavigateToStep3) {
+          onNavigateToStep3(syntheticId);
+        } else {
+          router.push({
+            pathname: '/business/onboarding/branches',
+            params: { businessId: syntheticId, preview: '1' },
+          });
+        }
+      }
       return true;
     }
 
@@ -240,9 +254,19 @@ export function useBusinessOnboardingStep2({
       setFeedback({
         tone: 'success',
         text: isContinue
-          ? 'تم حفظ بيانات المفوض بنجاح. الخطوة التالية (الفروع) قيد التطوير ولم تُتح بعد.'
+          ? 'تم حفظ بيانات المفوض بنجاح. جارٍ الانتقال إلى الفروع...'
           : 'تم حفظ المسودة. يمكنك استكمال الطلب لاحقًا.',
       });
+      if (isContinue) {
+        if (onNavigateToStep3) {
+          onNavigateToStep3(activeBusinessId);
+        } else {
+          router.push({
+            pathname: '/business/onboarding/branches',
+            params: { businessId: activeBusinessId },
+          });
+        }
+      }
       return true;
     } catch (err: unknown) {
       if (isDeploymentPendingError(err)) {
@@ -289,6 +313,7 @@ export function useBusinessOnboardingStep2({
     saveMutation,
     name,
     role,
+    onNavigateToStep3,
   ]);
 
   const saveDraft = useCallback(() => executeSave(false), [executeSave]);

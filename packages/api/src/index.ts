@@ -26,7 +26,12 @@ export {
   useUpdateBusinessDraft,
   useSaveBusinessRepresentativeDraft,
 } from './query/hooks/use-businesses';
-export { useBusinessBranches, useCreateBranch } from './query/hooks/use-branches';
+export {
+  useBusinessBranches,
+  useCreateBranch,
+  useUpdateBranchDraft,
+  useDeleteDraftBranch,
+} from './query/hooks/use-branches';
 export {
   useBusinessVerifications,
   useSubmitBusinessVerification,

@@ -1494,3 +1494,147 @@ test('W03.2 pre-migration regression: representative draft query handles missing
   const draft = await api.getBusinessRepresentativeDraft(client, id);
   assert.equal(draft, null, 'Must return null gracefully on missing RPC');
 });
+
+test('W03.3 MER-02-03 merchant onboarding branch RPCs match create, update, and delete contracts', async () => {
+  const captured = [];
+  globalThis.fetch = async (url, options) => {
+    const parsed = new URL(url);
+    const body = options?.body ? JSON.parse(options.body) : null;
+    captured.push({ path: parsed.pathname, body });
+    if (parsed.pathname.endsWith('wow_create_branch')) {
+      return response(otherId);
+    }
+    if (parsed.pathname.endsWith('wow_update_merchant_draft')) {
+      return response(true);
+    }
+    if (parsed.pathname.endsWith('wow_delete_draft_branch')) {
+      return response(true);
+    }
+    return response(null);
+  };
+
+  const client = makeClient();
+
+  // 1. Test createBranch
+  const createdBranchId = await api.createBranch(client, {
+    businessId: id,
+    name: 'الفرع الرئيسي',
+    city: 'صنعاء',
+    addressLine: 'شارع حدة',
+    district: 'السبعين',
+  });
+  assert.equal(createdBranchId, otherId);
+
+  // 2. Test updateBranchDraft
+  const updateSuccess = await api.updateBranchDraft(client, {
+    businessId: id,
+    branchId: otherId,
+    patch: { name: 'فرع الزبيري' },
+  });
+  assert.equal(updateSuccess, true);
+
+  // 3. Test deleteDraftBranch
+  const deleteSuccess = await api.deleteDraftBranch(client, id, otherId);
+  assert.equal(deleteSuccess, true);
+
+  assert.deepEqual(captured, [
+    {
+      path: '/rest/v1/rpc/wow_create_branch',
+      body: {
+        p_business_id: id,
+        p_name: 'الفرع الرئيسي',
+        p_city: 'صنعاء',
+        p_address_line: 'شارع حدة',
+        p_district: 'السبعين',
+        p_latitude: null,
+        p_longitude: null,
+      },
+    },
+    {
+      path: '/rest/v1/rpc/wow_update_merchant_draft',
+      body: {
+        p_business_id: id,
+        p_branch_id: otherId,
+        p_patch: { name: 'فرع الزبيري' },
+      },
+    },
+    {
+      path: '/rest/v1/rpc/wow_delete_draft_branch',
+      body: {
+        p_business_id: id,
+        p_branch_id: otherId,
+      },
+    },
+  ]);
+});
+
+test('W03.3 MER-02-03 branch mutations stay idle when signed out and invalidate branch queries on success', async () => {
+  let createMutation;
+  let updateMutation;
+  let deleteMutation;
+  let queryClient;
+
+  globalThis.fetch = async (url) => {
+    if (url.includes('wow_create_branch')) return response(otherId);
+    if (url.includes('wow_update_merchant_draft')) return response(true);
+    if (url.includes('wow_delete_draft_branch')) return response(true);
+    return response(null);
+  };
+
+  function InspectBranches() {
+    queryClient = recordClient();
+    createMutation = api.useCreateBranch();
+    updateMutation = api.useUpdateBranchDraft();
+    deleteMutation = api.useDeleteDraftBranch();
+    return null;
+  }
+
+  // 1. Idle when signed out
+  await mount(provider(h(InspectBranches), { userId: null, sessionScopeKey: null }));
+  assert.equal(createMutation.status, 'idle');
+  assert.equal(updateMutation.status, 'idle');
+  assert.equal(deleteMutation.status, 'idle');
+
+  // 2. Authenticated user can execute mutations and invalidates branch query
+  await mount(provider(h(InspectBranches)));
+  const branchKey = api.wowQueryKeys.branches.business(id, 'user_a');
+  queryClient.setQueryData(branchKey, [{ id: otherId, name: 'Main Branch' }]);
+
+  await act(async () => {
+    assert.equal(
+      await createMutation.mutateAsync({
+        businessId: id,
+        name: 'فرع إضافي',
+        city: 'عدن',
+        addressLine: 'شارع المعلا',
+      }),
+      otherId
+    );
+  });
+  assert(queryClient.getQueryState(branchKey).isInvalidated);
+
+  queryClient.resetQueries({ queryKey: branchKey });
+  await act(async () => {
+    assert.equal(
+      await updateMutation.mutateAsync({
+        businessId: id,
+        branchId: otherId,
+        patch: { name: 'فرع خور مكسر' },
+      }),
+      true
+    );
+  });
+  assert(queryClient.getQueryState(branchKey).isInvalidated);
+
+  queryClient.resetQueries({ queryKey: branchKey });
+  await act(async () => {
+    assert.equal(
+      await deleteMutation.mutateAsync({
+        businessId: id,
+        branchId: otherId,
+      }),
+      true
+    );
+  });
+  assert(queryClient.getQueryState(branchKey).isInvalidated);
+});
