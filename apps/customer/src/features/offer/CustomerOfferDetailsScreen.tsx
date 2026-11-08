@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
+  AlertCircle,
   ArrowRight,
   Check,
   Clock,
@@ -30,9 +31,10 @@ import { OfferParticipatingBranches } from './OfferParticipatingBranches';
 
 export interface CustomerOfferDetailsScreenProps {
   offerId: string;
+  mockOffer?: import('@wow/api').PublicOfferDetails;
 }
 
-export function CustomerOfferDetailsScreen({ offerId }: CustomerOfferDetailsScreenProps) {
+export function CustomerOfferDetailsScreen({ offerId, mockOffer }: CustomerOfferDetailsScreenProps) {
   const router = useRouter();
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
@@ -44,7 +46,7 @@ export function CustomerOfferDetailsScreen({ offerId }: CustomerOfferDetailsScre
 
   // 2. Fetch live public offer data
   const offerQuery = usePublicOffer(isUuidValid ? offerId : null);
-  const offer = offerQuery.data;
+  const offer = mockOffer ?? offerQuery.data;
 
   // Navigation handlers
   function handleBack() {
@@ -634,6 +636,78 @@ export function CustomerOfferDetailsScreen({ offerId }: CustomerOfferDetailsScre
     />
   );
 
+  const renderReportIssueSection = () => (
+    <View
+      style={{
+        padding: 16,
+        borderRadius: 16,
+        backgroundColor: isDark ? '#111827' : '#F8FAFC',
+        borderWidth: 1,
+        borderColor: colors.border,
+        gap: 10,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <AlertCircle size={18} color={isDark ? '#FACC15' : '#B45309'} />
+        <AppText
+          variant="heading"
+          style={{
+            fontSize: 15,
+            fontWeight: '700',
+            color: colors.foreground,
+            textAlign: 'right',
+          }}
+        >
+          الإبلاغ عن مشكلة
+        </AppText>
+      </View>
+
+      <AppText
+        variant="caption"
+        muted
+        style={{
+          fontSize: 13,
+          lineHeight: 20,
+          color: colors.mutedForeground,
+          textAlign: 'right',
+        }}
+      >
+        إذا واجهت اختلافاً في السعر، أو عدم توفر العرض في الفرع، أو شروطاً غير مطابقة، يمكنك تقديم بلاغ رسمي لإدارة المنصة.
+      </AppText>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="تقديم شكوى بشأن هذا العرض"
+        accessibilityHint="ينقلك إلى صفحة تقديم شكوى رسمية"
+        onPress={() => router.push(`/offer/${offer.id}/complaint`)}
+        style={({ pressed }) => ({
+          minHeight: 48,
+          borderRadius: 12,
+          backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+          borderWidth: 1,
+          borderColor: isDark ? '#374151' : '#E2E8F0',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          paddingHorizontal: 16,
+          opacity: pressed ? 0.8 : 1,
+        })}
+      >
+        <AlertCircle size={16} color={isDark ? '#FACC15' : '#854D0E'} />
+        <AppText
+          style={{
+            fontSize: 14,
+            fontWeight: '700',
+            color: isDark ? '#FACC15' : '#854D0E',
+          }}
+        >
+          الإبلاغ عن مشكلة في العرض
+        </AppText>
+      </Pressable>
+    </View>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* 1. Shared Header */}
@@ -669,6 +743,7 @@ export function CustomerOfferDetailsScreen({ offerId }: CustomerOfferDetailsScre
               <View style={{ width: 380, gap: 16 }}>
                 {renderMerchantCard()}
                 {renderBranchesSection()}
+                {renderReportIssueSection()}
               </View>
             </View>
           ) : (
@@ -688,6 +763,7 @@ export function CustomerOfferDetailsScreen({ offerId }: CustomerOfferDetailsScre
               {renderEssentialTerms()}
               {renderIncludedItems()}
               {renderBranchesSection()}
+              {renderReportIssueSection()}
             </View>
           )}
         </View>

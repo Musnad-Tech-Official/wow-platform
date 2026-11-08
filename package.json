@@ -12,6 +12,7 @@
     "typecheck": "node scripts/validate-integration-routes.cjs && pnpm --filter @wow/api typecheck && pnpm --filter customer exec tsc --noEmit && pnpm --filter merchant exec tsc --noEmit && pnpm --filter admin exec tsc --noEmit",
     "test:query": "node scripts/test-query.cjs",
     "test:integration": "node scripts/test-integration.cjs",
+    "test:customer-complaint": "node scripts/test-customer-complaint.cjs",
     "test:customer-discovery": "node scripts/test-customer-discovery.cjs",
     "validate:routes": "node scripts/validate-integration-routes.cjs"
   }
