@@ -263,6 +263,19 @@ test('5. Pagination & deduplication: Stable order and duplicate-free batch mergi
     complaintsScreenSrc.includes('deduplicateComplaints'),
     'Screen must deduplicate pagination results',
   );
+  assert.ok(
+    complaintsScreenSrc.includes('const canLoadMore ='),
+    'Pagination availability must account for the number of records actually returned',
+  );
+  assert.equal(
+    complaintsScreenSrc.includes("hasMorePages && activeFilter === 'all'"),
+    false,
+    'Loading further pages must remain available under non-all filters',
+  );
+  assert.ok(
+    complaintsScreenSrc.includes('تحميل المزيد للبحث عن شكاوى مطابقة'),
+    'Filtered-empty state must allow searching additional pages when available',
+  );
 });
 
 // ===========================================================================
@@ -303,6 +316,10 @@ test('7. User session isolation: Query key includes userId, preventing cross-acc
     queryHooksSrc.includes('wowQueryKeys.interactions.myComplaints(context.userId'),
     'useMyComplaints must bind queryKey to session userId',
   );
+  assert.ok(
+    complaintsScreenSrc.includes('requireWowApiSession(apiContext)'),
+    'Manual pagination must require a ready authenticated session',
+  );
 });
 
 // ===========================================================================
@@ -341,6 +358,10 @@ test('8. State distinctions: Explicit empty history, filtered empty, loading ske
   assert.ok(
     complaintsScreenSrc.includes('إعادة المحاولة'),
     'Error state must provide retry button',
+  );
+  assert.ok(
+    complaintsScreenSrc.includes('تعذّر تحميل المزيد من الشكاوى'),
+    'Pagination failures must be visible rather than silently discarded',
   );
 
   // Skeleton loading
