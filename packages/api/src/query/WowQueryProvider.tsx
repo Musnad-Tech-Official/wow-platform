@@ -14,7 +14,7 @@ export interface WowQueryProviderProps {
   isAuthReady: boolean;
 }
 
-interface WowApiContextValue {
+export interface WowApiContextValue {
   getClient: () => WowSupabaseClient | null;
   userId: string | null;
 }

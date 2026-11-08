@@ -136,6 +136,10 @@ export function CustomerAccountTabScreen({
     router.push('/(tabs)/favorites');
   }
 
+  function handleComplaintsNavigation() {
+    router.push('/complaints');
+  }
+
   function handlePrivacyRequestAction(title: string) {
     setNoticeTone('info');
     setNoticeMessage(`ميزة "${title}" قيد التجهيز الإلكتروني وفق المتطلبات التنظيمية وسياسات الاحتفاظ المعتمدة.`);
@@ -273,7 +277,7 @@ export function CustomerAccountTabScreen({
 
               {/* Section 2: Customer Activity ("نشاطي") */}
               <CustomerActivitySection
-                onPressComplaints={() => setShowComplaintsModal(true)}
+                onPressComplaints={handleComplaintsNavigation}
                 onPressFavorites={handleFavoritesNavigation}
               />
 
