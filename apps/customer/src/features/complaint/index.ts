@@ -9,6 +9,11 @@ export {
   MAX_DESCRIPTION_LENGTH,
   validateComplaintForm,
   validateIncidentDate,
+  formatLocalDate,
+  getLocalTodayDate,
+  getLocalYesterdayDate,
+  mapComplaintSubmissionError,
+  executeComplaintSubmission,
   getComplaintTypeLabel,
   IS_EVIDENCE_ATTACHMENT_SUPPORTED,
   IS_CUS08_ROUTE_AVAILABLE,
@@ -19,4 +24,6 @@ export type {
   ComplaintFormValues,
   ComplaintFormErrors,
   ComplaintTypeOption,
+  ExecuteSubmitComplaintOptions,
+  SubmissionResult,
 } from './complaint-display';

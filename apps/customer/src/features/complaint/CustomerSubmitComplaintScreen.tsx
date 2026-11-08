@@ -33,7 +33,10 @@ import { isValidUuid } from '../offer/offer-display';
 import {
   COMPLAINT_TYPE_OPTIONS,
   MAX_DESCRIPTION_LENGTH,
+  executeComplaintSubmission,
   getComplaintTypeLabel,
+  getLocalTodayDate,
+  getLocalYesterdayDate,
   validateComplaintForm,
 } from './complaint-display';
 import { ComplaintEvidenceNotice } from './ComplaintEvidenceNotice';
@@ -149,14 +152,12 @@ export function CustomerSubmitComplaintScreen({
 
   // Quick Date Fill Helpers
   function setTodayDate() {
-    const today = new Date().toISOString().split('T')[0];
-    setIncidentDate(today);
+    setIncidentDate(getLocalTodayDate());
     setErrors((prev) => ({ ...prev, incidentDate: undefined }));
   }
 
   function setYesterdayDate() {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    setIncidentDate(yesterday);
+    setIncidentDate(getLocalYesterdayDate());
     setErrors((prev) => ({ ...prev, incidentDate: undefined }));
   }
 
@@ -183,74 +184,32 @@ export function CustomerSubmitComplaintScreen({
   }
 
   async function handleConfirmSubmit() {
-    if (isSubmittingRef.current) return;
     if (!offer) return;
 
-    const validation = validateComplaintForm(
-      {
-        complaintType,
-        description,
-        branchId,
-        incidentDate,
-      },
+    await executeComplaintSubmission({
+      isSubmittingRef,
+      offerId: offer.id,
+      complaintType,
+      description,
+      branchId,
+      incidentDate,
       eligibleBranchIds,
-    );
-
-    if (!validation.isValid) {
-      setErrors(validation.errors);
-      setReviewModalVisible(false);
-      return;
-    }
-
-    isSubmittingRef.current = true;
-    setIsSubmitting(true);
-    setSubmitError(null);
-
-    if (isFixture) {
-      await new Promise((r) => setTimeout(r, 200));
-      setSubmittedComplaintId('c0000000-0000-4000-8000-000000000001');
-      setReviewModalVisible(false);
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      const complaintId = await submitComplaintMutation.mutateAsync({
-        offerId: offer.id,
-        complaintType: complaintType!,
-        description: validation.normalizedDescription,
-        branchId: branchId && branchId.trim().length > 0 ? branchId : null,
-        incidentAt: validation.serializedIncidentAt,
-      });
-
-      setSubmittedComplaintId(complaintId);
-      setReviewModalVisible(false);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-
-      if (message.includes('UUID') || message.includes('check write outcome')) {
-        setSubmitError(
-          'تعذّر التأكد من اكتمال استلام الشكوى بسبب انقطاع مؤقت. يرجى مراجعة سجل الشكاوى قبل إعادة المحاولة تجنباً للتكرار.',
-        );
-      } else if (message.includes('Branch does not belong')) {
-        setSubmitError('الفرع المحدد لم يعد مشمولاً في هذا العرض.');
-      } else if (message.includes('must reference an approved version')) {
-        setSubmitError('تعذّر إرسال الشكوى: هذا العرض غير معتمد أو غير متاح حالياً.');
-      } else if (message.includes('Invalid complaint') || message.includes('evidence')) {
-        setSubmitError('تعذّر قبول البيانات: يرجى التحقق من صحة الحقول وإعادة المحاولة.');
-      } else if (message.includes('Network') || message.includes('fetch')) {
-        setSubmitError('تعذّر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة لاحقاً.');
-      } else {
-        setSubmitError(
-          message || 'حدث خطأ غير متوقع أثناء إرسال الشكوى. لم تفقد بياناتك المكتوبة ويمكنك إعادة المحاولة.',
-        );
-      }
-      setReviewModalVisible(false);
-    } finally {
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-    }
+      mutateAsync: submitComplaintMutation.mutateAsync,
+      onSuccess: (complaintId) => {
+        setSubmittedComplaintId(complaintId);
+        setReviewModalVisible(false);
+      },
+      onError: (errorMessage) => {
+        setSubmitError(errorMessage);
+        setReviewModalVisible(false);
+      },
+      onValidationError: (validationErrors) => {
+        setErrors(validationErrors);
+        setReviewModalVisible(false);
+      },
+      setIsSubmitting,
+      isFixture,
+    });
   }
 
   // ---------------------------------------------------------------------------

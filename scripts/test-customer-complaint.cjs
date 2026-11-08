@@ -204,9 +204,9 @@ test('3. Description validation: Enforces 15 to 4000 trimmed characters', () => 
 });
 
 // ===========================================================================
-// 4. Branch and Incident Date Validation
+// 4. Branch and Incident Date Validation (Executed Boundaries, Leap Years, Local Timezone)
 // ===========================================================================
-test('4. Branch & Incident Date: Validates branch eligibility and prevents future dates', () => {
+test('4. Branch & Incident Date: Validates branch eligibility, strict calendar boundaries, leap years, and local timezone', () => {
   const eligibleBranches = ['b-1111', 'b-2222'];
   const baseValidForm = {
     complaintType: 'unavailable',
@@ -234,32 +234,114 @@ test('4. Branch & Incident Date: Validates branch eligibility and prevents futur
   );
   assert.equal(nullBranchResult.isValid, true);
 
-  // Incident date tests
-  // Empty date is valid (optional)
-  const emptyDateCheck = complaintDisplay.validateIncidentDate('');
-  assert.equal(emptyDateCheck.isValid, true);
-  assert.equal(emptyDateCheck.isoString, null);
+  // Reference time for deterministic boundary tests: 2026-11-08 14:00:00 local
+  const mockNow = new Date(2026, 10, 8, 14, 0, 0);
+  const nowProvider = () => mockNow;
 
-  // Valid past date
-  const pastDateCheck = complaintDisplay.validateIncidentDate('2026-11-05');
-  assert.equal(pastDateCheck.isValid, true);
-  assert.ok(pastDateCheck.isoString);
+  // A. Optional empty / null / whitespace dates
+  assert.deepEqual(complaintDisplay.validateIncidentDate('', nowProvider), { isValid: true, isoString: null });
+  assert.deepEqual(complaintDisplay.validateIncidentDate(null, nowProvider), { isValid: true, isoString: null });
+  assert.deepEqual(complaintDisplay.validateIncidentDate('   ', nowProvider), { isValid: true, isoString: null });
 
-  // Malformed date
-  const malformedCheck = complaintDisplay.validateIncidentDate('not-a-date');
-  assert.equal(malformedCheck.isValid, false);
-  assert.match(malformedCheck.error, /تاريخ غير صحيح/);
+  // B. Valid current local date (today)
+  const todayCheck = complaintDisplay.validateIncidentDate('2026-11-08', nowProvider);
+  assert.equal(todayCheck.isValid, true);
+  assert.ok(todayCheck.isoString);
 
-  // Future date (beyond +5 minutes)
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const futureCheck = complaintDisplay.validateIncidentDate(tomorrow);
-  assert.equal(futureCheck.isValid, false);
-  assert.match(futureCheck.error, /في المستقبل/);
+  // C. Valid past dates without artificial 1-year cutoff (per wow_private.submit_complaint_internal contract)
+  const pastOneYear = complaintDisplay.validateIncidentDate('2025-11-01', nowProvider);
+  assert.equal(pastOneYear.isValid, true, 'Date from 1 year ago must be valid');
 
-  // Ancient date (> 1 year)
-  const ancientCheck = complaintDisplay.validateIncidentDate('2020-01-01');
-  assert.equal(ancientCheck.isValid, false);
-  assert.match(ancientCheck.error, /قديم جداً/);
+  const pastSixYears = complaintDisplay.validateIncidentDate('2020-01-01', nowProvider);
+  assert.equal(pastSixYears.isValid, true, 'Date older than 1 year must be valid in SQL contract');
+
+  const pastDecade = complaintDisplay.validateIncidentDate('1999-12-31', nowProvider);
+  assert.equal(pastDecade.isValid, true, 'Historic past date must be valid');
+
+  // D. Leap year validation
+  // 2024 is a leap year -> Feb 29 exists
+  const leap2024 = complaintDisplay.validateIncidentDate('2024-02-29', nowProvider);
+  assert.equal(leap2024.isValid, true, '2024-02-29 is a valid leap day');
+
+  // 2020 is a leap year -> Feb 29 exists
+  const leap2020 = complaintDisplay.validateIncidentDate('2020-02-29', nowProvider);
+  assert.equal(leap2020.isValid, true, '2020-02-29 is a valid leap day');
+
+  // 2000 is a 400-year century leap year -> Feb 29 exists
+  const leap2000 = complaintDisplay.validateIncidentDate('2000-02-29', nowProvider);
+  assert.equal(leap2000.isValid, true, '2000-02-29 is a valid leap day');
+
+  // 2023 is NOT a leap year -> Feb 29 does not exist
+  const nonLeap2023 = complaintDisplay.validateIncidentDate('2023-02-29', nowProvider);
+  assert.equal(nonLeap2023.isValid, false, '2023-02-29 must be rejected');
+  assert.match(nonLeap2023.error, /اليوم غير موجود/);
+
+  // 2025 is NOT a leap year -> Feb 29 does not exist
+  const nonLeap2025 = complaintDisplay.validateIncidentDate('2025-02-29', nowProvider);
+  assert.equal(nonLeap2025.isValid, false, '2025-02-29 must be rejected');
+  assert.match(nonLeap2025.error, /اليوم غير موجود/);
+
+  // 1900 is NOT a 400-year leap year -> Feb 29 does not exist
+  const nonLeap1900 = complaintDisplay.validateIncidentDate('1900-02-29', nowProvider);
+  assert.equal(nonLeap1900.isValid, false, '1900-02-29 must be rejected');
+  assert.match(nonLeap1900.error, /اليوم غير موجود/);
+
+  // E. Impossible calendar dates (variable month lengths)
+  const feb30 = complaintDisplay.validateIncidentDate('2026-02-30', nowProvider);
+  assert.equal(feb30.isValid, false);
+  assert.match(feb30.error, /اليوم غير موجود/);
+
+  const apr31 = complaintDisplay.validateIncidentDate('2026-04-31', nowProvider);
+  assert.equal(apr31.isValid, false);
+  assert.match(apr31.error, /اليوم غير موجود/);
+
+  const jun31 = complaintDisplay.validateIncidentDate('2026-06-31', nowProvider);
+  assert.equal(jun31.isValid, false);
+  assert.match(jun31.error, /اليوم غير موجود/);
+
+  const sep31 = complaintDisplay.validateIncidentDate('2026-09-31', nowProvider);
+  assert.equal(sep31.isValid, false);
+  assert.match(sep31.error, /اليوم غير موجود/);
+
+  const nov31 = complaintDisplay.validateIncidentDate('2026-11-31', nowProvider);
+  assert.equal(nov31.isValid, false);
+  assert.match(nov31.error, /اليوم غير موجود/);
+
+  const day32 = complaintDisplay.validateIncidentDate('2026-01-32', nowProvider);
+  assert.equal(day32.isValid, false);
+  assert.match(day32.error, /تاريخ غير صحيح/);
+
+  const month13 = complaintDisplay.validateIncidentDate('2026-13-01', nowProvider);
+  assert.equal(month13.isValid, false);
+  assert.match(month13.error, /تاريخ غير صحيح/);
+
+  const month00 = complaintDisplay.validateIncidentDate('2026-00-15', nowProvider);
+  assert.equal(month00.isValid, false);
+  assert.match(month00.error, /تاريخ غير صحيح/);
+
+  // F. Malformed format patterns (must strictly be YYYY-MM-DD)
+  assert.equal(complaintDisplay.validateIncidentDate('2026/11/08', nowProvider).isValid, false);
+  assert.equal(complaintDisplay.validateIncidentDate('08-11-2026', nowProvider).isValid, false);
+  assert.equal(complaintDisplay.validateIncidentDate('2026-11-8', nowProvider).isValid, false);
+  assert.equal(complaintDisplay.validateIncidentDate('not-a-date', nowProvider).isValid, false);
+
+  // G. Future dates (backend restriction: p_incident_at > now() + INTERVAL '5 minutes')
+  const tomorrow = complaintDisplay.validateIncidentDate('2026-11-09', nowProvider);
+  assert.equal(tomorrow.isValid, false);
+  assert.match(tomorrow.error, /في المستقبل/);
+
+  const nextYear = complaintDisplay.validateIncidentDate('2027-01-01', nowProvider);
+  assert.equal(nextYear.isValid, false);
+  assert.match(nextYear.error, /في المستقبل/);
+
+  // H. Local timezone helpers
+  // Test local formatting
+  const testDate = new Date(2026, 3, 5, 23, 30); // April 5, 2026 local
+  assert.equal(complaintDisplay.formatLocalDate(testDate), '2026-04-05');
+
+  // getLocalTodayDate and getLocalYesterdayDate
+  assert.equal(complaintDisplay.getLocalTodayDate(nowProvider), '2026-11-08');
+  assert.equal(complaintDisplay.getLocalYesterdayDate(nowProvider), '2026-11-07');
 });
 
 // ===========================================================================
@@ -298,9 +380,9 @@ test('5. Evidence honesty: Explains attachment unavailability and preserves empt
 });
 
 // ===========================================================================
-// 6. Two-Stage Review and Synchronous Submit Guard
+// 6. Review Modal, Synchronous Guard, and Simultaneous Submit Execution
 // ===========================================================================
-test('6. Review & Submission Guard: Two-stage confirmation and duplicate submission lock', () => {
+test('6. Review & Submission Guard: Executes simultaneous double confirmation and verifies single execution', async () => {
   // Review modal exists and shows all required fields
   assert.ok(reviewModalSrc.includes('مراجعة تفاصيل الشكوى'), 'ReviewModal has correct title');
   assert.ok(reviewModalSrc.includes('offerTitle'), 'ReviewModal displays offer title');
@@ -317,15 +399,56 @@ test('6. Review & Submission Guard: Two-stage confirmation and duplicate submiss
     complaintScreenSrc.includes('const isSubmittingRef = useRef(false);'),
     'Must use synchronous ref guard for rapid double-submit prevention',
   );
-  assert.match(
-    complaintScreenSrc,
-    /if\s*\(\s*isSubmittingRef\.current\s*\)\s*return;/,
-    'Must synchronously bail out if submission is already in flight',
-  );
   assert.ok(
-    complaintScreenSrc.includes('isSubmittingRef.current = true;'),
-    'Must synchronously lock isSubmittingRef before awaiting mutation',
+    complaintScreenSrc.includes('executeComplaintSubmission'),
+    'Must delegate confirmation flow to extracted executeComplaintSubmission',
   );
+
+  // EXECUTED TEST: Simultaneous double submission
+  const isSubmittingRef = { current: false };
+  let mutationCallCount = 0;
+  const mockMutateAsync = async () => {
+    mutationCallCount++;
+    // Simulate network delay
+    await new Promise((r) => setTimeout(r, 20));
+    return 'c1111111-2222-3333-4444-555555555555';
+  };
+
+  const successCalls = [];
+  const errorCalls = [];
+
+  const baseOptions = {
+    isSubmittingRef,
+    offerId: 'e0000000-0000-4000-8000-000000000001',
+    complaintType: 'price_mismatch',
+    description: 'تم طلب مبلغ إضافي عند الدفع لم يكن مذكوراً في العرض أبداً',
+    branchId: null,
+    incidentDate: '2026-11-05',
+    mutateAsync: mockMutateAsync,
+    onSuccess: (id) => successCalls.push(id),
+    onError: (err) => errorCalls.push(err),
+  };
+
+  // Launch two submissions concurrently
+  const [result1, result2] = await Promise.all([
+    complaintDisplay.executeComplaintSubmission(baseOptions),
+    complaintDisplay.executeComplaintSubmission(baseOptions),
+  ]);
+
+  // Assert: Exactly one mutation occurred
+  assert.equal(mutationCallCount, 1, 'mutateAsync must be invoked exactly once');
+
+  // Assert: First succeeded, second was synchronously blocked as duplicate
+  const results = [result1.status, result2.status];
+  assert.ok(results.includes('success'), 'One execution must succeed');
+  assert.ok(results.includes('blocked_duplicate'), 'Simultaneous execution must be blocked by synchronous ref guard');
+
+  assert.equal(successCalls.length, 1);
+  assert.equal(successCalls[0], 'c1111111-2222-3333-4444-555555555555');
+  assert.equal(errorCalls.length, 0);
+
+  // Guard must reset to false after completion
+  assert.equal(isSubmittingRef.current, false, 'isSubmittingRef must reset to false in finally block');
 });
 
 // ===========================================================================
@@ -374,10 +497,120 @@ test('7. Auth session safety: Displays guest gate without leaking private data',
 });
 
 // ===========================================================================
-// 8. Outcome Honesty, Success, and Error Recovery
+// 8. Outcome Honesty, Executed Error Recovery, and Draft Preservation
 // ===========================================================================
-test('8. Outcome honesty: Verified success display, ambiguous write guidance, and draft preservation', () => {
-  // Success state checks
+test('8. Outcome honesty: Executed successful UUID, failed mutation, draft preservation, and non-idempotent safety', async () => {
+  // A. EXECUTED TEST: Successful mutation with real UUID return
+  {
+    const isSubmittingRef = { current: false };
+    const successCalls = [];
+    const errorCalls = [];
+
+    const result = await complaintDisplay.executeComplaintSubmission({
+      isSubmittingRef,
+      offerId: 'e0000000-0000-4000-8000-000000000001',
+      complaintType: 'unavailable',
+      description: 'العرض غير متوفر في الفرع المذكور وتم رفض استقبال القسيمة',
+      branchId: null,
+      incidentDate: null,
+      mutateAsync: async () => 'c9999999-8888-7777-6666-555555555555',
+      onSuccess: (id) => successCalls.push(id),
+      onError: (err) => errorCalls.push(err),
+    });
+
+    assert.equal(result.status, 'success');
+    assert.equal(result.complaintId, 'c9999999-8888-7777-6666-555555555555');
+    assert.equal(successCalls[0], 'c9999999-8888-7777-6666-555555555555');
+    assert.equal(errorCalls.length, 0);
+    assert.equal(isSubmittingRef.current, false);
+  }
+
+  // B. EXECUTED TEST: Failed mutation keeps user draft intact and resets submission lock
+  {
+    const isSubmittingRef = { current: false };
+    const successCalls = [];
+    const errorCalls = [];
+
+    const userDraft = {
+      description: 'وصف مفصل للمشكلة التي واجهتها في المتجر بالتفصيل',
+      complaintType: 'business_conduct',
+      branchId: 'b-1111',
+      incidentDate: '2026-11-05',
+    };
+
+    const result = await complaintDisplay.executeComplaintSubmission({
+      isSubmittingRef,
+      offerId: 'e0000000-0000-4000-8000-000000000001',
+      complaintType: userDraft.complaintType,
+      description: userDraft.description,
+      branchId: userDraft.branchId,
+      incidentDate: userDraft.incidentDate,
+      eligibleBranchIds: ['b-1111'],
+      mutateAsync: async () => {
+        throw new Error('Network connection lost during submission');
+      },
+      onSuccess: (id) => successCalls.push(id),
+      onError: (err) => errorCalls.push(err),
+    });
+
+    assert.equal(result.status, 'error');
+    assert.equal(successCalls.length, 0, 'onSuccess must NOT be called on failure');
+    assert.equal(errorCalls.length, 1, 'onError must receive mapped error message');
+    assert.match(errorCalls[0], /تعذّر الاتصال بالخادم/);
+
+    // User draft remains unchanged
+    assert.equal(userDraft.description, 'وصف مفصل للمشكلة التي واجهتها في المتجر بالتفصيل');
+    assert.equal(userDraft.complaintType, 'business_conduct');
+    assert.equal(userDraft.branchId, 'b-1111');
+    assert.equal(userDraft.incidentDate, '2026-11-05');
+
+    // Ref guard unlocked for retry
+    assert.equal(isSubmittingRef.current, false, 'Ref guard must unlock after error to permit deliberate retry');
+  }
+
+  // C. EXECUTED TEST: Ambiguous network outcome provides honest uncertainty guidance without referencing unbuilt complaint list
+  {
+    const isSubmittingRef = { current: false };
+    const errorCalls = [];
+    let callCount = 0;
+
+    const ambiguousError = new Error('Ambiguous write: check write outcome');
+
+    const result = await complaintDisplay.executeComplaintSubmission({
+      isSubmittingRef,
+      offerId: 'e0000000-0000-4000-8000-000000000001',
+      complaintType: 'misleading_terms',
+      description: 'الشروط المطبقة في الفرع مخالفة لما هو معلن داخل بطاقة العرض',
+      mutateAsync: async () => {
+        callCount++;
+        throw ambiguousError;
+      },
+      onSuccess: () => {},
+      onError: (err) => errorCalls.push(err),
+    });
+
+    assert.equal(result.status, 'error');
+    assert.equal(result.isAmbiguous, true);
+    assert.equal(callCount, 1, 'Non-idempotent create mutation must NEVER be automatically retried');
+
+    // Uncertainty message guidance
+    assert.match(errorCalls[0], /تعذّر التأكد من اكتمال استلام الشكوى/);
+    assert.match(errorCalls[0], /تجنباً لتكرار الشكوى غير المقصود/);
+
+    // MUST NOT reference unbuilt CUS-08 route (سجل الشكاوى)
+    assert.equal(
+      errorCalls[0].includes('سجل الشكاوى'),
+      false,
+      'Must NOT direct user to unbuilt complaints list route',
+    );
+    assert.equal(
+      errorCalls[0].includes('قائمة الشكاوى'),
+      false,
+      'Must NOT direct user to unbuilt complaints list route',
+    );
+  }
+
+  // D. UI String checks for success display
   assert.ok(
     complaintScreenSrc.includes('submittedComplaintId'),
     'Screen must store returned complaint UUID',
@@ -393,21 +626,6 @@ test('8. Outcome honesty: Verified success display, ambiguous write guidance, an
   assert.ok(
     complaintScreenSrc.includes('العودة إلى تفاصيل العرض'),
     'Success view must offer return to the originating offer',
-  );
-
-  // Error handling checks
-  assert.ok(
-    complaintScreenSrc.includes('setSubmitError'),
-    'Screen must capture submission errors without losing draft inputs',
-  );
-  assert.match(
-    complaintScreenSrc,
-    /تعذّر التأكد من اكتمال استلام الشكوى/,
-    'Ambiguous outcome must warn user to check existing complaints instead of blindly retrying',
-  );
-  assert.ok(
-    complaintScreenSrc.includes('لم تفقد بياناتك المكتوبة ويمكنك إعادة المحاولة'),
-    'Error feedback must reassure user that form draft is preserved',
   );
 });
 

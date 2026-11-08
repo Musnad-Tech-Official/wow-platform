@@ -64,10 +64,41 @@ export interface ComplaintFormErrors {
 }
 
 /**
- * Validates incident date input string.
- * Ensures the date is valid and not in the future (> now + 5 minutes).
+ * Formats a Date instance as YYYY-MM-DD in the local calendar/timezone.
  */
-export function validateIncidentDate(dateStr?: string | null): {
+export function formatLocalDate(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns today's date formatted as YYYY-MM-DD in the user's local timezone.
+ */
+export function getLocalTodayDate(nowProvider?: () => Date): string {
+  return formatLocalDate(nowProvider ? nowProvider() : new Date());
+}
+
+/**
+ * Returns yesterday's date formatted as YYYY-MM-DD in the user's local timezone.
+ */
+export function getLocalYesterdayDate(nowProvider?: () => Date): string {
+  const d = nowProvider ? nowProvider() : new Date();
+  d.setDate(d.getDate() - 1);
+  return formatLocalDate(d);
+}
+
+/**
+ * Validates incident date input string.
+ * Strictly requires YYYY-MM-DD format, verifies calendar validity (including leap years),
+ * avoids unsupported historical cutoff (per wow_private.submit_complaint_internal contract),
+ * and enforces the backend future-date restriction (<= now + 5 minutes).
+ */
+export function validateIncidentDate(
+  dateStr?: string | null,
+  nowProvider?: () => Date,
+): {
   isValid: boolean;
   isoString: string | null;
   error?: string;
@@ -77,19 +108,45 @@ export function validateIncidentDate(dateStr?: string | null): {
   }
 
   const trimmed = dateStr.trim();
-  const parsed = new Date(trimmed);
 
-  if (isNaN(parsed.getTime())) {
+  // 1. Strict YYYY-MM-DD format check
+  const match = trimmed.match(/^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
+  if (!match) {
     return {
       isValid: false,
       isoString: null,
-      error: 'تاريخ غير صحيح. يرجى إدخال تاريخ صالح (مثال: 2026-11-08).',
+      error: 'تاريخ غير صحيح. يرجى إدخال تاريخ صالح بصيغة YYYY-MM-DD (مثال: 2026-11-08).',
     };
   }
 
-  // Database enforces: p_incident_at > now() + INTERVAL '5 minutes' is forbidden
-  const maxAllowedTime = Date.now() + 5 * 60 * 1000;
-  if (parsed.getTime() > maxAllowedTime) {
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+
+  // 2. Strict calendar validity check (including leap years and variable month lengths)
+  // Date.UTC(year, month, 0) gives the last day of 'month'
+  const maxDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (day > maxDays) {
+    return {
+      isValid: false,
+      isoString: null,
+      error: 'تاريخ غير صحيح. اليوم غير موجود في هذا الشهر والتقويم.',
+    };
+  }
+
+  if (year < 1900) {
+    return {
+      isValid: false,
+      isoString: null,
+      error: 'تاريخ غير صحيح. يرجى إدخال سنة صالحة.',
+    };
+  }
+
+  const now = nowProvider ? nowProvider() : new Date();
+  const localToday = formatLocalDate(now);
+
+  // 3. Backend future date restriction: p_incident_at > now() + INTERVAL '5 minutes'
+  if (trimmed > localToday) {
     return {
       isValid: false,
       isoString: null,
@@ -97,17 +154,25 @@ export function validateIncidentDate(dateStr?: string | null): {
     };
   }
 
-  // Reject clearly invalid historic dates (older than 1 year)
-  const minAllowedTime = Date.now() - 365 * 24 * 60 * 60 * 1000;
-  if (parsed.getTime() < minAllowedTime) {
+  // 4. Timezone-aware date serialization
+  // If the incident happened today, serialize to current local moment.
+  // For past days, create local noon to safely sit within the calendar day without UTC edge spills.
+  let incidentDateObj: Date;
+  if (trimmed === localToday) {
+    incidentDateObj = new Date(now.getTime());
+  } else {
+    incidentDateObj = new Date(year, month - 1, day, 12, 0, 0);
+  }
+
+  if (incidentDateObj.getTime() > now.getTime() + 5 * 60 * 1000) {
     return {
       isValid: false,
       isoString: null,
-      error: 'تاريخ حدوث المشكلة قديم جداً (أكثر من عام).',
+      error: 'تاريخ حدوث المشكلة لا يمكن أن يكون في المستقبل.',
     };
   }
 
-  return { isValid: true, isoString: parsed.toISOString() };
+  return { isValid: true, isoString: incidentDateObj.toISOString() };
 }
 
 /**
@@ -116,6 +181,7 @@ export function validateIncidentDate(dateStr?: string | null): {
 export function validateComplaintForm(
   values: ComplaintFormValues,
   eligibleBranchIds?: string[],
+  nowProvider?: () => Date,
 ): {
   isValid: boolean;
   errors: ComplaintFormErrors;
@@ -149,7 +215,7 @@ export function validateComplaintForm(
   }
 
   // 4. Incident Date Validation (optional, but if entered must be valid and past/present)
-  const dateValidation = validateIncidentDate(values.incidentDate);
+  const dateValidation = validateIncidentDate(values.incidentDate, nowProvider);
   if (!dateValidation.isValid) {
     errors.incidentDate = dateValidation.error;
   }
@@ -171,6 +237,159 @@ export function getComplaintTypeLabel(type?: ComplaintType | null): string {
   if (!type) return 'غير محدد';
   const match = COMPLAINT_TYPE_OPTIONS.find((o) => o.value === type);
   return match ? match.label : type;
+}
+
+/**
+ * Honest error mapping for complaint submission.
+ * Ambiguous network outcomes give honest uncertainty guidance without referencing
+ * unbuilt complaint-list routes (CUS-08).
+ */
+export function mapComplaintSubmissionError(err: unknown): {
+  message: string;
+  isAmbiguous: boolean;
+} {
+  const rawMessage = err instanceof Error ? err.message : String(err ?? '');
+
+  if (
+    rawMessage.includes('UUID') ||
+    rawMessage.includes('check write outcome') ||
+    rawMessage.includes('timeout') ||
+    rawMessage.includes('Ambiguous')
+  ) {
+    return {
+      message:
+        'تعذّر التأكد من اكتمال استلام الشكوى بسبب انقطاع مؤقت في الاتصال. يُرجى التريث قبل إعادة المحاولة تجنباً لتكرار الشكوى غير المقصود.',
+      isAmbiguous: true,
+    };
+  }
+
+  if (rawMessage.includes('Branch does not belong')) {
+    return {
+      message: 'الفرع المحدد لم يعد مشمولاً في هذا العرض.',
+      isAmbiguous: false,
+    };
+  }
+
+  if (rawMessage.includes('must reference an approved version')) {
+    return {
+      message: 'تعذّر إرسال الشكوى: هذا العرض غير معتمد أو غير متاح حالياً.',
+      isAmbiguous: false,
+    };
+  }
+
+  if (rawMessage.includes('Invalid complaint') || rawMessage.includes('evidence')) {
+    return {
+      message: 'تعذّر قبول البيانات: يرجى التحقق من صحة الحقول وإعادة المحاولة.',
+      isAmbiguous: false,
+    };
+  }
+
+  if (rawMessage.includes('Network') || rawMessage.includes('fetch')) {
+    return {
+      message: 'تعذّر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة لاحقاً.',
+      isAmbiguous: false,
+    };
+  }
+
+  return {
+    message:
+      rawMessage ||
+      'حدث خطأ غير متوقع أثناء إرسال الشكوى. لم تفقد بياناتك المكتوبة ويمكنك إعادة المحاولة.',
+    isAmbiguous: false,
+  };
+}
+
+export interface ExecuteSubmitComplaintOptions {
+  isSubmittingRef: { current: boolean };
+  offerId: string;
+  complaintType: ComplaintType | null;
+  description: string;
+  branchId?: string | null;
+  incidentDate?: string | null;
+  eligibleBranchIds?: string[];
+  mutateAsync: (input: {
+    offerId: string;
+    complaintType: ComplaintType;
+    description: string;
+    branchId: string | null;
+    incidentAt: string | null;
+  }) => Promise<string>;
+  onSuccess: (complaintId: string) => void;
+  onError: (errorMessage: string) => void;
+  onValidationError?: (errors: ComplaintFormErrors) => void;
+  setIsSubmitting?: (submitting: boolean) => void;
+  isFixture?: boolean;
+}
+
+export type SubmissionResult =
+  | { status: 'blocked_duplicate' }
+  | { status: 'validation_error'; errors: ComplaintFormErrors }
+  | { status: 'success'; complaintId: string }
+  | { status: 'error'; error: string; isAmbiguous: boolean };
+
+/**
+ * Executes complaint submission with synchronous ref double-submit protection,
+ * client validation, non-idempotent create safety (no automatic retry on ambiguous write),
+ * and draft preservation.
+ */
+export async function executeComplaintSubmission(
+  options: ExecuteSubmitComplaintOptions,
+): Promise<SubmissionResult> {
+  // 1. Synchronous ref guard prevents simultaneous double submissions
+  if (options.isSubmittingRef.current) {
+    return { status: 'blocked_duplicate' };
+  }
+
+  // 2. Validate form
+  const validation = validateComplaintForm(
+    {
+      complaintType: options.complaintType,
+      description: options.description,
+      branchId: options.branchId ?? null,
+      incidentDate: options.incidentDate ?? '',
+    },
+    options.eligibleBranchIds,
+  );
+
+  if (!validation.isValid) {
+    options.onValidationError?.(validation.errors);
+    return { status: 'validation_error', errors: validation.errors };
+  }
+
+  // Synchronously lock submission before any await
+  options.isSubmittingRef.current = true;
+  options.setIsSubmitting?.(true);
+
+  if (options.isFixture) {
+    const fixtureComplaintId = 'c0000000-0000-4000-8000-000000000001';
+    options.onSuccess(fixtureComplaintId);
+    options.isSubmittingRef.current = false;
+    options.setIsSubmitting?.(false);
+    return { status: 'success', complaintId: fixtureComplaintId };
+  }
+
+  try {
+    const complaintId = await options.mutateAsync({
+      offerId: options.offerId,
+      complaintType: options.complaintType!,
+      description: validation.normalizedDescription,
+      branchId:
+        options.branchId && options.branchId.trim().length > 0
+          ? options.branchId.trim()
+          : null,
+      incidentAt: validation.serializedIncidentAt,
+    });
+
+    options.onSuccess(complaintId);
+    return { status: 'success', complaintId };
+  } catch (err: unknown) {
+    const mapped = mapComplaintSubmissionError(err);
+    options.onError(mapped.message);
+    return { status: 'error', error: mapped.message, isAmbiguous: mapped.isAmbiguous };
+  } finally {
+    options.isSubmittingRef.current = false;
+    options.setIsSubmitting?.(false);
+  }
 }
 
 /**
