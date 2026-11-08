@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@wow/auth';
 import {
   getMyComplaints,
+  requireWowApiSession,
   useMyComplaints,
   useWowApiContext,
   type CustomerComplaint,
@@ -84,6 +85,7 @@ export function CustomerMyComplaintsScreen({
   const [offset, setOffset] = useState<number>(0);
   const [accumulatedComplaints, setAccumulatedComplaints] = useState<CustomerComplaint[]>([]);
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
   const [hasMorePages, setHasMorePages] = useState<boolean>(true);
   const isFetchingMoreRef = useRef<boolean>(false);
 
@@ -173,6 +175,7 @@ export function CustomerMyComplaintsScreen({
     setOffset(0);
     setAccumulatedComplaints([]);
     setHasMorePages(true);
+    setLoadMoreError(false);
     try {
       await realComplaintsQuery.refetch();
     } finally {
@@ -182,7 +185,8 @@ export function CustomerMyComplaintsScreen({
 
   // Safe Pagination: Fetch Next Page
   const handleLoadMore = useCallback(async () => {
-    if (isFetchingMoreRef.current || !hasMorePages || isInitialLoading) return;
+    if (isFetchingMoreRef.current || !hasMorePages || isInitialLoading || isRefreshing) return;
+    if (!isPreview && (!isSignedIn || !apiContext.userId)) return;
 
     if (isPreview) {
       // In preview, simulate honest end-of-list
@@ -190,12 +194,11 @@ export function CustomerMyComplaintsScreen({
       return;
     }
 
-    const client = apiContext.getClient();
-    if (!client) return;
-
     try {
+      const { client } = requireWowApiSession(apiContext);
       isFetchingMoreRef.current = true;
       setIsFetchingMore(true);
+      setLoadMoreError(false);
 
       const nextOffset = offset + PAGE_SIZE;
       const nextBatch = await getMyComplaints(client, {
@@ -213,12 +216,13 @@ export function CustomerMyComplaintsScreen({
         }
       }
     } catch {
-      // In case of pagination transport failure, preserve current list
+      // Preserve loaded pages and show a recoverable load-more error.
+      setLoadMoreError(true);
     } finally {
       isFetchingMoreRef.current = false;
       setIsFetchingMore(false);
     }
-  }, [apiContext, hasMorePages, isInitialLoading, isPreview, offset]);
+  }, [apiContext, hasMorePages, isInitialLoading, isPreview, isRefreshing, isSignedIn, offset]);
 
   return (
     <View
@@ -834,6 +838,17 @@ export function CustomerMyComplaintsScreen({
                       </Pressable>
                     </View>
                   )}
+                </View>
+              )}
+
+              {loadMoreError && !isPreview && (
+                <View style={{ alignItems: 'center', paddingHorizontal: 16, paddingTop: 8 }}>
+                  <AppText
+                    variant="caption"
+                    style={{ color: colors.mutedForeground, textAlign: 'center', fontSize: 13 }}
+                  >
+                    تعذّر تحميل المزيد من الشكاوى. يمكنك إعادة المحاولة.
+                  </AppText>
                 </View>
               )}
 
