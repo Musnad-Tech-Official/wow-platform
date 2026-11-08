@@ -11,7 +11,13 @@ export * from './discovery';
 export * from './media';
 export * from './merchant-operations';
 export { createWowPublicSupabaseClient, useWowPublicSupabaseClient, type WowPublicSupabaseOptions } from './supabase/public-client';
-export { WowQueryProvider, type WowQueryProviderProps } from './query/WowQueryProvider';
+export {
+  WowQueryProvider,
+  useWowApiContext,
+  requireWowApiSession,
+  type WowQueryProviderProps,
+  type WowApiContextValue,
+} from './query/WowQueryProvider';
 export { createWowQueryClient } from './query/query-client';
 export { wowQueryKeys } from './query/query-keys';
 export { useWowSupabaseClient, type WowSupabaseOptions } from './query/use-wow-supabase-client';
