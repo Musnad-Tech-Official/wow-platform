@@ -124,6 +124,11 @@ export function CustomerMyComplaintsScreen({
     return deduplicateComplaints(initialServerComplaints, accumulatedComplaints);
   }, [offset, initialServerComplaints, accumulatedComplaints]);
 
+  // The first page establishes whether more rows can exist; later pages update hasMorePages.
+  const canLoadMore =
+    hasMorePages &&
+    (isPreview || offset > 0 || initialServerComplaints.length === PAGE_SIZE);
+
   // Filtered complaints based on active filter
   const displayedComplaints = useMemo(() => {
     return filterComplaints(allLoadedComplaints, activeFilter);
@@ -747,7 +752,7 @@ export function CustomerMyComplaintsScreen({
                         color: colors.mutedForeground,
                       }}
                     >
-                      لا توجد أي بلاغات مطابقة لحالة التصفية المحددة حالياً.
+                      لا توجد شكاوى مطابقة بين السجلات المحمّلة حالياً. قد تظهر شكاوى أخرى عند تحميل المزيد.
                     </AppText>
                   </View>
 
@@ -758,6 +763,16 @@ export function CustomerMyComplaintsScreen({
                     accessibilityLabel="عرض كل الشكاوى"
                     style={{ minHeight: 48, minWidth: 160 }}
                   />
+                  {canLoadMore && (
+                    <AppButton
+                      title={isFetchingMore ? 'جاري تحميل المزيد...' : 'تحميل المزيد من الشكاوى'}
+                      variant="secondary"
+                      disabled={isFetchingMore}
+                      onPress={handleLoadMore}
+                      accessibilityLabel="تحميل المزيد للبحث عن شكاوى مطابقة"
+                      style={{ minHeight: 48, minWidth: 200 }}
+                    />
+                  )}
                 </View>
               ) : (
                 /* Populated Complaint Cards List */
@@ -771,7 +786,7 @@ export function CustomerMyComplaintsScreen({
                   ))}
 
                   {/* Pagination Footer */}
-                  {hasMorePages && activeFilter === 'all' && (
+                  {canLoadMore && (
                     <View style={{ alignItems: 'center', paddingTop: 8 }}>
                       <Pressable
                         onPress={handleLoadMore}
