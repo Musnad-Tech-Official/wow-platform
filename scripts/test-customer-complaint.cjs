@@ -556,7 +556,8 @@ test('8. Outcome honesty: Executed successful UUID, failed mutation, draft prese
     assert.equal(result.status, 'error');
     assert.equal(successCalls.length, 0, 'onSuccess must NOT be called on failure');
     assert.equal(errorCalls.length, 1, 'onError must receive mapped error message');
-    assert.match(errorCalls[0], /تعذّر الاتصال بالخادم/);
+    assert.match(errorCalls[0], /تعذّر التأكد من اكتمال استلام الشكوى/);
+    assert.equal(result.isAmbiguous, true, 'Transport loss after submission has an uncertain write outcome');
 
     // User draft remains unchanged
     assert.equal(userDraft.description, 'وصف مفصل للمشكلة التي واجهتها في المتجر بالتفصيل');
@@ -567,6 +568,19 @@ test('8. Outcome honesty: Executed successful UUID, failed mutation, draft prese
     // Ref guard unlocked for retry
     assert.equal(isSubmittingRef.current, false, 'Ref guard must unlock after error to permit deliberate retry');
   }
+
+  // Explicit server-side validation rejection is known to have failed and is not ambiguous.
+  const rejectedBranch = complaintDisplay.mapComplaintSubmissionError(
+    new Error('Branch does not belong to the selected offer version'),
+  );
+  assert.equal(rejectedBranch.isAmbiguous, false);
+  assert.match(rejectedBranch.message, /الفرع المحدد/);
+
+  const failedToFetch = complaintDisplay.mapComplaintSubmissionError(
+    new TypeError('Failed to fetch'),
+  );
+  assert.equal(failedToFetch.isAmbiguous, true);
+  assert.match(failedToFetch.message, /تجنباً لتكرار الشكوى/);
 
   // C. EXECUTED TEST: Ambiguous network outcome provides honest uncertainty guidance without referencing unbuilt complaint list
   {
