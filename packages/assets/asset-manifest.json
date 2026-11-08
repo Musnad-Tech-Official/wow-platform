@@ -473,6 +473,20 @@
         1815,
         866
       ]
+    },
+    {
+      "id": "onboarding-beacon-branches",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MER-02-03_APPROVED_STORE_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-02-03_APPROVED_STORE_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 959428,
+      "sha256": "63f85c0d4714beaf314732a0dffa60d21c585b999b24fbebb4df1eefe0f50c7e",
+      "dimensions": [
+        1254,
+        1254
+      ]
     }
   ]
 }

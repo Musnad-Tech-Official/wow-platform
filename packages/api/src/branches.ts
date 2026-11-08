@@ -5,8 +5,15 @@ export interface Branch {
   id: string;
   name: string;
   business_id: string;
+  city?: string;
+  district?: string | null;
+  address_line?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   status: string;
   is_primary: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface CreateBranchInput {
@@ -19,6 +26,19 @@ export interface CreateBranchInput {
   longitude?: number | null;
 }
 
+export interface UpdateBranchDraftInput {
+  businessId: string;
+  branchId: string;
+  patch: {
+    name?: string;
+    city?: string;
+    district?: string | null;
+    address_line?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  };
+}
+
 export async function getBusinessBranches(
   client: WowSupabaseClient,
   businessId: string,
@@ -26,13 +46,14 @@ export async function getBusinessBranches(
 ): Promise<Branch[]> {
   // Migration 002 defines public.business_branches (not public.branches).
   let request = client.from('business_branches')
-    .select('id,name,business_id,status,is_primary')
+    .select('id,name,business_id,city,district,address_line,latitude,longitude,status,is_primary,created_at,updated_at')
     .eq('business_id', businessId)
-    .order('id');
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true });
   if (signal) request = request.abortSignal(signal);
   const { data, error } = await request;
   if (error) throw error;
-  return data ?? [];
+  return (data as Branch[]) ?? [];
 }
 
 export async function createBranch(client: WowSupabaseClient, input: CreateBranchInput): Promise<string> {
@@ -48,4 +69,30 @@ export async function createBranch(client: WowSupabaseClient, input: CreateBranc
   if (error) throw error;
   if (!uuid(data)) throw new Error('wow_create_branch did not return a scalar UUID. Check the write outcome before retrying.');
   return data;
+}
+
+export async function updateBranchDraft(
+  client: WowSupabaseClient,
+  input: UpdateBranchDraftInput,
+): Promise<boolean> {
+  const { data, error } = await client.rpc('wow_update_merchant_draft', {
+    p_business_id: input.businessId,
+    p_branch_id: input.branchId,
+    p_patch: input.patch,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function deleteDraftBranch(
+  client: WowSupabaseClient,
+  businessId: string,
+  branchId: string,
+): Promise<boolean> {
+  const { data, error } = await client.rpc('wow_delete_draft_branch', {
+    p_business_id: businessId,
+    p_branch_id: branchId,
+  });
+  if (error) throw error;
+  return Boolean(data);
 }
