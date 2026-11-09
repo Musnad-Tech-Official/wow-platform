@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -6,18 +6,30 @@ import {
   ScrollView,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowRight,
+  Heart,
   MapPin,
   PhoneCall,
   Share2,
   Tag,
 } from 'lucide-react-native';
-import { usePublicBusiness, usePublicOffer } from '@wow/api';
-import { useTheme, useWowColors, useWowViewport } from '@wow/theme';
-import { AppButton, AppText, BottomSheet, DataState } from '@wow/ui';
+import { useAuth } from '@wow/auth';
 import {
+  usePublicBusiness,
+  usePublicOffer,
+  useSavedBusinesses,
+  useSetSavedBusiness,
+} from '@wow/api';
+import { useTheme, useWowColors, useWowViewport } from '@wow/theme';
+import { AppButton, AppText, BottomSheet, DataState, ToastBanner } from '@wow/ui';
+import {
+  FIXTURE_PUBLIC_BUSINESS,
+  FIXTURE_PUBLIC_BUSINESS_LONG_CONTENT,
+  FIXTURE_PUBLIC_BUSINESS_MISSING_MEDIA,
+  FIXTURE_PUBLIC_BUSINESS_NO_BRANCHES,
+  FIXTURE_PUBLIC_BUSINESS_NO_OFFERS,
   formatBranchCount,
   formatDiscoveryPrice,
   formatOfferCount,
@@ -28,16 +40,81 @@ import { PublicBusinessOfferCard } from './PublicBusinessOfferCard';
 import { BusinessBranchCard } from './BusinessBranchCard';
 import { OfferMediaImage } from '../home/OfferMediaImage';
 
+export type BusinessDetailsPreviewMode =
+  | 'live'
+  | 'auth_unsaved'
+  | 'auth_saved'
+  | 'guest_viewing'
+  | 'guest_save_prompt'
+  | 'saving_pending'
+  | 'no_offers'
+  | 'no_branches'
+  | 'missing_media'
+  | 'long_content'
+  | 'restricted';
+
 export interface CustomerBusinessDetailsScreenProps {
   businessId: string;
+  previewMode?: BusinessDetailsPreviewMode;
 }
 
-export function CustomerBusinessDetailsScreen({ businessId }: CustomerBusinessDetailsScreenProps) {
+export function CustomerBusinessDetailsScreen({
+  businessId,
+  previewMode: explicitPreviewMode,
+}: CustomerBusinessDetailsScreenProps) {
+  const searchParams = useLocalSearchParams<{ preview?: string }>();
+  const previewMode =
+    explicitPreviewMode ??
+    (__DEV__ ? (searchParams.preview as BusinessDetailsPreviewMode) : undefined) ??
+    'live';
+
+  const { userId, isSignedIn: rawIsSignedIn } = useAuth();
+  const isPreview = __DEV__ && previewMode !== 'live';
+
+  // Auth resolution
+  const isSignedIn = isPreview
+    ? previewMode === 'guest_viewing' || previewMode === 'guest_save_prompt'
+      ? false
+      : previewMode === 'auth_unsaved' || previewMode === 'auth_saved' || previewMode === 'saving_pending'
+      ? true
+      : Boolean(rawIsSignedIn)
+    : Boolean(rawIsSignedIn);
+
+  // Session-keyed component identity: resets all UI state, feedback, and in-flight tracking on account switch or logout
+  const effectiveUserId = isSignedIn ? userId ?? null : null;
+  const sessionKey = `${effectiveUserId ?? 'guest'}:${businessId}:${previewMode}`;
+
+  return (
+    <CustomerBusinessDetailsContent
+      key={sessionKey}
+      businessId={businessId}
+      previewMode={previewMode}
+      userId={effectiveUserId}
+      isSignedIn={isSignedIn}
+    />
+  );
+}
+
+interface CustomerBusinessDetailsContentProps {
+  businessId: string;
+  previewMode: BusinessDetailsPreviewMode;
+  userId: string | null;
+  isSignedIn: boolean;
+}
+
+function CustomerBusinessDetailsContent({
+  businessId,
+  previewMode,
+  userId,
+  isSignedIn,
+}: CustomerBusinessDetailsContentProps) {
   const router = useRouter();
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const { isCompact, isDesktop } = useWowViewport();
+
+  const isPreview = __DEV__ && previewMode !== 'live';
 
   const scrollRef = useRef<ScrollView>(null);
   const [offersY, setOffersY] = useState(0);
@@ -55,7 +132,147 @@ export function CustomerBusinessDetailsScreen({ businessId }: CustomerBusinessDe
   // 3. Live Selected Offer Details Query (for BottomSheet preview)
   const offerDetailQuery = usePublicOffer(selectedOfferId);
 
-  const business = businessQuery.data;
+  // 4. Saved businesses queries and mutations for persistent merchant favorites
+  const savedBusinessesQuery = useSavedBusinesses();
+  const setSavedBusinessMutation = useSetSavedBusiness();
+
+  // Resolve business details: live query backed with dev fixtures only when explicitly requested
+  let business = businessQuery.data;
+  if (__DEV__ && isPreview) {
+    if (previewMode === 'no_offers') {
+      business = FIXTURE_PUBLIC_BUSINESS_NO_OFFERS;
+    } else if (previewMode === 'no_branches') {
+      business = FIXTURE_PUBLIC_BUSINESS_NO_BRANCHES;
+    } else if (previewMode === 'missing_media') {
+      business = FIXTURE_PUBLIC_BUSINESS_MISSING_MEDIA;
+    } else if (previewMode === 'long_content') {
+      business = FIXTURE_PUBLIC_BUSINESS_LONG_CONTENT;
+    } else if (previewMode === 'restricted') {
+      business = null;
+    } else if (!business) {
+      business = FIXTURE_PUBLIC_BUSINESS;
+    }
+  }
+
+  // Resolve persistent saved state
+  const isSavedInQuery = Boolean(
+    isSignedIn &&
+      savedBusinessesQuery.data?.some(
+        (b) => b && b.business_id && b.business_id.toLowerCase() === businessId.toLowerCase(),
+      ),
+  );
+
+  // Honest loading indicator: do not infer "unsaved" before query resolves
+  const isFavoriteLoading = Boolean(
+    isSignedIn && savedBusinessesQuery.isLoading && !savedBusinessesQuery.data && !isPreview,
+  );
+
+  let isSaved = isSavedInQuery;
+  if (__DEV__ && isPreview) {
+    if (previewMode === 'auth_saved') {
+      isSaved = true;
+    } else if (previewMode === 'auth_unsaved' || previewMode === 'saving_pending') {
+      isSaved = false;
+    }
+  }
+
+  // Mutation and feedback states - clean and fresh per session-keyed instance
+  const [feedback, setFeedback] = useState<{ message: string; tone: 'success' | 'danger' } | null>(null);
+  const [showGuestPrompt, setShowGuestPrompt] = useState(
+    Boolean(__DEV__ && previewMode === 'guest_save_prompt'),
+  );
+  const isMutatingRef = useRef(false);
+  const [isMutating, setIsMutating] = useState(
+    Boolean(__DEV__ && previewMode === 'saving_pending'),
+  );
+
+  // Active identity tracking refs to discard late asynchronous mutation results if session changes in flight
+  const activeUserIdRef = useRef(userId);
+  const activeBusinessIdRef = useRef(businessId);
+  useEffect(() => {
+    activeUserIdRef.current = userId;
+    activeBusinessIdRef.current = businessId;
+    isMutatingRef.current = false;
+  }, [userId, businessId]);
+
+  // Synchronous race-safe favorite toggle handler
+  const handleFavoriteToggle = useCallback(async () => {
+    // Guest: open explicit sign-in path
+    if (!isSignedIn) {
+      setShowGuestPrompt(true);
+      return;
+    }
+
+    // Guard duplicate mutations or toggle while favorite query is still resolving
+    if (isMutatingRef.current || isFavoriteLoading) {
+      return;
+    }
+
+    const mutationUserId = userId;
+    const mutationBusinessId = businessId;
+
+    isMutatingRef.current = true;
+    setIsMutating(true);
+    setFeedback(null);
+
+    const nextSave = !isSaved;
+
+    try {
+      await setSavedBusinessMutation.mutateAsync({
+        businessId,
+        save: nextSave,
+      });
+
+      // Discard late results if user or merchant switched while mutation was in flight
+      if (
+        activeUserIdRef.current !== mutationUserId ||
+        activeBusinessIdRef.current !== mutationBusinessId
+      ) {
+        return;
+      }
+
+      setFeedback({
+        message: nextSave
+          ? 'تمت إضافة المتجر إلى المفضلة بنجاح'
+          : 'تمت إزالة المتجر من المفضلة بنجاح',
+        tone: 'success',
+      });
+    } catch {
+      if (
+        activeUserIdRef.current !== mutationUserId ||
+        activeBusinessIdRef.current !== mutationBusinessId
+      ) {
+        return;
+      }
+
+      setFeedback({
+        message: nextSave
+          ? 'تعذر إضافة المتجر إلى المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.'
+          : 'تعذر إزالة المتجر من المفضلة. يرجى التحقق من اتصالك والمحاولة مجدداً.',
+        tone: 'danger',
+      });
+    } finally {
+      if (
+        activeUserIdRef.current === mutationUserId &&
+        activeBusinessIdRef.current === mutationBusinessId
+      ) {
+        isMutatingRef.current = false;
+        setIsMutating(false);
+      }
+    }
+  }, [
+    isSignedIn,
+    isFavoriteLoading,
+    isSaved,
+    businessId,
+    userId,
+    setSavedBusinessMutation,
+    setShowGuestPrompt,
+  ]);
+
+  const handleGuestPress = useCallback(() => {
+    setShowGuestPrompt(true);
+  }, [setShowGuestPrompt]);
 
   // Navigation handlers
   function handleBack() {
@@ -302,6 +519,81 @@ export function CustomerBusinessDetailsScreen({ businessId }: CustomerBusinessDe
         <Tag size={16} color="#0F172D" />
         <AppText style={{ fontSize: 14, fontWeight: '800', color: '#0F172D' }}>
           استعراض العروض
+        </AppText>
+      </Pressable>
+
+      {/* Favorite Action CTA */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          isSaved
+            ? `إزالة ${business.name} من المفضلة`
+            : `حفظ ${business.name} في المفضلة`
+        }
+        accessibilityState={{
+          selected: isSaved,
+          disabled: isMutating || isFavoriteLoading,
+        }}
+        disabled={isMutating || isFavoriteLoading}
+        onPress={handleFavoriteToggle}
+        style={{
+          minHeight: 48,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          borderRadius: 14,
+          backgroundColor: isSaved
+            ? isDark
+              ? 'rgba(250, 204, 21, 0.15)'
+              : '#FEF9C3'
+            : colors.surface,
+          borderWidth: 1,
+          borderColor: isSaved
+            ? isDark
+              ? '#FDE047'
+              : '#EAB308'
+            : colors.border,
+        }}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+      >
+        {isMutating || isFavoriteLoading ? (
+          <ActivityIndicator size="small" color="#FACC15" />
+        ) : (
+          <Heart
+            size={16}
+            color={
+              isSaved
+                ? isDark
+                  ? '#FACC15'
+                  : '#854D0E'
+                : isDark
+                ? '#94A3B8'
+                : colors.foreground
+            }
+            fill={isSaved ? (isDark ? '#FACC15' : '#FACC15') : 'none'}
+            strokeWidth={2}
+          />
+        )}
+        <AppText
+          style={{
+            fontSize: 14,
+            fontWeight: isSaved ? '800' : '700',
+            color: isSaved
+              ? isDark
+                ? '#FACC15'
+                : '#854D0E'
+              : colors.foreground,
+          }}
+        >
+          {isMutating
+            ? (isSaved ? 'جارٍ الإزالة...' : 'جارٍ الحفظ...')
+            : isFavoriteLoading
+            ? 'جارٍ التحميل...'
+            : isSaved
+            ? 'محفوظ'
+            : 'حفظ التاجر'}
         </AppText>
       </Pressable>
 
@@ -576,6 +868,25 @@ export function CustomerBusinessDetailsScreen({ businessId }: CustomerBusinessDe
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {renderHeader()}
 
+      {feedback && (
+        <View
+          style={{
+            maxWidth: 1200,
+            width: '100%',
+            alignSelf: 'center',
+            paddingHorizontal: isCompact ? 16 : 24,
+            paddingTop: 12,
+          }}
+        >
+          <ToastBanner
+            visible={Boolean(feedback)}
+            message={feedback.message}
+            tone={feedback.tone}
+            onDismiss={() => setFeedback(null)}
+          />
+        </View>
+      )}
+
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={{ paddingBottom: 50 }}
@@ -593,6 +904,7 @@ export function CustomerBusinessDetailsScreen({ businessId }: CustomerBusinessDe
         >
           {/* Business Hero (Cover + Overlapping Identity) */}
           <BusinessHero
+            businessId={business.id}
             name={business.name}
             initial={initialChar}
             categoryName={primaryCat?.name_ar}
@@ -603,6 +915,10 @@ export function CustomerBusinessDetailsScreen({ businessId }: CustomerBusinessDe
             isDark={isDark}
             isCompact={isCompact}
             isDesktop={isDesktop}
+            isSaved={isSaved}
+            isFavoritePending={isMutating || isFavoriteLoading}
+            onFavoriteToggle={handleFavoriteToggle}
+            onFavoriteGuestPress={handleGuestPress}
           />
 
           {/* Quick Actions Row */}
@@ -785,6 +1101,66 @@ export function CustomerBusinessDetailsScreen({ businessId }: CustomerBusinessDe
           )}
         </BottomSheet>
       ) : null}
+
+      {/* Guest Sign-In Prompt BottomSheet */}
+      <BottomSheet
+        visible={showGuestPrompt}
+        title="حفظ التاجر في المفضلة"
+        onClose={() => setShowGuestPrompt(false)}
+      >
+        <View style={{ gap: 16, paddingVertical: 8 }}>
+          <View
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: isDark ? 'rgba(250, 204, 21, 0.15)' : '#FEF9C3',
+              alignItems: 'center',
+              justifyContent: 'center',
+              alignSelf: 'center',
+            }}
+          >
+            <Heart size={28} color="#FACC15" fill={isDark ? '#FACC15' : '#FACC15'} />
+          </View>
+
+          <View style={{ gap: 6, alignItems: 'center' }}>
+            <AppText
+              variant="heading"
+              style={{ fontSize: 18, fontWeight: '800', textAlign: 'center', color: colors.foreground }}
+            >
+              حفظ التاجر يتطلب تسجيل الدخول
+            </AppText>
+            <AppText
+              variant="caption"
+              style={{
+                fontSize: 14,
+                lineHeight: 22,
+                color: isDark ? '#94A3B8' : colors.mutedForeground,
+                textAlign: 'center',
+                maxWidth: 360,
+              }}
+            >
+              سجّل الدخول إلى حسابك لإضافة هذا المتجر إلى متاجرك المفضلة ومتابعة عروضه الجديدة في أي وقت.
+            </AppText>
+          </View>
+
+          <View style={{ gap: 10, marginTop: 8 }}>
+            <AppButton
+              title="تسجيل الدخول"
+              variant="primary"
+              onPress={() => {
+                setShowGuestPrompt(false);
+                router.push('/sign-in');
+              }}
+            />
+            <AppButton
+              title="متابعة التصفح"
+              variant="outline"
+              onPress={() => setShowGuestPrompt(false)}
+            />
+          </View>
+        </View>
+      </BottomSheet>
     </View>
   );
 }

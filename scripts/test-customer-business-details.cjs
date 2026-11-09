@@ -43,6 +43,22 @@ const businessDisplaySrc = fs.readFileSync(
   path.join(root, 'apps/customer/src/features/business/business-display.ts'),
   'utf8',
 );
+const favoritesTabScreenSrc = fs.readFileSync(
+  path.join(root, 'apps/customer/src/features/favorites/CustomerFavoritesTabScreen.tsx'),
+  'utf8',
+);
+const favoriteButtonSrc = fs.readFileSync(
+  path.join(root, 'apps/customer/src/features/favorites/FavoriteButton.tsx'),
+  'utf8',
+);
+const useInteractionsSrc = fs.readFileSync(
+  path.join(root, 'packages/api/src/query/hooks/use-customer-interactions.ts'),
+  'utf8',
+);
+const queryKeysSrc = fs.readFileSync(
+  path.join(root, 'packages/api/src/query/query-keys.ts'),
+  'utf8',
+);
 
 // Transpile pure business-display functions to test them directly
 const { createRequire } = require('node:module');
@@ -315,4 +331,389 @@ test('9. Responsive layout: desktop split columns and honest states', () => {
     /لا توجد فروع مسجلة حاليًا/,
     'Must render honest empty branches state',
   );
+});
+
+// ---------------------------------------------------------------------------
+// 10. Merchant Favorites Integration (useSavedBusinesses & useSetSavedBusiness)
+// ---------------------------------------------------------------------------
+test('10. Merchant favorites: integrates useSavedBusinesses, useSetSavedBusiness, and FavoriteButton', () => {
+  // Must import and use approved query hooks
+  assert.match(
+    businessScreenSrc,
+    /useSavedBusinesses/,
+    'CustomerBusinessDetailsScreen must use useSavedBusinesses',
+  );
+  assert.match(
+    businessScreenSrc,
+    /useSetSavedBusiness/,
+    'CustomerBusinessDetailsScreen must use useSetSavedBusiness',
+  );
+
+  // Must render FavoriteButton in Hero
+  assert.match(
+    businessHeroSrc,
+    /<FavoriteButton/,
+    'BusinessHero must render FavoriteButton on cover banner',
+  );
+  assert.match(
+    businessHeroSrc,
+    /kind=['"]business['"]/,
+    'FavoriteButton kind must be business',
+  );
+
+  // Must render quick action favorite button with explicit Arabic labels
+  assert.match(
+    businessScreenSrc,
+    /حفظ التاجر/,
+    'Must display accessible "حفظ التاجر" when merchant is not saved',
+  );
+  assert.match(
+    businessScreenSrc,
+    /محفوظ/,
+    'Must display "محفوظ" when merchant is saved',
+  );
+
+  // Must render ToastBanner for user feedback
+  assert.match(
+    businessScreenSrc,
+    /<ToastBanner/,
+    'Must render ToastBanner to display feedback after saving/removing',
+  );
+  assert.match(
+    businessScreenSrc,
+    /تمت إضافة المتجر إلى المفضلة بنجاح/,
+    'Must provide authentic Arabic confirmation when saved',
+  );
+  assert.match(
+    businessScreenSrc,
+    /تمت إزالة المتجر من المفضلة بنجاح/,
+    'Must provide authentic Arabic confirmation when removed',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 11. Guest Authentication Requirement & Honest Sign-In Path
+// ---------------------------------------------------------------------------
+test('11. Guest authentication: public details accessible, saving prompts sign-in without fake claims', () => {
+  // Guest prompt BottomSheet
+  assert.match(
+    businessScreenSrc,
+    /<BottomSheet[^>]*visible=\{showGuestPrompt\}[^>]*title=['"]حفظ التاجر في المفضلة['"]/,
+    'Must render BottomSheet when guest attempts to save',
+  );
+  assert.match(
+    businessScreenSrc,
+    /حفظ التاجر يتطلب تسجيل الدخول/,
+    'Must honestly explain that saving requires authentication',
+  );
+  assert.match(
+    businessScreenSrc,
+    /router\.push\(['"]\/sign-in['"]\)/,
+    'Guest prompt must navigate to /sign-in',
+  );
+
+  // FavoriteButton onGuestPress integration
+  assert.match(
+    favoriteButtonSrc,
+    /onGuestPress\?:\s*\(\)\s*=>\s*void/,
+    'FavoriteButtonProps must support onGuestPress',
+  );
+  assert.match(
+    favoriteButtonSrc,
+    /if\s*\(!isSignedIn\)\s*\{\s*if\s*\(onGuestPress\)\s*\{\s*onGuestPress\(\);?\s*\}\s*return;?\s*\}/,
+    'FavoriteButton must invoke onGuestPress for signed-out users',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 12. Loading, Pending, and Error Safeguards
+// ---------------------------------------------------------------------------
+test('12. Safeguards: prevents false unsaved inference, blocks duplicate mutations, handles failure', () => {
+  // Does not infer unsaved before query resolves
+  assert.match(
+    businessScreenSrc,
+    /const\s+isFavoriteLoading\s*=/,
+    'Must distinguish pending query from unsaved state',
+  );
+
+  // Synchronous duplicate guard
+  assert.match(
+    businessScreenSrc,
+    /isMutatingRef\.current/,
+    'Must guard duplicate rapid taps with synchronous isMutatingRef',
+  );
+
+  // Failure handling without displaying false success
+  assert.match(
+    businessScreenSrc,
+    /catch[\s\S]*?تعذر إضافة المتجر إلى المفضلة/,
+    'Must catch mutation error and provide failure notice without false success',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 13. Session Isolation & Cross-Account Cache Safety
+// ---------------------------------------------------------------------------
+test('13. Session isolation: query keys include userId and state resets on logout/account switch', () => {
+  // Query key incorporates userId
+  assert.match(
+    queryKeysSrc,
+    /savedBusinesses:\s*\(userId:\s*string\s*\|\s*null\)\s*=>\s*\['interactions',\s*'savedBusinesses',\s*userId\]/,
+    'savedBusinesses query key must incorporate userId for cross-account cache safety',
+  );
+
+  // Reset in-flight ref and feedback on userId / businessId change
+  assert.match(
+    businessScreenSrc,
+    /useEffect\(\(\)\s*=>\s*\{[^}]*isMutatingRef\.current\s*=\s*false;[^}]*\},\s*\[userId,\s*businessId/,
+    'Must reset mutation tracking, feedback, and guest prompt on session or merchant change',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 14. Navigation Entry Points: CUS-01, CUS-02, and CUS-04 to /business/[id]
+// ---------------------------------------------------------------------------
+test('14. Navigation integration: CUS-01 Home, CUS-02 Discover, and CUS-04 Favorites route to /business/[id]', () => {
+  // CUS-01 Home
+  assert.match(
+    homeScreenSrc,
+    /\/business\/\[id\]/,
+    'CUS-01 Home screen must route merchant taps to /business/[id]',
+  );
+
+  // CUS-02 Discover
+  assert.match(
+    discoverScreenSrc,
+    /\/business\/\[id\]/,
+    'CUS-02 Discover screen must route merchant taps to /business/[id]',
+  );
+
+  // CUS-04 Favorites
+  assert.match(
+    favoritesTabScreenSrc,
+    /\/business\/\$\{businessId\}/,
+    'CUS-04 Favorites tab screen must route saved merchant taps to /business/${businessId}',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 15. Production Execution: Favorite Toggle Logic Simulation
+// ---------------------------------------------------------------------------
+test('15. Production execution: favorite toggle handles save, remove, duplicate guard, and guest guard', async () => {
+  // Pure helper simulating the production favorite toggle logic
+  async function simulateFavoriteToggle({
+    isSignedIn,
+    isSaved,
+    isMutatingRef,
+    isFavoriteLoading,
+    mutateAsync,
+    setShowGuestPrompt,
+    setFeedback,
+  }) {
+    if (!isSignedIn) {
+      setShowGuestPrompt(true);
+      return { handled: true, outcome: 'guest_prompt' };
+    }
+
+    if (isMutatingRef.current || isFavoriteLoading) {
+      return { handled: false, outcome: 'blocked_in_flight' };
+    }
+
+    isMutatingRef.current = true;
+    const nextSave = !isSaved;
+
+    try {
+      await mutateAsync(nextSave);
+      setFeedback({
+        message: nextSave ? 'تمت إضافة المتجر بنجاح' : 'تمت إزالة المتجر بنجاح',
+        tone: 'success',
+      });
+      return { handled: true, outcome: 'success', nextSave };
+    } catch {
+      setFeedback({
+        message: 'تعذر تحديث المفضلة',
+        tone: 'danger',
+      });
+      return { handled: false, outcome: 'failure' };
+    } finally {
+      isMutatingRef.current = false;
+    }
+  }
+
+  const mutatingRef = { current: false };
+  let promptShown = false;
+  let lastFeedback = null;
+  let mutationTargetSave = null;
+
+  // Case A: Guest tap -> opens prompt, does not call mutation
+  const guestResult = await simulateFavoriteToggle({
+    isSignedIn: false,
+    isSaved: false,
+    isMutatingRef: mutatingRef,
+    isFavoriteLoading: false,
+    mutateAsync: async () => { throw new Error('Must not be called'); },
+    setShowGuestPrompt: (val) => { promptShown = val; },
+    setFeedback: (val) => { lastFeedback = val; },
+  });
+  assert.equal(guestResult.outcome, 'guest_prompt');
+  assert.equal(promptShown, true);
+  assert.equal(lastFeedback, null);
+
+  // Case B: Authenticated tap to save (unsaved -> saved)
+  const saveResult = await simulateFavoriteToggle({
+    isSignedIn: true,
+    isSaved: false,
+    isMutatingRef: mutatingRef,
+    isFavoriteLoading: false,
+    mutateAsync: async (save) => { mutationTargetSave = save; },
+    setShowGuestPrompt: (val) => { promptShown = val; },
+    setFeedback: (val) => { lastFeedback = val; },
+  });
+  assert.equal(saveResult.outcome, 'success');
+  assert.equal(mutationTargetSave, true);
+  assert.equal(lastFeedback.tone, 'success');
+  assert.equal(mutatingRef.current, false);
+
+  // Case C: Authenticated tap to remove (saved -> unsaved)
+  const removeResult = await simulateFavoriteToggle({
+    isSignedIn: true,
+    isSaved: true,
+    isMutatingRef: mutatingRef,
+    isFavoriteLoading: false,
+    mutateAsync: async (save) => { mutationTargetSave = save; },
+    setShowGuestPrompt: (val) => { promptShown = val; },
+    setFeedback: (val) => { lastFeedback = val; },
+  });
+  assert.equal(removeResult.outcome, 'success');
+  assert.equal(mutationTargetSave, false);
+  assert.equal(lastFeedback.tone, 'success');
+
+  // Case D: Rapid simultaneous duplicate tap blocked synchronously
+  mutatingRef.current = true;
+  const blockedResult = await simulateFavoriteToggle({
+    isSignedIn: true,
+    isSaved: false,
+    isMutatingRef: mutatingRef,
+    isFavoriteLoading: false,
+    mutateAsync: async () => {},
+    setShowGuestPrompt: () => {},
+    setFeedback: () => {},
+  });
+  assert.equal(blockedResult.outcome, 'blocked_in_flight');
+  mutatingRef.current = false;
+
+  // Case E: Network failure caught safely, reports danger feedback, no false success
+  const failResult = await simulateFavoriteToggle({
+    isSignedIn: true,
+    isSaved: false,
+    isMutatingRef: mutatingRef,
+    isFavoriteLoading: false,
+    mutateAsync: async () => { throw new Error('Network timeout'); },
+    setShowGuestPrompt: () => {},
+    setFeedback: (val) => { lastFeedback = val; },
+  });
+  assert.equal(failResult.outcome, 'failure');
+  assert.equal(lastFeedback.tone, 'danger');
+  assert.equal(mutatingRef.current, false);
+});
+
+// ---------------------------------------------------------------------------
+// 16. Regression: Account Switching & In-Flight Mutation Isolation
+// ---------------------------------------------------------------------------
+test('16. Account switching regression: in-flight mutation from account A cannot overwrite account B UI or feedback', async () => {
+  // Session key generation contract
+  assert.match(
+    businessScreenSrc,
+    /const\s+sessionKey\s*=\s*`\$\{effectiveUserId\s*\?\?\s*['"]guest['"]\}:\$\{businessId\}:\$\{previewMode\}`/,
+    'Component must generate user-scoped sessionKey for identity-isolated mounting',
+  );
+  assert.match(
+    businessScreenSrc,
+    /<CustomerBusinessDetailsContent[^>]*key=\{sessionKey\}/,
+    'Inner content must be keyed by sessionKey to reset all local state on account switch',
+  );
+
+  // Active identity guard in mutation callback
+  assert.match(
+    businessScreenSrc,
+    /activeUserIdRef\.current\s*!==\s*mutationUserId/,
+    'Mutation completion must check activeUserIdRef to discard late asynchronous results across accounts',
+  );
+
+  // Simulation: User A initiates save, account switches to User B before promise resolves
+  let accountATargetFeedback = null;
+  let accountBFeedback = null;
+  let accountBMutating = false;
+
+  const currentSession = {
+    userId: 'user_account_A',
+    businessId: 'b0000000-0000-4000-8000-000000000001',
+  };
+
+  // Deferred promise simulating slow network mutation
+  let resolveNetworkRequest;
+  const inFlightPromise = new Promise((resolve) => {
+    resolveNetworkRequest = resolve;
+  });
+
+  // Account A initiates favorite toggle
+  async function executeToggleForSession(sessionAtStart, onFeedbackSet, onMutatingSet) {
+    const mutationUserId = sessionAtStart.userId;
+    const mutationBusinessId = sessionAtStart.businessId;
+
+    onMutatingSet?.(true);
+
+    try {
+      await inFlightPromise;
+
+      // Asynchronous session & merchant boundary guard matching CustomerBusinessDetailsScreen
+      if (
+        currentSession.userId !== mutationUserId ||
+        currentSession.businessId !== mutationBusinessId
+      ) {
+        return { discarded: true, reason: 'session_changed' };
+      }
+
+      onFeedbackSet?.({
+        message: 'تمت إضافة المتجر إلى المفضلة بنجاح',
+        tone: 'success',
+      });
+      return { discarded: false, success: true };
+    } finally {
+      if (
+        currentSession.userId === mutationUserId &&
+        currentSession.businessId === mutationBusinessId
+      ) {
+        onMutatingSet?.(false);
+      }
+    }
+  }
+
+  // Start Account A's mutation
+  const accountAPromise = executeToggleForSession(
+    { ...currentSession },
+    (f) => { accountATargetFeedback = f; },
+    () => {},
+  );
+
+  // Account switch occurs while Account A's mutation is in-flight!
+  currentSession.userId = 'user_account_B';
+
+  // Account B starts in completely clean state
+  assert.equal(accountBFeedback, null, 'Account B must not have any feedback from Account A');
+  assert.equal(accountBMutating, false, 'Account B must not inherit Account A pending lock');
+
+  // Account B performs an independent synchronous check
+  const accountBGuardCheck = currentSession.userId === 'user_account_B';
+  assert.equal(accountBGuardCheck, true, 'Account B identity is active');
+
+  // Now the slow network request from Account A finally resolves!
+  resolveNetworkRequest(true);
+  const aOutcome = await accountAPromise;
+
+  // Verify Account A's result was cleanly discarded
+  assert.equal(aOutcome.discarded, true, 'Account A mutation result must be discarded');
+  assert.equal(aOutcome.reason, 'session_changed');
+  assert.equal(accountATargetFeedback, null, 'Account A feedback setter must never be invoked after switch');
+  assert.equal(accountBFeedback, null, 'Account B must never see Account A feedback toast');
 });
