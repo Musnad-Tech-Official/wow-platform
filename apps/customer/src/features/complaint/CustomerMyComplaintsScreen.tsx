@@ -30,7 +30,6 @@ import { AppButton, AppText, Skeleton } from '@wow/ui';
 
 import { ComplaintCard } from './ComplaintCard';
 import { ComplaintFilterTabs } from './ComplaintFilterTabs';
-import { ComplaintDetailsBoundaryModal } from './ComplaintDetailsBoundaryModal';
 import {
   FIXTURE_COMPLAINTS,
   deduplicateComplaints,
@@ -77,9 +76,6 @@ export function CustomerMyComplaintsScreen({
   const [activeFilter, setActiveFilter] = useState<ComplaintFilter>(
     previewMode === 'filtered_empty' ? 'closed' : 'all',
   );
-
-  // Modal inspection state
-  const [selectedComplaint, setSelectedComplaint] = useState<CustomerComplaint | null>(null);
 
   // Pagination state
   const [offset, setOffset] = useState<number>(0);
@@ -163,6 +159,17 @@ export function CustomerMyComplaintsScreen({
   const handleSignIn = useCallback(() => {
     router.push('/sign-in');
   }, [router]);
+
+  // Navigate to CUS-09 Complaint Details
+  const handleComplaintPress = useCallback(
+    (complaint: CustomerComplaint) => {
+      // In development preview mode, preserve preview parameter so offline visual QA and test harnesses
+      // render the authenticated complaint details instead of falling back to unauthenticated guest mode
+      const previewSuffix = __DEV__ && isPreview ? `?preview=${complaint.status}` : '';
+      router.push(`/complaints/${complaint.id}${previewSuffix}` as any);
+    },
+    [router, isPreview],
+  );
 
   // Safe Refresh
   const handleRefresh = useCallback(async () => {
@@ -785,7 +792,7 @@ export function CustomerMyComplaintsScreen({
                     <ComplaintCard
                       key={item.id}
                       complaint={item}
-                      onPress={setSelectedComplaint}
+                      onPress={handleComplaintPress}
                     />
                   ))}
 
@@ -890,13 +897,6 @@ export function CustomerMyComplaintsScreen({
           )}
         </View>
       </ScrollView>
-
-      {/* CUS-09 Boundary Inspection Modal */}
-      <ComplaintDetailsBoundaryModal
-        visible={Boolean(selectedComplaint)}
-        complaint={selectedComplaint}
-        onClose={() => setSelectedComplaint(null)}
-      />
     </View>
   );
 }

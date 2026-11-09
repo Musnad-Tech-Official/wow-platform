@@ -400,31 +400,28 @@ test('9. Navigation wiring: Customer Account links to /complaints route, registe
 });
 
 // ===========================================================================
-// 10. Safe CUS-09 Boundary
+// 10. Safe CUS-09 Navigation Integration
 // ===========================================================================
-test('10. CUS-09 Boundary: Details view is marked unavailable without fake chevrons or dead buttons', () => {
+test('10. CUS-09 Integration: Details view is activated and cards route to /complaints/[id]', () => {
   const { IS_CUS09_DETAILS_AVAILABLE } = complaintsDisplay;
 
   assert.equal(
     IS_CUS09_DETAILS_AVAILABLE,
-    false,
-    'IS_CUS09_DETAILS_AVAILABLE must be false because CUS-09 is in a separate future phase',
+    true,
+    'IS_CUS09_DETAILS_AVAILABLE must be true now that CUS-09 is implemented',
   );
 
-  // Complaint card must not have fake chevrons pointing to unbuilt screen
+  // Screen navigates to complaint details with exact UUID
+  assert.ok(
+    complaintsScreenSrc.includes('/complaints/${complaint.id}') ||
+      complaintsScreenSrc.includes('`/complaints/${complaint.id}`'),
+    'Selecting a complaint in CUS-08 must route to /complaints/[id]',
+  );
+
+  // Complaint card must not have fake chevrons
   assert.ok(
     !cardSrc.includes('ChevronLeft'),
     'Card must not render misleading navigation chevrons to unbuilt CUS-09',
-  );
-
-  // Details boundary modal informs customer honestly
-  assert.ok(
-    modalSrc.includes('متابعة التفاصيل الكاملة (CUS-09)'),
-    'Modal must explicitly note that CUS-09 full case timeline is upcoming',
-  );
-  assert.ok(
-    modalSrc.includes("e.key === 'Escape'"),
-    'Modal must support Escape key on web',
   );
 });
 

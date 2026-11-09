@@ -14,6 +14,7 @@
     "test:integration": "node scripts/test-integration.cjs",
     "test:customer-complaint": "node scripts/test-customer-complaint.cjs",
     "test:customer-my-complaints": "node scripts/test-customer-my-complaints.cjs",
+    "test:customer-complaint-details": "node scripts/test-customer-complaint-details.cjs",
     "test:customer-discovery": "node scripts/test-customer-discovery.cjs",
     "validate:routes": "node scripts/validate-integration-routes.cjs"
   }

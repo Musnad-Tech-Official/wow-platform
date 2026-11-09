@@ -4,7 +4,7 @@ import { adminTests, sharedTests } from './shared';
 import { merchantTests } from './merchant';
 
 export * from './types';
-export { redact, errorDetails, validatePublicSupabaseKey } from './helpers';
+export { redact, errorDetails, validatePublicSupabaseKey, uuid } from './helpers';
 
 export function integrationTests(application: IntegrationApplication): IntegrationTest[] {
   return [...sharedTests, ...(application === 'merchant' ? merchantTests : application === 'admin' ? adminTests : [])];

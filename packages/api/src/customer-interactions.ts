@@ -270,6 +270,79 @@ export async function getMyComplaints(
   return requireJsonArray<CustomerComplaint>(data, 'wow_get_my_complaints');
 }
 
+export interface GetMyComplaintByIdOptions {
+  batchSize?: number;
+  maxOffset?: number;
+}
+
+export class ComplaintLookupCeilingError extends Error {
+  readonly code = 'COMPLAINT_LOOKUP_CEILING' as const;
+  readonly offsetReached: number;
+  readonly limit: number;
+
+  constructor(offsetReached: number, limit: number) {
+    super(
+      `Complaint lookup reached server pagination ceiling (offset ${offsetReached}, limit ${limit}) with potential additional records. Search is indeterminate.`
+    );
+    this.name = 'ComplaintLookupCeilingError';
+    this.offsetReached = offsetReached;
+    this.limit = limit;
+  }
+}
+
+const MAX_SQL_PAGINATION_OFFSET = 10000;
+const MAX_SQL_PAGINATION_LIMIT = 100;
+
+/**
+ * Resolves a specific complaint owned by the current customer using bounded pagination over wow_get_my_complaints.
+ * Validates UUID format and terminates early when records are exhausted.
+ *
+ * Strict boundary rules matching Postgres contract:
+ * - p_limit must be between 1 and 100
+ * - p_offset must be between 0 and 10000
+ * - NEVER sends an offset above 10000 (prevents SQL 22023 exception)
+ * - Distinguishes definitive not-found (batch.length < batchSize) from indeterminate search ceiling
+ *   (batch.length === batchSize but next offset would exceed ceiling).
+ */
+export async function getMyComplaintById(
+  client: WowSupabaseClient,
+  complaintId: string,
+  options: GetMyComplaintByIdOptions = {},
+): Promise<CustomerComplaint | null> {
+  if (!uuid(complaintId)) return null;
+
+  const batchSize = Math.min(
+    Math.max(options.batchSize ?? MAX_SQL_PAGINATION_LIMIT, 1),
+    MAX_SQL_PAGINATION_LIMIT,
+  );
+  const maxOffset = Math.min(
+    Math.max(options.maxOffset ?? MAX_SQL_PAGINATION_OFFSET, 0),
+    MAX_SQL_PAGINATION_OFFSET,
+  );
+
+  let offset = 0;
+
+  while (offset <= maxOffset) {
+    const batch = await getMyComplaints(client, { limit: batchSize, offset });
+    const match = batch.find((c) => c && c.id && c.id.toLowerCase() === complaintId.toLowerCase());
+    if (match) return match;
+
+    // Definitively exhausted all authorized user complaints: no more records exist on server
+    if (batch.length < batchSize) {
+      return null;
+    }
+
+    // Full batch returned, but next page would exceed the server/configured ceiling
+    if (offset + batchSize > maxOffset) {
+      throw new ComplaintLookupCeilingError(offset, batchSize);
+    }
+
+    offset += batchSize;
+  }
+
+  throw new ComplaintLookupCeilingError(offset, batchSize);
+}
+
 export async function getBusinessComplaints(
   client: WowSupabaseClient,
   options: MerchantComplaintListOptions,

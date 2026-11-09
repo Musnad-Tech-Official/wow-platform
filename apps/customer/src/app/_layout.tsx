@@ -95,6 +95,7 @@ function RootLayoutContent({
         <Stack.Screen name="business/[id]" />
         <Stack.Screen name="offer/[id]" />
         <Stack.Screen name="offer/[id]/complaint" />
+        <Stack.Screen name="complaints/[id]" />
         <Stack.Protected guard={__DEV__}>
           <Stack.Screen name="integration-test" />
           <Stack.Screen name="design-preview" />
