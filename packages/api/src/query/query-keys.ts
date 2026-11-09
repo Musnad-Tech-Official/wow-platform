@@ -43,6 +43,8 @@ export const wowQueryKeys = {
     myComplaintsRoot: (userId: string | null) => ['interactions', 'complaints', 'customer', userId] as const,
     myComplaints: (userId: string | null, limit: number, offset: number) =>
       ['interactions', 'complaints', 'customer', userId, limit, offset] as const,
+    myComplaint: (userId: string | null, complaintId: string | null) =>
+      ['interactions', 'complaints', 'customer', userId, 'detail', complaintId] as const,
     merchantComplaintsRoot: (userId: string | null) =>
       ['interactions', 'complaints', 'merchant', userId] as const,
     merchantComplaints: (businessId: string | null, userId: string | null, limit: number, offset: number) =>

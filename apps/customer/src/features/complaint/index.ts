@@ -16,6 +16,22 @@ export type { ComplaintFilterTabsProps } from './ComplaintFilterTabs';
 export { ComplaintDetailsBoundaryModal } from './ComplaintDetailsBoundaryModal';
 export type { ComplaintDetailsBoundaryModalProps } from './ComplaintDetailsBoundaryModal';
 
+// CUS-09 Complaint Details exports
+export { CustomerComplaintDetailsScreen } from './CustomerComplaintDetailsScreen';
+export type {
+  CustomerComplaintDetailsScreenProps,
+  ComplaintDetailsPreviewMode,
+} from './CustomerComplaintDetailsScreen';
+export { ComplaintSummaryCard } from './ComplaintSummaryCard';
+export type { ComplaintSummaryCardProps } from './ComplaintSummaryCard';
+export { ComplaintDescriptionCard } from './ComplaintDescriptionCard';
+export type { ComplaintDescriptionCardProps } from './ComplaintDescriptionCard';
+export { ComplaintTimeline } from './ComplaintTimeline';
+export type { ComplaintTimelineProps } from './ComplaintTimeline';
+export { ComplaintOutcomeCard } from './ComplaintOutcomeCard';
+export type { ComplaintOutcomeCardProps } from './ComplaintOutcomeCard';
+export { ComplaintPrivacyNotice } from './ComplaintPrivacyNotice';
+
 export {
   COMPLAINT_TYPE_OPTIONS,
   MIN_DESCRIPTION_LENGTH,
@@ -48,12 +64,24 @@ export {
   deduplicateComplaints,
   IS_CUS09_DETAILS_AVAILABLE,
   FIXTURE_COMPLAINTS,
+  FIXTURE_COMPLAINT_NEW,
+  FIXTURE_COMPLAINT_INVESTIGATING,
+  FIXTURE_COMPLAINT_WAITING,
+  FIXTURE_COMPLAINT_CLOSED_WITH_OUTCOME,
+  FIXTURE_COMPLAINT_CLOSED_NO_OUTCOME,
+  FIXTURE_COMPLAINT_WITH_UPDATES,
+  FIXTURE_COMPLAINT_NO_UPDATES,
+  FIXTURE_COMPLAINT_LONG_DESCRIPTION,
+  resolveComplaintFixture,
+  resolveUpdateKindMeta,
+  formatComplaintDateTime,
 } from './complaints-list-display';
 export type {
   ComplaintFilter,
   ComplaintFilterOption,
   ComplaintStatusDisplayInfo,
   ComplaintTypeDisplayMeta,
+  UpdateKindMeta,
 } from './complaints-list-display';
 
 export type {

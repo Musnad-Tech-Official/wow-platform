@@ -4,6 +4,7 @@ import {
   adminUpdateComplaint,
   getAdminComplaint,
   getBusinessComplaints,
+  getMyComplaintById,
   getMyComplaints,
   getMyRatings,
   getSavedBusinesses,
@@ -15,6 +16,7 @@ import {
   setSavedBusiness,
   setSavedOffer,
   submitComplaint,
+  type CustomerComplaint,
   type AdminComplaintsListOptions,
   type AdminModerateRatingInput,
   type AdminRatingsListOptions,
@@ -29,6 +31,7 @@ import {
 } from '../../customer-interactions';
 import { requireWowApiSession, useWowApiContext } from '../WowQueryProvider';
 import { wowQueryKeys } from '../query-keys';
+import { uuid } from '../../integration/helpers';
 
 export function useSavedOffers() {
   const context = useWowApiContext();
@@ -113,6 +116,35 @@ export function useMyComplaints(options: Pagination = {}) {
     queryKey: wowQueryKeys.interactions.myComplaints(context.userId, limit, offset),
     enabled: !!context.userId,
     queryFn: () => getMyComplaints(requireWowApiSession(context).client, { limit, offset }),
+  });
+}
+
+export function useMyComplaint(complaintId?: string | null) {
+  const context = useWowApiContext();
+  const queryClient = useQueryClient();
+  const isValidUuid = Boolean(complaintId && uuid(complaintId));
+
+  return useQuery({
+    queryKey: wowQueryKeys.interactions.myComplaint(context.userId, isValidUuid ? (complaintId ?? null) : null),
+    enabled: !!context.userId && isValidUuid,
+    queryFn: async () => {
+      if (!complaintId) throw new Error('A complaint ID is required.');
+      const { client } = requireWowApiSession(context);
+      return getMyComplaintById(client, complaintId);
+    },
+    initialData: () => {
+      if (!context.userId || !isValidUuid || !complaintId) return undefined;
+      const queries = queryClient.getQueriesData<CustomerComplaint[]>({
+        queryKey: wowQueryKeys.interactions.myComplaintsRoot(context.userId),
+      });
+      for (const [, complaints] of queries) {
+        if (Array.isArray(complaints)) {
+          const match = complaints.find((c) => c && c.id && c.id.toLowerCase() === complaintId.toLowerCase());
+          if (match) return match;
+        }
+      }
+      return undefined;
+    },
   });
 }
 
