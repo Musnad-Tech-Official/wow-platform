@@ -474,6 +474,10 @@ test('6. Authoritative timeline: Displays real customer-safe updates and modest 
     timelineSrc.includes('updates.map'),
     'Timeline must iterate over customer-safe updates',
   );
+  assert.ok(
+    timelineSrc.includes("complaint.closed_at ? formatComplaintDateTime(complaint.closed_at) : 'تاريخ الإغلاق غير محدد'"),
+    'Missing closure date must be labeled unknown rather than replaced with creation time',
+  );
 });
 
 // ===========================================================================
