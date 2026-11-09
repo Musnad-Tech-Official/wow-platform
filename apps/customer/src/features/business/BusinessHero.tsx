@@ -20,6 +20,7 @@ export interface BusinessHeroProps {
   businessId?: string;
   isSaved?: boolean;
   isFavoritePending?: boolean;
+  isFavoriteDisabled?: boolean;
   onFavoriteToggle?: () => void;
   onFavoriteGuestPress?: () => void;
 }
@@ -38,6 +39,7 @@ export function BusinessHero({
   businessId,
   isSaved = false,
   isFavoritePending = false,
+  isFavoriteDisabled = false,
   onFavoriteToggle,
   onFavoriteGuestPress,
 }: BusinessHeroProps) {
@@ -125,6 +127,7 @@ export function BusinessHero({
               targetId={businessId ?? ''}
               isSaved={isSaved}
               isPending={isFavoritePending}
+              disabled={isFavoriteDisabled}
               onToggle={onFavoriteToggle}
               onGuestPress={onFavoriteGuestPress}
               size={44}
