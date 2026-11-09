@@ -434,7 +434,7 @@ export function ComplaintTimeline({ complaint }: ComplaintTimelineProps) {
                       color: colors.mutedForeground,
                     }}
                   >
-                    {formatComplaintDateTime(complaint.closed_at || complaint.created_at)}
+                    {complaint.closed_at ? formatComplaintDateTime(complaint.closed_at) : 'تاريخ الإغلاق غير محدد'}
                   </AppText>
                 </View>
                 <AppText
