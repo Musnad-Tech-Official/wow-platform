@@ -9,6 +9,7 @@ export interface FavoriteButtonProps {
   targetId: string;
   isSaved?: boolean;
   onToggle?: (nextSaved: boolean) => void | Promise<void>;
+  onGuestPress?: () => void;
   size?: number;
   variant?: 'floating' | 'inline';
   accessibilityLabel?: string;
@@ -53,6 +54,7 @@ export async function executeFavoriteToggle({
 export function FavoriteButton({
   isSaved = true,
   onToggle,
+  onGuestPress,
   size = 36,
   variant = 'floating',
   accessibilityLabel,
@@ -69,6 +71,13 @@ export function FavoriteButton({
   const isPending = externalPending || localPending;
 
   async function handlePress() {
+    if (!isSignedIn) {
+      if (onGuestPress) {
+        onGuestPress();
+      }
+      return;
+    }
+
     await executeFavoriteToggle({
       isSaved,
       isSignedIn: Boolean(isSignedIn),

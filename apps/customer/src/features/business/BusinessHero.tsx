@@ -3,6 +3,7 @@ import { Image, View } from 'react-native';
 import { Tag } from 'lucide-react-native';
 import { useWowColors } from '@wow/theme';
 import { AppText } from '@wow/ui';
+import { FavoriteButton } from '../favorites/FavoriteButton';
 import { formatOfferCount, isSafePublicImageUrl } from './business-display';
 
 export interface BusinessHeroProps {
@@ -16,6 +17,12 @@ export interface BusinessHeroProps {
   isDark: boolean;
   isCompact: boolean;
   isDesktop: boolean;
+  businessId?: string;
+  isSaved?: boolean;
+  isFavoritePending?: boolean;
+  isFavoriteDisabled?: boolean;
+  onFavoriteToggle?: () => void;
+  onFavoriteGuestPress?: () => void;
 }
 
 export function BusinessHero({
@@ -29,6 +36,12 @@ export function BusinessHero({
   isDark,
   isCompact,
   isDesktop,
+  businessId,
+  isSaved = false,
+  isFavoritePending = false,
+  isFavoriteDisabled = false,
+  onFavoriteToggle,
+  onFavoriteGuestPress,
 }: BusinessHeroProps) {
   const colors = useWowColors();
   const [coverFailed, setCoverFailed] = useState(false);
@@ -98,6 +111,34 @@ export function BusinessHero({
             </AppText>
           </View>
         )}
+
+        {/* Favorite Button on Cover (Top-Left in RTL) */}
+        {onFavoriteToggle ? (
+          <View
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: 12,
+              zIndex: 10,
+            }}
+          >
+            <FavoriteButton
+              kind="business"
+              targetId={businessId ?? ''}
+              isSaved={isSaved}
+              isPending={isFavoritePending}
+              disabled={isFavoriteDisabled}
+              onToggle={onFavoriteToggle}
+              onGuestPress={onFavoriteGuestPress}
+              size={44}
+              accessibilityLabel={
+                isSaved
+                  ? `إزالة ${name} من المفضلة`
+                  : `حفظ ${name} في المفضلة`
+              }
+            />
+          </View>
+        ) : null}
       </View>
 
       {/* 2. Identity Overlap Row */}
