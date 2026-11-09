@@ -166,6 +166,11 @@ function CustomerBusinessDetailsContent({
   const isFavoriteLoading = Boolean(
     isSignedIn && savedBusinessesQuery.isLoading && !savedBusinessesQuery.data && !isPreview,
   );
+  // The server-side saved state is unknown when this owner-scoped query fails.
+  // Never present an actionable "not saved" toggle without knowing the current state.
+  const isFavoriteUnavailable = Boolean(
+    isSignedIn && !isPreview && savedBusinessesQuery.isError && !savedBusinessesQuery.data,
+  );
 
   let isSaved = isSavedInQuery;
   if (__DEV__ && isPreview) {
@@ -204,7 +209,7 @@ function CustomerBusinessDetailsContent({
     }
 
     // Guard duplicate mutations or toggle while favorite query is still resolving
-    if (isMutatingRef.current || isFavoriteLoading) {
+    if (isMutatingRef.current || isFavoriteLoading || isFavoriteUnavailable) {
       return;
     }
 
@@ -263,6 +268,7 @@ function CustomerBusinessDetailsContent({
   }, [
     isSignedIn,
     isFavoriteLoading,
+    isFavoriteUnavailable,
     isSaved,
     businessId,
     userId,
@@ -526,15 +532,17 @@ function CustomerBusinessDetailsContent({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={
-          isSaved
+          isFavoriteUnavailable
+            ? 'تعذّر معرفة حالة المفضلة، أعد المحاولة'
+            : isSaved
             ? `إزالة ${business.name} من المفضلة`
             : `حفظ ${business.name} في المفضلة`
         }
         accessibilityState={{
           selected: isSaved,
-          disabled: isMutating || isFavoriteLoading,
+          disabled: isMutating || isFavoriteLoading || isFavoriteUnavailable,
         }}
-        disabled={isMutating || isFavoriteLoading}
+        disabled={isMutating || isFavoriteLoading || isFavoriteUnavailable}
         onPress={handleFavoriteToggle}
         style={{
           minHeight: 48,
@@ -591,6 +599,8 @@ function CustomerBusinessDetailsContent({
             ? (isSaved ? 'جارٍ الإزالة...' : 'جارٍ الحفظ...')
             : isFavoriteLoading
             ? 'جارٍ التحميل...'
+            : isFavoriteUnavailable
+            ? 'تعذّر تحميل المفضلة'
             : isSaved
             ? 'محفوظ'
             : 'حفظ التاجر'}
@@ -917,12 +927,27 @@ function CustomerBusinessDetailsContent({
             isDesktop={isDesktop}
             isSaved={isSaved}
             isFavoritePending={isMutating || isFavoriteLoading}
+            isFavoriteDisabled={isFavoriteUnavailable}
             onFavoriteToggle={handleFavoriteToggle}
             onFavoriteGuestPress={handleGuestPress}
           />
 
           {/* Quick Actions Row */}
           {renderQuickActions()}
+
+          {isFavoriteUnavailable && (
+            <View style={{ gap: 8, alignItems: 'flex-start' }}>
+              <AppText style={{ color: colors.mutedForeground, textAlign: 'right' }}>
+                تعذّر التحقق من حالة حفظ المتجر. أعد تحميل المفضلة قبل الحفظ أو الإزالة.
+              </AppText>
+              <AppButton
+                title="إعادة تحميل المفضلة"
+                variant="outline"
+                onPress={() => { void savedBusinessesQuery.refetch(); }}
+                style={{ minHeight: 48 }}
+              />
+            </View>
+          )}
 
           {/* Layout Branch: Desktop vs Mobile/Tablet */}
           {isDesktop ? (
