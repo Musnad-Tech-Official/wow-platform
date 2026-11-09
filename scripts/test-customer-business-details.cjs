@@ -717,3 +717,35 @@ test('16. Account switching regression: in-flight mutation from account A cannot
   assert.equal(accountATargetFeedback, null, 'Account A feedback setter must never be invoked after switch');
   assert.equal(accountBFeedback, null, 'Account B must never see Account A feedback toast');
 });
+
+ 
+// ---------------------------------------------------------------------------
+// 17. Failed Saved-State Lookup Must Not Become an Actionable "Unsaved" State
+// ---------------------------------------------------------------------------
+test('17. Favorite lookup failure: disable both toggle entry points and offer retry', () => {
+  assert.match(
+    businessScreenSrc,
+    /isFavoriteUnavailable\s*=\s*Boolean\([\s\S]*?savedBusinessesQuery\.isError\s*&&\s*!savedBusinessesQuery\.data/,
+    'An authenticated saved-state lookup failure must be distinguished from a valid unsaved result',
+  );
+  assert.match(
+    businessScreenSrc,
+    /if\s*\(isMutatingRef\.current\s*\|\|\s*isFavoriteLoading\s*\|\|\s*isFavoriteUnavailable\)/,
+    'The mutation handler must reject a favorite toggle when owner state could not be determined',
+  );
+  assert.match(
+    businessScreenSrc,
+    /disabled=\{isMutating\s*\|\|\s*isFavoriteLoading\s*\|\|\s*isFavoriteUnavailable\}/,
+    'The visible CTA must be disabled when saved state lookup fails',
+  );
+  assert.match(
+    businessHeroSrc,
+    /disabled=\{isFavoriteDisabled\}/,
+    'The floating cover button must also be disabled when saved state lookup fails',
+  );
+  assert.ok(
+    businessScreenSrc.includes('title="إعادة تحميل المفضلة"') &&
+      businessScreenSrc.includes('savedBusinessesQuery.refetch()'),
+    'An accessible retry action must be available when the owner-scoped saved state cannot be loaded',
+  );
+});
