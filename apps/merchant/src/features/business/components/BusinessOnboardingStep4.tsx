@@ -156,6 +156,16 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
   };
 
   const handleBackPress = () => {
+    if (props.readOnly) {
+      router.replace({
+        pathname: '/business/onboarding/status',
+        params: {
+          ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+          ...(isSyntheticPreview ? { preview: '1' } : {}),
+        },
+      });
+      return;
+    }
     if (props.onNavigateToStep) {
       props.onNavigateToStep(3, activeBusinessId || 'dev-synthetic-business-uuid');
     } else {
@@ -355,6 +365,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   {isStep1Complete ? 'مكتمل ✓' : 'غير مكتمل'}
                 </AppText>
               </View>
+              {!props.readOnly && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="تعديل بيانات النشاط"
@@ -369,6 +380,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   تعديل
                 </AppText>
               </Pressable>
+              )}
             </View>
           </View>
 
@@ -412,6 +424,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   {isStep2Complete ? 'مكتمل ✓' : 'غير مكتمل'}
                 </AppText>
               </View>
+              {!props.readOnly && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="تعديل بيانات المفوض"
@@ -426,6 +439,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   تعديل
                 </AppText>
               </Pressable>
+              )}
             </View>
           </View>
 
@@ -469,6 +483,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   {isStep3Complete ? 'مكتمل ✓' : 'غير مكتمل'}
                 </AppText>
               </View>
+              {!props.readOnly && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="تعديل بيانات الفروع"
@@ -483,6 +498,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   تعديل
                 </AppText>
               </Pressable>
+              )}
             </View>
           </View>
         </View>
@@ -546,7 +562,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   className="font-tajawal-bold text-[11px]"
                   style={{ color: isDark ? '#86EFAC' : '#166534' }}
                 >
-                  مرفق ✓
+                  {doc.isUploaded ? 'مرفق ✓' : 'يتطلب إعادة رفع'}
                 </AppText>
               </View>
             </View>
@@ -570,11 +586,11 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                     {doc.name}
                   </AppText>
                   <AppText variant="caption" muted className="text-[11px] mt-0.5">
-                    {(doc.size / (1024 * 1024)).toFixed(1)} MB • {doc.mimeType.split('/')[1]?.toUpperCase() || 'PDF'} • تم الرفع
+                    {doc.size ? (doc.size / (1024 * 1024)).toFixed(1) + ' MB' : '—'} • {doc.mimeType.split('/')[1]?.toUpperCase() || 'PDF'} • {doc.isUploaded ? 'تم الرفع' : 'لم يكتمل التحقق'}
                   </AppText>
                 </View>
               </View>
-              <CheckCircle2 size={18} color="#166534" />
+              {doc.isUploaded && <CheckCircle2 size={18} color="#166534" />}
             </View>
 
             {/* Document actions: secure preview, replace and remove */}
@@ -582,6 +598,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="عرض المستند بأمان"
+                disabled={!doc.isUploaded}
                 onPress={() => void previewEvidence(doc.storageKey)}
                 className="px-3 py-1.5 rounded-lg active:opacity-75"
                 style={{ backgroundColor: isDark ? '#27272A' : '#F1F5F9', borderWidth: 1, borderColor: colors.border }}
@@ -709,7 +726,9 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                 : '#854D0E',
             }}
           >
-            {isReadyToSubmit
+            {props.readOnly
+              ? 'بيانات الطلب المعروضة للقراءة فقط بعد إرساله.'
+              : isReadyToSubmit
               ? 'جميع البيانات والمستندات المطلوبة مكتملة.'
               : 'يرجى استكمال البيانات وإرفاق المستندات المطلوبة.'}
           </AppText>
@@ -755,7 +774,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="السابق: الرجوع إلى خطوة الفروع"
+          accessibilityLabel={props.readOnly ? 'العودة إلى حالة الطلب' : 'السابق: الرجوع إلى خطوة الفروع'}
           disabled={isSubmitting}
           onPress={handleBackPress}
           className="min-h-12 w-full items-center justify-center rounded-xl py-3 active:opacity-70"
@@ -765,7 +784,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
             className="font-tajawal-bold text-base"
             style={{ color: colors.foreground }}
           >
-            السابق
+            {props.readOnly ? 'العودة إلى حالة الطلب' : 'السابق'}
           </AppText>
         </Pressable>
       </View>
