@@ -45,3 +45,5 @@ export { ToastBanner, type ToastBannerProps } from './ToastBanner';
 export { FileSelectField, type FileSelectFieldProps } from './FileSelectField';
 export { BottomSheet, type BottomSheetProps } from './BottomSheet';
 export { Stepper, type StepperProps } from './Stepper';
+
+export { WowAppHeader, type WowAppHeaderProps } from './WowAppHeader';

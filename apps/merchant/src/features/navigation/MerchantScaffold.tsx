@@ -1,6 +1,7 @@
 import React, { type PropsWithChildren } from 'react';
 import { View, ScrollView, Platform } from 'react-native';
 import { useTheme } from '@wow/theme';
+import { PageHeader } from '@wow/ui';
 import { MerchantAppHeader, type MerchantAppHeaderProps } from './MerchantAppHeader';
 import { MerchantBottomNav, type MerchantTab } from './MerchantBottomNav';
 
@@ -16,10 +17,19 @@ export function MerchantScaffold({
   currentTab,
   maxWidth = 640,
   scrollable = true,
-  ...headerProps
+  title,
+  subtitle,
+  extraRightBadge,
+  showBusinessSelector = true,
 }: MerchantScaffoldProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+
+  const pageHeading = title ? (
+    <View style={{ marginBottom: 16 }}>
+      <PageHeader title={title} description={subtitle} action={extraRightBadge} />
+    </View>
+  ) : null;
 
   return (
     <>
@@ -32,7 +42,7 @@ export function MerchantScaffold({
       >
         <View className="flex-1 w-full self-center" style={{ maxWidth }}>
           {/* Shared Merchant App Header */}
-          <MerchantAppHeader {...headerProps} />
+          <MerchantAppHeader showBusinessSelector={showBusinessSelector} />
 
           {/* Main Content */}
           {scrollable ? (
@@ -45,10 +55,11 @@ export function MerchantScaffold({
               }}
               showsVerticalScrollIndicator={false}
             >
+              {pageHeading}
               {children}
             </ScrollView>
           ) : (
-            <View className="flex-1 w-full p-4">{children}</View>
+            <View className="flex-1 w-full p-4">{pageHeading}{children}</View>
           )}
 
           {/* Shared Merchant Bottom Navigation */}

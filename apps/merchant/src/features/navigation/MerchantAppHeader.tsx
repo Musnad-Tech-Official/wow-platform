@@ -1,18 +1,11 @@
 import React, { useState } from 'react';
 import { View, Pressable, Modal, FlatList } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import {
-  Bell,
-  MessageSquare,
-  ChevronDown,
-  Store,
-  Check,
-  Plus,
-  X,
-  Building2,
-} from 'lucide-react-native';
+import { Bell, ChevronDown, Store, Check, Plus, X, Building2 } from 'lucide-react-native';
+import { wowBrand } from '@wow/assets';
 import { useWowColors, useTheme } from '@wow/theme';
-import { AppText } from '@wow/ui';
+import { AppText, WowAppHeader } from '@wow/ui';
 import { useActiveBusiness } from '../business/context/ActiveBusinessContext';
 
 export interface MerchantAppHeaderProps {
@@ -22,158 +15,84 @@ export interface MerchantAppHeaderProps {
   extraRightBadge?: React.ReactNode;
 }
 
+/**
+ * Merchant variant of the customer header shell.
+ * Official yellow WOW logo on navy app-icon background; no surrogate W monogram.
+ */
 export function MerchantAppHeader({
-  title,
-  subtitle,
   showBusinessSelector = true,
-  extraRightBadge,
 }: MerchantAppHeaderProps) {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const { activeBusiness, businesses, setActiveBusinessId, isSyntheticPreview } = useActiveBusiness();
   const [selectorOpen, setSelectorOpen] = useState(false);
-
   const businessDisplayName = activeBusiness?.name || 'اختر النشاط التجاري';
 
   return (
-    <View className="w-full bg-background pt-2 pb-3 px-4 border-b border-border">
-      {/* Top row: Brand & Action Icons */}
-      <View className="flex-row items-center justify-between gap-3 mb-2">
-        <View className="flex-row items-center gap-2">
-          {/* WOW Brand Monogram Badge */}
-          <View
-            className="w-9 h-9 rounded-xl items-center justify-center shadow-sm"
-            style={{ backgroundColor: '#FACC15' }}
-          >
-            <AppText
-              variant="label"
-              className="font-tajawal-bold text-base"
-              style={{ color: '#0F172D' }}
-            >
-              W
-            </AppText>
-          </View>
-          <View className="items-start">
-            <AppText
-              variant="caption"
-              className="font-tajawal-bold text-xs"
-              style={{ color: isDark ? '#A1A1AA' : '#5C6B80' }}
-            >
-              WOW • للتاجر
-            </AppText>
-            <AppText
-              variant="label"
-              className="font-tajawal-bold text-sm"
-              style={{ color: colors.foreground }}
-            >
-              مساحة التاجر
-            </AppText>
-          </View>
-        </View>
-
-        {/* Action Icons: Notifications, Messages, Extra */}
-        <View className="flex-row items-center gap-2">
-          {extraRightBadge}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="الرسائل (قيد التطوير)"
-            disabled
-            className="w-10 h-10 rounded-xl items-center justify-center active:opacity-75"
-            style={{
-              backgroundColor: isDark ? '#202024' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <MessageSquare size={18} color={colors.foreground} />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="التنبيهات (قيد التطوير)"
-            disabled
-            className="w-10 h-10 rounded-xl items-center justify-center active:opacity-75 relative"
-            style={{
-              backgroundColor: isDark ? '#202024' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Bell size={18} color={colors.foreground} />
-            <View
-              className="absolute top-2 right-2 w-2 h-2 rounded-full"
-              style={{ backgroundColor: '#FACC15' }}
-            />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Screen Title & Subtitle (if specified) */}
-      {title && (
-        <View className="items-start mt-1 mb-2">
-          <AppText
-            variant="heading"
-            className="font-tajawal-bold text-2xl"
-            accessibilityRole="header"
-            style={{ color: colors.foreground }}
-          >
-            {title}
-          </AppText>
-          {subtitle && (
-            <AppText
-              variant="caption"
-              className="font-tajawal-medium text-xs mt-0.5"
-              style={{ color: isDark ? '#A1A1AA' : '#5C6B80' }}
-            >
-              {subtitle}
-            </AppText>
-          )}
-        </View>
-      )}
-
-      {/* Business Selector Dropdown */}
-      {showBusinessSelector && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`النشاط الحالي: ${businessDisplayName}`}
-          onPress={() => setSelectorOpen(true)}
-          className="flex-row items-center justify-between p-2.5 rounded-xl active:opacity-80"
-          style={{
-            backgroundColor: isDark ? '#202024' : '#FFFFFF',
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
-            <View
-              className="w-8 h-8 rounded-lg items-center justify-center"
-              style={{ backgroundColor: isDark ? '#422006' : '#FEF3C7' }}
-            >
-              <Store size={16} color="#D97706" />
-            </View>
-            <View className="items-start flex-1 min-w-0">
-              <AppText
-                variant="caption"
-                className="font-tajawal-medium text-[11px]"
-                style={{ color: isDark ? '#A1A1AA' : '#5C6B80' }}
+    <>
+      <WowAppHeader
+        brand={
+          <Image
+            source={wowBrand.appIcon}
+            contentFit="contain"
+            alt="شعار واو الأصفر على خلفية كحلية"
+            style={{ width: 50, height: 50, borderRadius: 13 }}
+          />
+        }
+        actions={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+            {showBusinessSelector ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={'النشاط الحالي: ' + businessDisplayName}
+                onPress={() => setSelectorOpen(true)}
+                style={{
+                  height: 44,
+                  maxWidth: 216,
+                  flexShrink: 1,
+                  minWidth: 0,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingHorizontal: 10,
+                  borderRadius: 14,
+                  backgroundColor: colors.surface,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
               >
-                النشاط الحالي
-              </AppText>
-              <AppText
-                variant="label"
-                numberOfLines={1}
-                className="font-tajawal-bold text-sm"
-                style={{ color: colors.foreground }}
-              >
-                {businessDisplayName}
-              </AppText>
-            </View>
+                <Store size={17} color="#FACC15" />
+                <AppText
+                  variant="caption"
+                  numberOfLines={1}
+                  style={{ flexShrink: 1, fontWeight: '700', color: colors.foreground }}
+                >
+                  {businessDisplayName}
+                </AppText>
+                <ChevronDown size={16} color={isDark ? '#A1A1AA' : '#0F172D'} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="التنبيهات (قيد التطوير)"
+              disabled
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <Bell size={18} color={colors.foreground} />
+            </Pressable>
           </View>
-          <ChevronDown size={18} color={isDark ? '#A1A1AA' : '#5C6B80'} />
-        </Pressable>
-      )}
-
+        }
+      />
       {/* Business Switcher Modal */}
       <Modal
         visible={selectorOpen}
@@ -278,6 +197,6 @@ export function MerchantAppHeader({
           </Pressable>
         </Pressable>
       </Modal>
-    </View>
+    </>
   );
 }

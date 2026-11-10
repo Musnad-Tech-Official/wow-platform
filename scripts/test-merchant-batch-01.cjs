@@ -448,3 +448,24 @@ test('BATCH-01: needs_info uses resubmit RPC, secure previews, and compatible fi
   assert.match(screen, /createSignedUrl\(storageKey, 60\)/);
   assert.match(screen, /image\/webp/);
 });
+
+
+test('BATCH-01: approved navy WOW merchant mark uses the common customer header shell', () => {
+  const shared = read('packages/ui/src/WowAppHeader.tsx');
+  const exportsFile = read('packages/ui/src/index.ts');
+  const merchant = read('apps/merchant/src/features/navigation/MerchantAppHeader.tsx');
+  const customer = read('apps/customer/src/features/home/HomeHeader.tsx');
+  const scaffold = read('apps/merchant/src/features/navigation/MerchantScaffold.tsx');
+  const brand = read('packages/assets/src/index.ts');
+  assert.match(exportsFile, /WowAppHeader/);
+  assert.match(shared, /justifyContent: 'space-between'/);
+  assert.match(shared, /paddingHorizontal: 16/);
+  assert.match(merchant, /<WowAppHeader/);
+  assert.match(customer, /<WowAppHeader/);
+  assert.match(merchant, /source=\{wowBrand\.appIcon\}/);
+  assert.match(brand, /appIcon: require\("\.\.\/assets\/brand\/app-icon-1024\.png"\)/);
+  assert.doesNotMatch(merchant, /WOW • للتاجر|WOW Brand Monogram Badge/);
+  assert.match(merchant, /setSelectorOpen\(true\)/);
+  assert.match(merchant, /setActiveBusinessId\(item\.id\)/);
+  assert.match(scaffold, /<PageHeader title=\{title\}/);
+});
