@@ -79,3 +79,38 @@ jobs:
         env:
           WOW_MERCHANT_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-merchant-web
         run: node scripts/test-merchant-guest-playwright.cjs
+
+  merchant-live-clerk-auth:
+    name: Real Clerk OTP and Supabase profile RLS (development only)
+    needs: verify
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 49 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Export real merchant web application
+        run: pnpm --filter merchant exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-merchant-web"
+      - name: Verify real Clerk sessions and Supabase RLS
+        run: WOW_MERCHANT_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-merchant-web" node scripts/test-merchant-live-auth-playwright.cjs
