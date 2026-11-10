@@ -1,6 +1,4 @@
 import React from 'react';
-import { View } from 'react-native';
-import { AppText } from '@wow/ui';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
 import { DashboardBanner } from './DashboardBanner';
 import { DashboardEligibilityBanner } from './DashboardEligibilityBanner';
@@ -67,12 +65,7 @@ export function MerchantDashboardScreen() {
       {/* 6. Quick Actions Section */}
       <QuickActionsSection />
 
-      {/* 7. Design System Review Footnote */}
-      <View className="py-4 items-center">
-        <AppText variant="caption" muted className="font-tajawal text-[11px] text-center">
-          قيم ورسوم توضيحية لمراجعة التصميم، وتُستبدل ببيانات النشاط الفعلية.
-        </AppText>
-      </View>
+      {/* Real-data dashboard: show unavailable metrics explicitly rather than fabricated values. */}
     </MerchantScaffold>
   );
 }

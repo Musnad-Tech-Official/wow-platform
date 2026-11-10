@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable } from 'react-native';
+import { View } from 'react-native';
 import { Crown } from 'lucide-react-native';
 import { AppText } from '@wow/ui';
 import { useWowColors, useTheme } from '@wow/theme';
@@ -13,11 +13,10 @@ export interface SubscriptionCardProps {
 }
 
 export function SubscriptionCard({
-  planName = 'الفترة التجريبية',
-  daysRemaining = 7,
-  endsAtText = '28 نوفمبر 2026',
-  progressPercentage = 75,
-  onPressDetails,
+  planName = 'غير متوفر',
+  daysRemaining = 0,
+  endsAtText = '—',
+  progressPercentage = 0,
 }: SubscriptionCardProps) {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
@@ -84,20 +83,7 @@ export function SubscriptionCard({
 
         {/* Footer: Expiry date & Link */}
         <View className="flex-row items-center justify-between pt-1 border-t border-border">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="تفاصيل الاشتراك"
-            onPress={onPressDetails}
-            className="p-1 active:opacity-75"
-          >
-            <AppText
-              variant="caption"
-              className="font-tajawal-bold text-xs"
-              style={{ color: colors.actionForeground || '#744A00' }}
-            >
-              تفاصيل الاشتراك ←
-            </AppText>
-          </Pressable>
+          <AppText variant="caption" muted className="text-xs">تُحدّث تفاصيل الاشتراك من بيانات النظام</AppText>
 
           <AppText variant="caption" muted className="text-xs">
             ينتهي في {endsAtText}

@@ -77,7 +77,8 @@ export function MerchantAppHeader({
           {extraRightBadge}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="الرسائل"
+            accessibilityLabel="الرسائل (قيد التطوير)"
+            disabled
             className="w-10 h-10 rounded-xl items-center justify-center active:opacity-75"
             style={{
               backgroundColor: isDark ? '#202024' : '#FFFFFF',
@@ -90,7 +91,8 @@ export function MerchantAppHeader({
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="التنبيهات"
+            accessibilityLabel="التنبيهات (قيد التطوير)"
+            disabled
             className="w-10 h-10 rounded-xl items-center justify-center active:opacity-75 relative"
             style={{
               backgroundColor: isDark ? '#202024' : '#FFFFFF',

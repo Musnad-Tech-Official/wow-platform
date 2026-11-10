@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   useBusiness,
   useBusinessBilling,
@@ -9,15 +9,13 @@ import {
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { formatArabicDate } from '../../business/hooks/useBusinessQualificationStatus';
 
-const emptySubscribe = () => () => {};
-
 export function useMerchantDashboard() {
   const { activeBusiness, activeBusinessId, isSyntheticPreview } = useActiveBusiness();
-  const currentTimestamp = useSyncExternalStore(
-    emptySubscribe,
-    () => Date.now(),
-    () => 1762700000000
-  );
+  const [currentTimestamp, setCurrentTimestamp] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTimestamp(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Real Queries
   const { data: businessData, isLoading: isBusinessLoading } = useBusiness(
@@ -53,7 +51,8 @@ export function useMerchantDashboard() {
     }
 
     const subs = billingData?.subscriptions ?? [];
-    const activeSub = subs.find((s) => s.status === 'active');
+    const activeSub = subs.find((s) => s.status === 'active' &&
+      (!s.ends_at || new Date(s.ends_at).getTime() > currentTimestamp));
     if (!activeSub) {
       return {
         isActive: false,
@@ -66,7 +65,7 @@ export function useMerchantDashboard() {
     }
 
     const isTrial = activeSub.kind === 'trial';
-    const now = currentTimestamp || 1762700000000;
+    const now = currentTimestamp;
     const ends = activeSub.ends_at ? new Date(activeSub.ends_at).getTime() : now;
     const diffDays = Math.max(0, Math.ceil((ends - now) / (1000 * 60 * 60 * 24)));
 

@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Image, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { Plus } from 'lucide-react-native';
 import { AppText } from '@wow/ui';
 import { useTheme } from '@wow/theme';
 import { wowIllustrations } from '@wow/assets';
@@ -85,13 +84,13 @@ export function DashboardBanner({ onNewOfferPress }: DashboardBannerProps) {
             className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl mt-2 active:opacity-85 shadow-sm"
             style={{ backgroundColor: '#0F172D' }}
           >
-            <Plus size={14} color="#FFFFFF" strokeWidth={2.5} />
+            
             <AppText
               variant="label"
               className="font-tajawal-bold text-xs"
               style={{ color: '#FFFFFF' }}
             >
-              + عرض جديد
+              إدارة العروض
             </AppText>
           </Pressable>
         </View>

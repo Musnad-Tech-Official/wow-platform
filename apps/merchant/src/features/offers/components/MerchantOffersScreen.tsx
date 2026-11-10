@@ -81,6 +81,7 @@ export function MerchantOffersScreen() {
         expiredCount={counts.expired}
         needsChangesCount={counts.needs_changes}
         totalCount={counts.all}
+        pausedCount={counts.paused}
         isSyntheticPreview={isSyntheticPreview}
       />
 

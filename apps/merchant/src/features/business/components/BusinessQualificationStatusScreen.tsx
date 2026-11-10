@@ -534,7 +534,7 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
         )}
 
         <AppButton
-          title="العودة إلى طلباتي"
+          title="العودة إلى الرئيسية"
           variant="secondary"
           size="lg"
           onPress={handleBack}

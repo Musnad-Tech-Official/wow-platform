@@ -99,8 +99,9 @@ export function MerchantBottomNav({ currentTab }: MerchantBottomNavProps) {
             key={tab.key}
             accessibilityRole="tab"
             accessibilityLabel={tab.label}
-            accessibilityState={{ selected: isActive }}
             onPress={tab.onPress}
+            disabled={tab.key === 'complaints' || tab.key === 'more'}
+            accessibilityState={{ selected: isActive, disabled: tab.key === 'complaints' || tab.key === 'more' }}
             className="flex-1 items-center justify-center min-h-[48px] py-1 active:opacity-75"
           >
             {isActive ? (

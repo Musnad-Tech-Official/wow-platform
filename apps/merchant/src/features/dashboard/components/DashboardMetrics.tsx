@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
-import { View, Pressable } from 'react-native';
+import React from 'react';
+import { View } from 'react-native';
 import {
   Tag,
   Clock,
   MessageSquare,
   AlertCircle,
-  ChevronDown,
-  TrendingUp,
 } from 'lucide-react-native';
 import { AppText } from '@wow/ui';
 import { useWowColors, useTheme } from '@wow/theme';
@@ -46,74 +44,19 @@ export function DashboardMetrics({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const [period, setPeriod] = useState<'30' | '7' | '90'>('30');
-  const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
-
   const pendingPercentage =
     totalOffersCount > 0 ? Math.round((pendingOffersCount / totalOffersCount) * 100) : 0;
 
   return (
     <View className="w-full gap-3 mb-4">
-      {/* Header with Period Filter */}
       <View className="flex-row items-center justify-between">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`الفترة: آخر ${period} يومًا`}
-          onPress={() => setPeriodDropdownOpen(!periodDropdownOpen)}
-          className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl border active:opacity-75"
-          style={{
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          }}
-        >
-          <ChevronDown size={14} color={isDark ? '#A1A1AA' : '#64748B'} />
-          <Clock size={14} color={isDark ? '#A1A1AA' : '#64748B'} />
-          <AppText variant="caption" className="font-tajawal-bold text-xs">
-            آخر {period} يومًا
-          </AppText>
-        </Pressable>
-
+        <View className="rounded-xl border border-border px-3 py-2" style={{ backgroundColor: colors.surface }}>
+          <AppText variant="caption" muted>الحالة الحالية</AppText>
+        </View>
         <AppText variant="heading" className="font-tajawal-bold text-lg text-right">
           نظرة على أداء نشاطك
         </AppText>
       </View>
-
-      {/* Period Dropdown Selection */}
-      {periodDropdownOpen && (
-        <View
-          className="w-full flex-row items-center justify-around p-2 rounded-xl border mb-1"
-          style={{
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          }}
-        >
-          {(['7', '30', '90'] as const).map((p) => (
-            <Pressable
-              key={p}
-              accessibilityRole="button"
-              accessibilityLabel={`آخر ${p} يومًا`}
-              onPress={() => {
-                setPeriod(p);
-                setPeriodDropdownOpen(false);
-              }}
-              className="px-3 py-1 rounded-lg"
-              style={{
-                backgroundColor: period === p ? '#FACC15' : 'transparent',
-              }}
-            >
-              <AppText
-                variant="caption"
-                className="font-tajawal-bold text-xs"
-                style={{
-                  color: period === p ? '#0F172D' : colors.foreground,
-                }}
-              >
-                آخر {p} يومًا
-              </AppText>
-            </Pressable>
-          ))}
-        </View>
-      )}
 
       {/* 2x2 Grid */}
       <View className="w-full flex-row flex-wrap gap-3">
@@ -133,13 +76,12 @@ export function DashboardMetrics({
               className="flex-row items-center gap-1 rounded-full px-2 py-0.5"
               style={{ backgroundColor: isDark ? '#064E3B' : '#DCFCE7' }}
             >
-              <TrendingUp size={10} color={isDark ? '#86EFAC' : '#166534'} />
               <AppText
                 variant="caption"
                 className="font-tajawal-bold text-[10px]"
                 style={{ color: isDark ? '#86EFAC' : '#166534' }}
               >
-                12% ↗
+                دون مقارنة تاريخية
               </AppText>
             </View>
             <View
@@ -158,7 +100,7 @@ export function DashboardMetrics({
               {visibleOffersCount}
             </AppText>
             <AppText variant="caption" muted className="text-[10px] mt-0.5">
-              مقارنة بالفترة السابقة
+              العدد الحالي
             </AppText>
           </View>
 
@@ -262,10 +204,10 @@ export function DashboardMetrics({
               الاستفسارات
             </AppText>
             <AppText variant="heading" className="font-tajawal-bold text-2xl mt-0.5">
-              {inquiriesCount}
+              {hasInquiriesTelemetry ? inquiriesCount : '—'}
             </AppText>
             <AppText variant="caption" muted className="text-[10px] mt-0.5">
-              {hasInquiriesTelemetry ? 'آخر 7 أيام' : 'لا تتوفر استفسارات مسجلة'}
+              {hasInquiriesTelemetry ? 'بيانات الاستفسارات المسجلة' : 'إحصاءات الاستفسارات غير متاحة'}
             </AppText>
           </View>
 

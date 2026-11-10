@@ -26,10 +26,10 @@ export function QuickActionsSection() {
       <View className="w-full flex-row items-center gap-3">
         <View className="flex-1">
           <AppButton
-            title="+ عرض جديد"
+            title="إنشاء عرض (قيد التطوير)"
             variant="primary"
             size="lg"
-            onPress={handleGoOffers}
+            disabled
           />
         </View>
 
