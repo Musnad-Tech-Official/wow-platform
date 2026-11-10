@@ -109,3 +109,38 @@ for (const [pathname, screen] of routes) {
     }
   });
 }
+
+
+// Synthetic rendering checks complement, but never replace, authenticated E2E.
+const previewScreens = [
+  ['/business/onboarding', 'لنبدأ بإضافة نشاطك التجاري', 'MER-02-01'],
+  ['/business/onboarding/representative', 'حدّد ممثلك المفوض', 'MER-02-02'],
+  ['/business/onboarding/branches', 'أضف فروع نشاطك', 'MER-02-03'],
+  ['/business/onboarding/review', 'ملخص الطلب', 'MER-02-04'],
+  ['/business/onboarding/status', 'حالة التأهيل', 'MER-02-05'],
+];
+for (const [pathname, expected, name] of previewScreens) {
+  test(name + ': development preview renders without cloud writes', async () => {
+    const context = await (await browser()).newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    const unintendedWrites = [];
+    const runtimeErrors = [];
+    page.on('pageerror', error => runtimeErrors.push(error.message));
+    page.on('request', request => {
+      if (/\/rest\/v1\//.test(request.url()) && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) {
+        unintendedWrites.push(request.method());
+      }
+    });
+    try {
+      const url = new URL(pathname, origin);
+      url.searchParams.set('preview', '1');
+      url.searchParams.set('businessId', 'dev-synthetic-business-uuid');
+      await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.getByText(expected, { exact: false }).first().waitFor({ timeout: 20_000 });
+      assert.deepEqual(unintendedWrites, [], 'Synthetic preview attempted a cloud mutation.');
+      assert.deepEqual(runtimeErrors, [], 'Preview browser runtime errors.');
+    } finally {
+      await context.close();
+    }
+  });
+}
