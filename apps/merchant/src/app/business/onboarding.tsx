@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@wow/auth';
 import { BusinessOnboardingStep1 } from '../../features/business/components/BusinessOnboardingStep1';
+import { MerchantRouteGate } from '../../features/navigation/MerchantRouteGate';
 
 const emptySubscribe = () => () => {};
 
@@ -35,7 +36,8 @@ export default function BusinessOnboardingScreen() {
   const effectiveUserId = fixtureAuth ? fixtureAuth.userId : auth.userId;
 
   return (
-    <BusinessOnboardingStep1
+    <MerchantRouteGate>
+      <BusinessOnboardingStep1
       key={`${effectiveUserId ?? 'anon'}:${businessId ?? 'new'}`}
       businessId={businessId ?? null}
       fixtureAuth={fixtureAuth}
@@ -52,6 +54,7 @@ export default function BusinessOnboardingScreen() {
           params,
         });
       }}
-    />
+      />
+    </MerchantRouteGate>
   );
 }

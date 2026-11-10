@@ -32,6 +32,9 @@ test('approved screens retain a common authentication boundary', () => {
     'apps/merchant/src/app/offers/index.tsx',
     'apps/merchant/src/app/business/onboarding/review.tsx',
     'apps/merchant/src/app/business/onboarding/status.tsx',
+    'apps/merchant/src/app/business/onboarding.tsx',
+    'apps/merchant/src/app/business/onboarding/representative.tsx',
+    'apps/merchant/src/app/business/onboarding/branches.tsx',
   ]) {
     const body = src(file);
     assert.match(body, /<MerchantRouteGate>/);
