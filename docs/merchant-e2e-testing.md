@@ -47,3 +47,26 @@ client (never during Expo static prerender).
 and the relevant provider configuration have been exercised.** Expo Go is
 not equivalent to a native development build. Production Clerk instances and
 application identifiers require independent configuration before release.
+
+
+## Managed development fixture — persistent / scoped
+The PR #49 authenticated CI suite now obtains **real Clerk sessions**, verifies
+profile RLS, and creates a single dedicated merchant draft and primary branch
+through the authenticated RPCs **only if** the named fixture is missing and
+`WOW_E2E_ALLOW_FIXTURE_CREATION=true` is explicitly set on the job.
+
+- Owner: the managed Merchant A test account only.
+- Business name: WOW E2E QA Business - Merchant A.
+- Branch name: WOW E2E Main Branch.
+- Created records remain draft, unapproved, and unpublished; the suite reuses
+  exact matching records on later runs rather than inserting duplicates.
+- The representative draft has a fictitious value and no evidence attachment.
+- Assertions cover owner access, other-user/admin-candidate RLS denial,
+  unauthorized branch RPC rejection, absence of a denied write, rejection
+  of submissions without evidence, and real signed-in dashboard/offers loading.
+- Do **not** regard the negative evidence test as a successful qualification
+  submission. No admin review case is created by this suite.
+- Test record UUIDs are reported by the job log for controlled cleanup after
+  the branch has been accepted. Never delete arbitrary rows by name alone.
+- A dedicated development Supabase database is preferable before expanding to
+  real document uploads or submitted qualification requests.

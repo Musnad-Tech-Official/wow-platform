@@ -79,6 +79,81 @@ function sub(token){
  if(!c.sub || !c.exp || c.exp*1000<Date.now()+10000)throw Error('Missing subject or expired token');
  return c.sub;
 }
+
+const E2E_NAME='WOW E2E QA Business - Merchant A';
+const E2E_BRANCH='WOW E2E Main Branch';
+async function rpcResult(token,method,body){
+ const r=await fetch(new URL('/rest/v1/rpc/'+method,supabase),{
+  method:'POST',redirect:'error',
+  headers:{apikey:publicKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},
+  body:JSON.stringify(body),signal:AbortSignal.timeout(18000)});
+ const data=await r.json().catch(()=>({}));
+ return {ok:r.ok,status:r.status,code:data?.code??null,data};
+}
+async function rpc(token,method,body){
+ const r=await rpcResult(token,method,body);
+ if(!r.ok)throw Error('Scoped '+method+' failed: HTTP '+r.status+' code '+String(r.code));
+ return r.data;
+}
+function uuid(x){return typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);}
+async function ensureFixture(ownerToken,ownerUserId){
+ // Deliberately limited to the one managed E2E owner, in one fixed dev project.
+ assert.equal(ownerUserId,users[0][1]);
+ const businesses=await rows(ownerToken,'businesses',{owner_user_id:'eq.'+ownerUserId,name:'eq.'+E2E_NAME});
+ if(businesses.length>1)throw Error('Multiple same-name E2E businesses: stop to avoid ambiguous fixture.');
+ let businessId=businesses[0]?.id;
+ if(!businessId){
+  if(process.env.WOW_E2E_ALLOW_FIXTURE_CREATION!=='true')throw Error('Dedicated E2E business absent and creation was not opted in.');
+  businessId=await rpc(ownerToken,'wow_create_business',{
+   p_name:E2E_NAME,p_description:'Development E2E fixture only; not a real business, not for publication.'});
+  assert.ok(uuid(businessId),'Business RPC did not return a UUID; inspect outcome before retrying.');
+ }
+ assert.deepEqual(await rows(ownerToken,'businesses',{id:'eq.'+businessId}),[{id:businessId}]);
+ const branches=await rows(ownerToken,'business_branches',{business_id:'eq.'+businessId,name:'eq.'+E2E_BRANCH});
+ if(branches.length>1)throw Error('Multiple same-name E2E branches: stop to avoid ambiguous fixture.');
+ let branchId=branches[0]?.id;
+ if(!branchId){
+  if(process.env.WOW_E2E_ALLOW_FIXTURE_CREATION!=='true')throw Error('Dedicated E2E branch absent and creation not opted in.');
+  branchId=await rpc(ownerToken,'wow_create_branch',{
+   p_business_id:businessId,p_name:E2E_BRANCH,p_city:'صنعاء',
+   p_address_line:'موقع تجريبي للاختبارات الآلية فقط',p_district:'بيانات اختبار'});
+  assert.ok(uuid(branchId),'Branch RPC did not return a UUID; inspect outcome before retrying.');
+ }
+ assert.deepEqual(await rows(ownerToken,'business_branches',{id:'eq.'+branchId}),[{id:branchId}]);
+ if(process.env.WOW_E2E_ALLOW_FIXTURE_CREATION==='true'){
+   // Idempotent saved draft. No official review submission.
+   const saved=await rpc(ownerToken,'wow_save_business_representative_draft',{
+    p_business_id:businessId,p_name:'WOW E2E Representative',p_role:'owner'});
+   assert.equal(saved,true,'Representative draft RPC must return true.');
+ }
+ return {businessId,branchId};
+}
+async function verifyIsolation(owner,nonowner,admin,fixture){
+ for(const reader of [nonowner,admin]){
+  assert.deepEqual(await rows(reader.token,'businesses',{id:'eq.'+fixture.businessId}),[],
+    'Cross-account business exposure.');
+  assert.deepEqual(await rows(reader.token,'business_branches',{id:'eq.'+fixture.branchId}),[],
+    'Cross-account branch exposure.');
+ }
+ // Attempt to create another branch as a nonmember, and verify denial and absence.
+ const deniedName='WOW E2E Forbidden Branch Attempt';
+ const before=await rows(owner.token,'business_branches',{business_id:'eq.'+fixture.businessId,name:'eq.'+deniedName});
+ assert.deepEqual(before,[],'Unexpected existing unauthorized branch attempt.');
+ const denied=await rpcResult(nonowner.token,'wow_create_branch',{
+   p_business_id:fixture.businessId,p_name:deniedName,p_city:'صنعاء',
+   p_address_line:'موقع ممنوع خاص باختبار الصلاحيات'});
+ assert.equal(denied.ok,false,'SECURITY: nonowner branch creation succeeded.');
+ assert.equal(String(denied.code),'42501','Denial must be from authorization, not validation/schema.');
+ assert.deepEqual(await rows(owner.token,'business_branches',{
+  business_id:'eq.'+fixture.businessId,name:'eq.'+deniedName}),[],
+  'SECURITY: denied nonowner RPC nevertheless wrote a branch.');
+ const missingEvidence=await rpcResult(owner.token,'wow_submit_business_verification',{
+   p_business_id:fixture.businessId,p_branch_id:fixture.branchId,
+   p_request_type:'initial',p_evidence_refs:[]});
+ assert.equal(missingEvidence.ok,false,'SECURITY: verification without evidence unexpectedly submitted.');
+ assert.equal(String(missingEvidence.code),'22023','Expected evidence validation denial.');
+}
+
 async function verifyNoAdmin(token){
  const response=await fetch(new URL('/rest/v1/rpc/wow_admin_list_business_verifications',supabase),{
   method:'POST',headers:{apikey:publicKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},
@@ -91,6 +166,7 @@ async function verifyNoAdmin(token){
 test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:220000},async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const sessions=[];
+ let fixture=null;
  await new Promise((resolve,reject)=>server.listen(0,'127.0.0.1',e=>e?reject(e):resolve()));
  try{
   for(let i=0;i<users.length;i++){
@@ -103,16 +179,22 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:220
       assert.deepEqual(await rows(token,'users',{id:'eq.'+id}),[{id}]);
       sessions.push({id,token});
       if(i===0){
+        fixture=await ensureFixture(token,id);
         await page.goto(origin()+'/',{waitUntil:'domcontentloaded'});
         await page.getByText('لوحة التاجر',{exact:true}).first().waitFor({timeout:30000});
         assert.equal(await page.getByText('تسجيل الدخول مطلوب').count(),0);
+        await page.getByText(E2E_NAME,{exact:true}).first().waitFor({timeout:30000});
+        await page.goto(origin()+'/offers',{waitUntil:'domcontentloaded'});
+        await page.getByText('إدارة العروض',{exact:true}).first().waitFor({timeout:30000});
       }
     }finally{await context.close();}
   }
   for(const s of sessions)for(const [,otherId] of users)
     if(s.id!==otherId)assert.deepEqual(await rows(s.token,'users',{id:'eq.'+otherId}),[],'RLS profile leak.');
+  await verifyIsolation(sessions[0],sessions[1],sessions[2],fixture);
   await verifyNoAdmin(sessions[2].token);
-  console.log('PASS: 3 live Clerk OTP sessions, own-profile access, cross-user profile isolation and admin denial.');
+  console.log('PASS: real OTP, profiles, actual business and branch RLS, denied unauthorized branch, evidence-required gate, and merchant UI.');
+  console.log('DEDICATED_TEST_FIXTURE business='+fixture.businessId+' branch='+fixture.branchId);
  }finally{
    for(const s of sessions)s.token=null;
    await browser.close();
