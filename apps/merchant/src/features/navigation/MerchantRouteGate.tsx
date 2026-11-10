@@ -1,9 +1,16 @@
 import { useState, type PropsWithChildren } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth, useSSO } from '@wow/auth';
 import { AppButton, AppText } from '@wow/ui';
 import { resolveMerchantRouteAccess } from './merchant-route-access';
+
+// Web OAuth popups must be completed on the client, never during Expo's static prerender.
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  void WebBrowser.maybeCompleteAuthSession();
+}
 
 /** Route-only authentication boundary; Supabase RLS remains authoritative. */
 export function MerchantRouteGate({ children }: PropsWithChildren) {
@@ -23,7 +30,10 @@ export function MerchantRouteGate({ children }: PropsWithChildren) {
     setSignInBusy(true);
     setSignInError(null);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({ strategy });
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy,
+        redirectUrl: AuthSession.makeRedirectUri({ scheme: 'merchant', path: 'oauth-callback' }),
+      });
       if (!createdSessionId || !setActive) {
         throw new Error('لم تكتمل المصادقة. أعد المحاولة بعد إكمال خطوات تسجيل الدخول.');
       }

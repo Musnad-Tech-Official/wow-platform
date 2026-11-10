@@ -82,6 +82,18 @@ test('merchant synthetic preview cannot be enabled by NODE_ENV alone', () => {
   }
 });
 
+test('Clerk OAuth has a native deep-link callback instead of a dead-end', () => {
+  const config = JSON.parse(src('apps/merchant/app.json')).expo;
+  assert.equal(config.scheme, 'merchant');
+  const gate = src('apps/merchant/src/features/navigation/MerchantRouteGate.tsx');
+  assert.match(gate, /AuthSession\.makeRedirectUri/);
+  assert.match(gate, /scheme: 'merchant'/);
+  assert.match(gate, /path: 'oauth-callback'/);
+  assert.match(gate, /WebBrowser\.maybeCompleteAuthSession/);
+  const callback = src('apps/merchant/src/app/oauth-callback.tsx');
+  assert.match(callback, /<Redirect href="\/"\s*\/>/);
+});
+
 test('merchant integration diagnostics read the existing branch table', () => {
   const integration = src('packages/api/src/integration/merchant.ts');
   assert.match(integration, /from\('business_branches'\)/);

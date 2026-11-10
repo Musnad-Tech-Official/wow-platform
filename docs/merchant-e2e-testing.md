@@ -33,3 +33,17 @@ Creating/updating/deleting real merchant records, document uploads, final qualif
 ## Security and cleanup
 
 No fixture is created by either new suite. Do not commit storage state, session tokens, Clerk secret keys or any test user credentials. Keep PR #49 open and do not run Git commits, pushes or remote migrations without separate authorization. Logs should report outcomes, never credentials or protected rows.
+
+## Clerk mobile OAuth return route
+
+The Expo scheme is `merchant`. The route `/oauth-callback` is registered by
+Expo Router; the exact development mobile SSO URL is
+`merchant://oauth-callback`. Clerk Development explicitly allowlists that URL.
+The sign-in gate uses `AuthSession.makeRedirectUri` so browser and native builds
+return to the correct app route, and the web callback is completed on the
+client (never during Expo static prerender).
+
+**Native OAuth remains unverified until a real iOS/Android development build
+and the relevant provider configuration have been exercised.** Expo Go is
+not equivalent to a native development build. Production Clerk instances and
+application identifiers require independent configuration before release.
