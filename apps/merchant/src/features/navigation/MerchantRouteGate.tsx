@@ -1,4 +1,4 @@
-import { useState, type PropsWithChildren } from 'react';
+import { useState, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
@@ -6,6 +6,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { useAuth, useSSO } from '@wow/auth';
 import { AppButton, AppText } from '@wow/ui';
 import { resolveMerchantRouteAccess } from './merchant-route-access';
+
+// Use a stable loading frame for static HTML and the first hydration render.
+const noChangeSubscribe = () => () => {};
 
 // Web OAuth popups must be completed on the client, never during Expo's static prerender.
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -15,6 +18,7 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
 /** Route-only authentication boundary; Supabase RLS remains authoritative. */
 export function MerchantRouteGate({ children }: PropsWithChildren) {
   const { isLoaded, isSignedIn } = useAuth();
+  const isClient = useSyncExternalStore(noChangeSubscribe, () => true, () => false);
   const { startSSOFlow } = useSSO();
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const [signInBusy, setSignInBusy] = useState(false);
@@ -45,9 +49,9 @@ export function MerchantRouteGate({ children }: PropsWithChildren) {
     }
   };
 
-  if (access === 'allow') return <>{children}</>;
+  if (isClient && access === 'allow') return <>{children}</>;
 
-  if (access === 'loading') {
+  if (!isClient || access === 'loading') {
     return (
       <View className="flex-1 items-center justify-center bg-background p-6">
         <ActivityIndicator accessibilityLabel="جارٍ التحقق من تسجيل الدخول" />

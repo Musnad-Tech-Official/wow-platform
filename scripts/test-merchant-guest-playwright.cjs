@@ -127,9 +127,12 @@ for (const [pathname, expected, name] of previewScreens) {
     const runtimeErrors = [];
     page.on('pageerror', error => runtimeErrors.push(error.message));
     page.on('request', request => {
-      if (/\/rest\/v1\//.test(request.url()) && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) {
-        unintendedWrites.push(request.method());
-      }
+      const url = request.url();
+      const method = request.method();
+      const postTable = /\/rest\/v1\//.test(url) && method === 'POST' && !/\/rpc\//.test(url);
+      const tableWrite = /\/rest\/v1\//.test(url) && ['PATCH','PUT','DELETE'].includes(method);
+      const writeRpc = method === 'POST' && /\/rest\/v1\/rpc\/wow_(?:create|update|delete|save|submit|set|approve|reject|upload)/.test(url);
+      if (postTable || tableWrite || writeRpc) unintendedWrites.push(method+' '+new URL(url).pathname);
     });
     try {
       const url = new URL(pathname, origin);
