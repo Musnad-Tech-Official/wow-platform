@@ -8,6 +8,8 @@ import {
   useUploadWowMedia,
   useBusinessBranches,
   useSubmitBusinessVerification,
+  useResubmitBusinessVerification,
+  useBusinessVerifications,
   type Branch,
   type BusinessDraftDetails,
   type BusinessRepresentativeDraft,
@@ -26,7 +28,7 @@ export interface EvidenceDocument {
   id: string;
   name: string;
   size: number;
-  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png';
+  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp';
   storageKey: string;
   isUploaded: boolean;
   uploadedAt: string;
@@ -91,6 +93,9 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     refetch: refetchEvidenceDraft,
   } = useBusinessVerificationEvidenceDraft(isSyntheticPreview ? null : activeBusinessId);
   const submitMutation = useSubmitBusinessVerification();
+  const resubmitMutation = useResubmitBusinessVerification();
+  const { data: businessVerifications = [], isLoading: isVerificationsLoading, error: verificationsError, refetch: refetchVerifications } =
+    useBusinessVerifications(isSyntheticPreview ? null : activeBusinessId);
   const saveEvidenceDraftMutation = useSaveBusinessVerificationEvidenceDraft();
   const uploadMutation = useUploadWowMedia();
 
@@ -207,11 +212,11 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
         {
           id: `rep-doc-${serverRepresentative.business_id}`,
           name: serverRepresentative.evidence_file_name || 'مستند_إثبات_النشاط.pdf',
-          size: serverRepresentative.evidence_file_size || 1.2 * 1024 * 1024,
-          mimeType: (serverRepresentative.evidence_content_type as any) || 'application/pdf',
+          size: serverRepresentative.evidence_file_size ?? 0,
+          mimeType: (serverRepresentative.evidence_content_type as EvidenceDocument['mimeType']) || 'application/pdf',
           storageKey: serverRepresentative.evidence_storage_key,
-          isUploaded: true,
-          uploadedAt: serverRepresentative.updated_at || new Date().toISOString(),
+          isUploaded: Boolean(serverRepresentative.evidence_file_size && serverRepresentative.evidence_content_type),
+          uploadedAt: serverRepresentative.updated_at || '',
           title: 'مستند إثبات النشاط والصلاحية',
           isPrimaryRequirement: true,
         },
@@ -226,6 +231,15 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     text: string;
   } | null>(null);
 
+  // Current initial request may be returned for additional evidence (needs_info).
+  const latestInitialVerification = useMemo(() => businessVerifications
+    .filter(v => v.request_type === 'initial')
+    .sort((a, b) => (b.submitted_at || b.created_at).localeCompare(a.submitted_at || a.created_at))[0] ?? null,
+    [businessVerifications]);
+  const canResubmit = !isSyntheticPreview &&
+    latestInitialVerification?.status === 'needs_info' &&
+    business?.status === 'pending_review' && primaryBranch?.status === 'pending_review';
+
   // Status checks
   const isStep1Complete = Boolean(business?.name?.trim() && business.requested_category_id);
   const isStep2Complete = Boolean(representative?.name?.trim() && representative?.role);
@@ -234,15 +248,15 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     documents.some((d) => d.isUploaded && Boolean(d.storageKey));
 
   const isReadyToSubmit = isStep1Complete && isStep2Complete && isStep3Complete && hasUploadedDocuments &&
-    (business?.status === 'draft' || business?.status === 'rejected') &&
-    !isBusinessLoading && !isRepLoading && !isBranchesLoading && !isEvidenceDraftLoading &&
-    !businessError && !repError && !branchesError && !evidenceDraftError &&
+    (business?.status === 'draft' || business?.status === 'rejected' || canResubmit) &&
+    !isBusinessLoading && !isRepLoading && !isBranchesLoading && !isEvidenceDraftLoading && !isVerificationsLoading &&
+    !businessError && !repError && !branchesError && !evidenceDraftError && !verificationsError &&
     !uploadMutation.isPending && !saveEvidenceDraftMutation.isPending;
 
   // Upload bytes to private Storage before adding the reference. A separate,
   // owner-scoped draft RPC persists all 0–12 documents without altering the representative.
   const uploadDocument = useCallback(async (
-    file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer },
+    file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp'; bytes?: ArrayBuffer },
     replaceId?: string,
   ): Promise<boolean> => {
     if (props.readOnly || !activeBusinessId || !userId || !file.name ||
@@ -296,13 +310,13 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
   }, [activeBusinessId, userId, isSyntheticPreview, uploadMutation, documents, props.readOnly]);
 
   const handleAddDocument = useCallback(
-    (file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer }) =>
+    (file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp'; bytes?: ArrayBuffer }) =>
       uploadDocument(file),
     [uploadDocument]
   );
 
   const handleReplaceDocument = useCallback(
-    (id: string, file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer }) =>
+    (id: string, file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp'; bytes?: ArrayBuffer }) =>
       uploadDocument(file, id),
     [uploadDocument]
   );
@@ -363,12 +377,16 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     }
 
     try {
-      await submitMutation.mutateAsync({
-        businessId: activeBusinessId,
-        branchId: primaryBranch.id,
-        requestType: 'initial',
-        evidenceRefs,
-      });
+      if (canResubmit && latestInitialVerification) {
+        await resubmitMutation.mutateAsync({ verificationId: latestInitialVerification.id, evidenceRefs });
+      } else {
+        await submitMutation.mutateAsync({
+          businessId: activeBusinessId,
+          branchId: primaryBranch.id,
+          requestType: 'initial',
+          evidenceRefs,
+        });
+      }
 
       setIsSubmitting(false);
       setFeedback({
@@ -397,6 +415,9 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     documents,
     isSyntheticPreview,
     submitMutation,
+    resubmitMutation,
+    canResubmit,
+    latestInitialVerification,
     onNavigateToStatus,
   ]);
 
@@ -407,7 +428,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
       setFeedback({ tone: 'success', text: 'تم حفظ المسودة التجريبية.' });
       return true;
     }
-    if (!activeBusinessId || !business || !['draft', 'rejected'].includes(business.status ?? '') ||
+    if (!activeBusinessId || !business || (!['draft', 'rejected'].includes(business.status ?? '') && !canResubmit) ||
         isEvidenceDraftLoading || evidenceDraftError || uploadMutation.isPending) {
       setFeedback({ tone: 'danger', text: 'تعذر حفظ المسودة: حالة النشاط أو البيانات غير صالحة.' });
       return false;
@@ -436,7 +457,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     }
   }, [
     props.readOnly, isSyntheticPreview, activeBusinessId, business, documents,
-    saveEvidenceDraftMutation, isEvidenceDraftLoading, evidenceDraftError, uploadMutation.isPending,
+    saveEvidenceDraftMutation, isEvidenceDraftLoading, evidenceDraftError, uploadMutation.isPending, canResubmit,
   ]);
 
   return {
@@ -446,15 +467,16 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     branches,
     primaryBranch,
     documents,
-    isSubmitting: isSubmitting || uploadMutation.isPending || saveEvidenceDraftMutation.isPending,
+    isSubmitting: isSubmitting || uploadMutation.isPending || saveEvidenceDraftMutation.isPending || resubmitMutation.isPending,
     feedback,
     isReadyToSubmit,
+    canResubmit,
     isStep1Complete,
     isStep2Complete,
     isStep3Complete,
     hasUploadedDocuments,
-    isLoading: !isSyntheticPreview && (isBusinessLoading || isRepLoading || isBranchesLoading || isEvidenceDraftLoading),
-    hasLoadError: Boolean(!isSyntheticPreview && (businessError || repError || branchesError || evidenceDraftError)),
+    isLoading: !isSyntheticPreview && (isBusinessLoading || isRepLoading || isBranchesLoading || isEvidenceDraftLoading || isVerificationsLoading),
+    hasLoadError: Boolean(!isSyntheticPreview && (businessError || repError || branchesError || evidenceDraftError || verificationsError)),
     isSyntheticPreview,
     handleAddDocument,
     handleReplaceDocument,
@@ -466,6 +488,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
       void refetchRepresentative();
       void refetchBranches();
       void refetchEvidenceDraft();
+      void refetchVerifications();
     },
   };
 }

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
+import { useWowApiContext, requireWowApiSession } from '@wow/api';
 import {
   ArrowLeft,
   Store,
@@ -32,6 +34,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const viewport = useWowViewport();
+  const wowApiContext = useWowApiContext();
 
   const {
     activeBusinessId,
@@ -42,6 +45,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
     isSubmitting,
     feedback,
     isReadyToSubmit,
+    canResubmit,
     isStep1Complete,
     isStep2Complete,
     isStep3Complete,
@@ -60,16 +64,19 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
 
   // Validate the file extension and its magic bytes before authenticated upload.
   const acceptedMime = (name: string, bytes: ArrayBuffer):
-    'application/pdf' | 'image/jpeg' | 'image/png' => {
+    'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp' => {
     const ext = name.split('.').pop()?.toLowerCase();
     const buf = new Uint8Array(bytes);
     const pdf = buf.length >= 4 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46;
     const jpg = buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
     const png = buf.length >= 8 && [137,80,78,71,13,10,26,10].every((v, i) => buf[i] === v);
+    const webp = buf.length >= 12 && [82,73,70,70].every((v, i) => buf[i] === v) &&
+      [87,69,66,80].every((v, i) => buf[i + 8] === v);
     if (ext === 'pdf' && pdf) return 'application/pdf';
     if ((ext === 'jpg' || ext === 'jpeg') && jpg) return 'image/jpeg';
     if (ext === 'png' && png) return 'image/png';
-    throw new Error('الملف ليس PDF أو JPG أو PNG صالحًا أو لا تطابق صيغته محتواه.');
+    if (ext === 'webp' && webp) return 'image/webp';
+    throw new Error('صيغة الملف أو محتواه غير صالح؛ استخدم PDF أو JPG أو PNG أو WEBP.');
   };
 
   const attachFile = async (name: string, size: number, bytes: ArrayBuffer, replaceId?: string) => {
@@ -91,7 +98,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
       // Browser pickers must be opened directly in the user activation callback.
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
+      input.accept = '.pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp';
       input.onchange = () => {
         const file = input.files?.[0];
         if (!file) return;
@@ -116,7 +123,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
         // Expo SDK 57: built-in picker returns an expo-file-system File on iOS/Android.
         const { File } = await import('expo-file-system');
         const picked = await File.pickFileAsync({
-          mimeTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+          mimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
           multipleFiles: false,
         });
         if (picked.canceled) return;
@@ -127,6 +134,25 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
         setDocumentError(error instanceof Error ? error.message : 'تعذر اختيار المستند أو رفعه.');
       }
     })();
+  };
+
+  const previewEvidence = async (storageKey: string) => {
+    if (isSyntheticPreview) {
+      setDocumentError('معاينة الملفات متاحة بعد رفع مستند فعلي.');
+      return;
+    }
+    try {
+      const { client } = requireWowApiSession(wowApiContext);
+      // Private bucket + owner-only Storage RLS. Link expires in 60 seconds.
+      const { data, error } = await client.storage
+        .from('wow-verification-evidence')
+        .createSignedUrl(storageKey, 60);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('تعذر إنشاء رابط آمن للمستند.');
+      await Linking.openURL(data.signedUrl);
+    } catch (error: unknown) {
+      setDocumentError(error instanceof Error ? error.message : 'تعذر عرض المستند.');
+    }
   };
 
   const handleBackPress = () => {
@@ -551,11 +577,20 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
               <CheckCircle2 size={18} color="#166534" />
             </View>
 
-            {/* Document Actions: Replace & Delete */}
+            {/* Document actions: secure preview, replace and remove */}
             <View className="flex-row items-center justify-end gap-2 pt-1">
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="حذف المستند"
+                accessibilityLabel="عرض المستند بأمان"
+                onPress={() => void previewEvidence(doc.storageKey)}
+                className="px-3 py-1.5 rounded-lg active:opacity-75"
+                style={{ backgroundColor: isDark ? '#27272A' : '#F1F5F9', borderWidth: 1, borderColor: colors.border }}
+              >
+                <AppText variant="caption" className="font-tajawal-bold text-xs">عرض</AppText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="إزالة المستند من الطلب"
                 onPress={() => handleRemoveDocument(doc.id)}
                 disabled={isSubmitting || props.readOnly}
                 className="px-3 py-1.5 rounded-lg active:opacity-75"
@@ -568,7 +603,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   className="font-tajawal-bold text-xs"
                   style={{ color: isDark ? '#FCA5A5' : '#B91C1C' }}
                 >
-                  حذف
+                  إزالة
                 </AppText>
               </Pressable>
 
@@ -659,7 +694,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                 : '#854D0E',
             }}
           >
-            {isReadyToSubmit ? 'الطلب جاهز للإرسال' : 'الطلب قيد الاستكمال'}
+            {props.readOnly ? 'تفاصيل الطلب المرسل' : isReadyToSubmit ? 'الطلب جاهز للإرسال' : 'الطلب قيد الاستكمال'}
           </AppText>
           <AppText
             variant="caption"
@@ -702,7 +737,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
       {/* 8. Action Buttons */}
       <View className="w-full gap-3 pt-2">
         <AppButton
-          title="إرسال الطلب للمراجعة"
+          title={canResubmit ? 'إعادة إرسال الطلب للمراجعة' : 'إرسال الطلب للمراجعة'}
           variant="primary"
           size="lg"
           loading={isSubmitting}

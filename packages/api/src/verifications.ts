@@ -133,7 +133,7 @@ export interface VerificationDraftDocument {
   storageKey: string;
   name: string;
   size: number;
-  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png';
+  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp';
   isPrimaryRequirement: boolean;
 }
 export interface SaveVerificationDraftInput {

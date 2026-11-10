@@ -438,3 +438,14 @@ test('BATCH-01: multi-file draft RPC is typed, owner-scoped and included in quer
   assert.match(migration, /REVOKE ALL ON TABLE/);
   assert.match(migration, /TO authenticated/);
 });
+
+test('BATCH-01: needs_info uses resubmit RPC, secure previews, and compatible file formats', () => {
+  const hook = read('apps/merchant/src/features/business/hooks/useBusinessOnboardingStep4.ts');
+  const screen = read('apps/merchant/src/features/business/components/BusinessOnboardingStep4.tsx');
+  assert.match(hook, /useResubmitBusinessVerification/);
+  assert.match(hook, /latestInitialVerification\?\.status === 'needs_info'/);
+  assert.match(hook, /await resubmitMutation\.mutateAsync/);
+  assert.match(screen, /إعادة إرسال الطلب للمراجعة/);
+  assert.match(screen, /createSignedUrl\(storageKey, 60\)/);
+  assert.match(screen, /image\/webp/);
+});

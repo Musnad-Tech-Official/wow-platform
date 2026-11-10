@@ -45,6 +45,7 @@ export default function BusinessOnboardingReviewScreen() {
         name: 'دار الألوان',
         status: 'draft',
         requested_category_name: 'أدوات منزلية (بيانات تجريبية)',
+        requested_category_id: 'preview-category',
         description: 'مؤسسة تجارية متخصصة في المستلزمات والأدوات المنزلية.',
       }
     : undefined;
