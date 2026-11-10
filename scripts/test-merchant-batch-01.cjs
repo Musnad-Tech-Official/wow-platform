@@ -102,7 +102,6 @@ test('BATCH-01: Dedicated routes exist and are wired correctly', () => {
     'apps/merchant/src/app/business/status.tsx',
     'apps/merchant/src/app/index.tsx',
     'apps/merchant/src/app/offers/index.tsx',
-    'apps/merchant/src/app/offers.tsx',
   ];
 
   for (const r of routes) {
