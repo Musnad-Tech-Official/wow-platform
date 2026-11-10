@@ -152,3 +152,35 @@ jobs:
           WOW_MERCHANT_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-merchant-production
           WOW_EXPECT_PRODUCTION_PREVIEW_DENIED: '1'
         run: node scripts/test-merchant-guest-playwright.cjs
+
+  merchant-native-bundles:
+    name: Merchant iOS and Android production JS export
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Export Android bundle
+        run: pnpm --filter merchant exec expo export --platform android --output-dir "$RUNNER_TEMP/wow-merchant-android"
+      - name: Export iOS bundle
+        run: pnpm --filter merchant exec expo export --platform ios --output-dir "$RUNNER_TEMP/wow-merchant-ios"
