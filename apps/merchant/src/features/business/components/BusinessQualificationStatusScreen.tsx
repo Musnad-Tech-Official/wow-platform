@@ -42,7 +42,8 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
   const isApproved = status === 'approved';
   const isNeedsInfo = status === 'needs_info';
   const isRejected = status === 'rejected';
-  const isPending = !isApproved && !isNeedsInfo && !isRejected;
+  const isPending = status === 'submitted';
+  const isDraft = status === 'draft';
 
   const handleBack = () => {
     router.replace({
@@ -155,7 +156,7 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
               النشاط الحالي
             </AppText>
             <AppText variant="label" className="font-tajawal-bold text-sm">
-              {business?.name || 'مؤسسة أفق التقنية'}
+              {business?.name || '—'}
             </AppText>
             <AppText variant="caption" muted className="text-[10px]">
               حالة النشاط: {businessStatusLabel}
@@ -230,7 +231,7 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
                   ? 'مطلوب معلومات إضافية'
                   : isRejected
                   ? 'مرفوض'
-                  : 'قيد المراجعة 🕒'}
+                  : isDraft ? 'لم يُرسل بعد' : 'قيد المراجعة'}
               </AppText>
             </View>
 
@@ -516,7 +517,7 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
             size="lg"
             onPress={handleGoDashboard}
           />
-        ) : isNeedsInfo ? (
+        ) : isNeedsInfo || isDraft ? (
           <AppButton
             title="استكمال المتطلبات وإعادة الإرسال"
             variant="primary"
@@ -547,7 +548,7 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
       {/* 9. Footnote */}
       <View className="py-4 items-center">
         <AppText variant="caption" muted className="font-tajawal text-[11px] text-center">
-          MER-02-05 — التصميم النهائي للمراجعة • بيانات توضيحية
+          MER-02-05 — حالة طلب التأهيل
         </AppText>
       </View>
     </PageScaffold>

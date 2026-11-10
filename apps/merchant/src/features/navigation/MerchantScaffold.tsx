@@ -1,7 +1,6 @@
 import React, { type PropsWithChildren } from 'react';
 import { View, ScrollView, Platform } from 'react-native';
 import { useTheme } from '@wow/theme';
-import { ActiveBusinessProvider } from '../business/context/ActiveBusinessContext';
 import { MerchantAppHeader, type MerchantAppHeaderProps } from './MerchantAppHeader';
 import { MerchantBottomNav, type MerchantTab } from './MerchantBottomNav';
 
@@ -16,7 +15,6 @@ export function MerchantScaffold({
   children,
   currentTab,
   maxWidth = 640,
-  initialBusinessId,
   scrollable = true,
   ...headerProps
 }: MerchantScaffoldProps) {
@@ -24,7 +22,7 @@ export function MerchantScaffold({
   const isDark = resolvedTheme === 'dark';
 
   return (
-    <ActiveBusinessProvider initialBusinessId={initialBusinessId}>
+    <>
       <View
         className="flex-1 w-full bg-background"
         style={{
@@ -57,6 +55,6 @@ export function MerchantScaffold({
           <MerchantBottomNav currentTab={currentTab} />
         </View>
       </View>
-    </ActiveBusinessProvider>
+    </>
   );
 }

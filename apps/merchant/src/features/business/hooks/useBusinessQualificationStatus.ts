@@ -146,9 +146,9 @@ export function useBusinessQualificationStatus(props: UseBusinessQualificationSt
       if (latestVerification.id.startsWith('QF-')) {
         return latestVerification.id;
       }
-      return `QF-2026-${latestVerification.id.slice(0, 4).toUpperCase()}`;
+      return latestVerification.id;
     }
-    return 'QF-2026-0147';
+    return '—';
   }, [latestVerification]);
 
   // Distinguish verification request status from business entity status
@@ -159,7 +159,7 @@ export function useBusinessQualificationStatus(props: UseBusinessQualificationSt
   const status =
     verificationStatus ||
     (businessStatus === 'pending_review' ? 'submitted' : businessStatus) ||
-    'submitted';
+    'draft';
 
   // Verification request status label in Arabic
   const verificationStatusLabel = useMemo(() => {
@@ -209,9 +209,7 @@ export function useBusinessQualificationStatus(props: UseBusinessQualificationSt
   const isVerificationSubmitted = verificationStatus === 'submitted';
   const isBusinessPendingReview = businessStatus === 'pending_review';
   const canContinueToDashboard =
-    (verificationStatus === 'approved' || businessStatus === 'approved') &&
-    !isVerificationSubmitted &&
-    !isBusinessPendingReview;
+    verificationStatus === 'approved' && businessStatus === 'approved';
 
   return {
     activeBusinessId,

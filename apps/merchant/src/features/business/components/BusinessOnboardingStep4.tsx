@@ -44,6 +44,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
     isReadyToSubmit,
     isSyntheticPreview,
     handleAddDocument,
+    handleReplaceDocument,
     handleRemoveDocument,
     submitVerificationRequest,
     saveDraft,
@@ -52,7 +53,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
   const [documentError, setDocumentError] = useState<string | null>(null);
 
   // File picking on Web
-  const pickFileWeb = () => {
+  const pickFileWeb = (replaceId?: string) => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
       input.type = 'file';
@@ -74,23 +75,16 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
         if (ext === 'png') mime = 'image/png';
 
         const bytes = await file.arrayBuffer();
-        handleAddDocument({
-          name: file.name,
-          size: file.size,
-          mimeType: mime,
-          bytes,
-        });
-        setDocumentError(null);
+        const wasUploaded = replaceId
+          ? await handleReplaceDocument(replaceId, { name: file.name, size: file.size, mimeType: mime, bytes })
+          : await handleAddDocument({ name: file.name, size: file.size, mimeType: mime, bytes });
+        setDocumentError(wasUploaded ? null : 'لم يكتمل رفع المستند. تحقق من رسالة الخطأ وأعد المحاولة.');
       };
       input.click();
     } else {
-      // Preview/native fallback
-      handleAddDocument({
-        name: `مستند_إضافي_${documents.length + 1}.pdf`,
-        size: 850 * 1024,
-        mimeType: 'application/pdf',
-      });
-      setDocumentError(null);
+      // Never invent a successful upload on native. A native document picker
+      // must be integrated before offering native document selection.
+      setDocumentError('اختيار المستندات على الهاتف غير متاح حاليًا. استخدم الويب لإرفاق ملف حقيقي.');
     }
   };
 
@@ -262,7 +256,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   numberOfLines={1}
                   className="font-tajawal-medium text-xs mt-0.5 text-muted-foreground"
                 >
-                  {business?.name || 'دار الألوان'} • {((business as Record<string, unknown>)?.requested_category_name as string) || (isSyntheticPreview ? 'أدوات منزلية (بيانات تجريبية)' : 'عام')}
+                  {business?.name || '—'} • {((business as Record<string, unknown>)?.requested_category_name as string) || (isSyntheticPreview ? 'أدوات منزلية (بيانات تجريبية)' : 'عام')}
                 </AppText>
               </View>
             </View>
@@ -319,7 +313,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   numberOfLines={1}
                   className="font-tajawal-medium text-xs mt-0.5 text-muted-foreground"
                 >
-                  {representative?.name || 'المالك'} • {REPRESENTATIVE_ROLE_LABELS[(representative?.role as keyof typeof REPRESENTATIVE_ROLE_LABELS) || 'owner'] || 'مالك النشاط'}
+                  {representative?.name || '—'} • {REPRESENTATIVE_ROLE_LABELS[(representative?.role as keyof typeof REPRESENTATIVE_ROLE_LABELS) || 'owner'] || 'مالك النشاط'}
                 </AppText>
               </View>
             </View>
@@ -525,7 +519,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="استبدال المستند"
-                onPress={pickFileWeb}
+                onPress={() => pickFileWeb(doc.id)}
                 className="px-3 py-1.5 rounded-lg active:opacity-75"
                 style={{
                   backgroundColor: isDark ? '#27272A' : '#F1F5F9',
@@ -549,7 +543,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="إضافة مستند داعم إن وجد"
-          onPress={pickFileWeb}
+          onPress={() => pickFileWeb()}
           className="w-full p-3.5 rounded-2xl border-2 border-dashed items-center justify-center flex-row gap-2 active:opacity-75"
           style={{
             borderColor: isDark ? '#3F3F46' : '#CBD5E1',
@@ -686,7 +680,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
       {/* 9. Footnote */}
       <View className="py-4 items-center">
         <AppText variant="caption" muted className="font-tajawal text-[11px] text-center">
-          MER-02-04 — التصميم النهائي للمراجعة • البيانات المعروضة توضيحية
+          MER-02-04 — مراجعة طلب التأهيل
         </AppText>
       </View>
     </PageScaffold>

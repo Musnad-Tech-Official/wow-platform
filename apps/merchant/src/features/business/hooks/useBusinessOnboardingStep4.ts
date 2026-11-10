@@ -4,6 +4,7 @@ import {
   useBusinessDraftDetails,
   useBusinessRepresentativeDraft,
   useSaveBusinessRepresentativeDraft,
+  useUploadWowMedia,
   useBusinessBranches,
   useSubmitBusinessVerification,
   type Branch,
@@ -83,6 +84,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
 
   const submitMutation = useSubmitBusinessVerification();
   const saveRepresentativeMutation = useSaveBusinessRepresentativeDraft();
+  const uploadMutation = useUploadWowMedia();
 
   // Synthetic or Server Data
   const business: Partial<BusinessDraftDetails> | null = useMemo(() => {
@@ -205,53 +207,81 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
   } | null>(null);
 
   // Status checks
-  const isStep1Complete = Boolean(business?.name && (business.requested_category_id || business.description));
-  const isStep2Complete = Boolean(representative?.name || representative?.role);
+  const isStep1Complete = Boolean(business?.name?.trim() && business.requested_category_id);
+  const isStep2Complete = Boolean(representative?.name?.trim() && representative?.role);
   const isStep3Complete = Boolean(primaryBranch && primaryBranch.name && primaryBranch.city);
-  const hasUploadedDocuments = documents.length > 0 && documents.some((d) => d.isUploaded);
+  const hasUploadedDocuments = documents.some((d) => d.isUploaded && Boolean(d.storageKey));
 
-  const isReadyToSubmit = isStep1Complete && isStep2Complete && isStep3Complete && hasUploadedDocuments;
+  const isReadyToSubmit = isStep1Complete && isStep2Complete && isStep3Complete && hasUploadedDocuments &&
+    (business?.status === 'draft' || business?.status === 'rejected') &&
+    !isBusinessLoading && !isRepLoading && !isBranchesLoading &&
+    !businessError && !repError && !branchesError && !uploadMutation.isPending;
 
-  // Add document
-  const handleAddDocument = useCallback(
-    (file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer }) => {
+  // Upload bytes to the private verification bucket BEFORE marking a document as attached.
+  // The representative draft RPC only stores ONE evidence reference. Extra uploaded files
+  // are kept for the current submission and cannot be advertised as persisted draft files.
+  const uploadDocument = useCallback(async (
+    file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer },
+    replaceId?: string,
+  ): Promise<boolean> => {
+    if (!activeBusinessId || !userId || !file.name || file.size < 1 || file.size > 10 * 1024 * 1024) {
+      setFeedback({ tone: 'danger', text: 'تعذر التحقق من المستند أو سياق النشاط.' });
+      return false;
+    }
+    if (!isSyntheticPreview && (!file.bytes || file.bytes.byteLength !== file.size)) {
+      setFeedback({ tone: 'danger', text: 'تعذر قراءة محتوى الملف؛ لم يُرفع أي مستند.' });
+      return false;
+    }
+    try {
+      const key = isSyntheticPreview
+        ? `business-verifications/preview/${file.name}`
+        : (await uploadMutation.mutateAsync({
+          scope: { kind: 'verification', businessId: activeBusinessId },
+          bytes: file.bytes!,
+          contentType: file.mimeType,
+        })).key;
       const newDoc: EvidenceDocument = {
-        id: `doc-${Date.now()}`,
+        id: key,
         name: file.name,
         size: file.size,
         mimeType: file.mimeType,
-        storageKey: `business-verifications/${activeBusinessId || 'preview'}/${userId || 'user'}/${Date.now()}-${file.name}`,
+        storageKey: key,
         isUploaded: true,
         uploadedAt: new Date().toISOString(),
-        title: 'مستند داعم إضافي',
-        isPrimaryRequirement: false,
+        title: replaceId
+          ? (documents.find(d => d.id === replaceId)?.title ?? 'مستند داعم')
+          : 'مستند داعم إضافي',
+        isPrimaryRequirement: replaceId
+          ? Boolean(documents.find(d => d.id === replaceId)?.isPrimaryRequirement)
+          : documents.length === 0,
       };
-      setUserModifiedDocs([...documents, newDoc]);
-      setFeedback({ tone: 'success', text: 'تم إرفاق المستند بنجاح.' });
-    },
-    [activeBusinessId, userId, documents]
+      setUserModifiedDocs((previous) => {
+        const existing = previous ?? documents;
+        return replaceId
+          ? existing.map(d => d.id === replaceId ? newDoc : d)
+          : [...existing, newDoc];
+      });
+      setFeedback({ tone: 'success', text: 'تم رفع المستند إلى التخزين الخاص بنجاح.' });
+      return true;
+    } catch (error: unknown) {
+      setFeedback({
+        tone: 'danger',
+        text: error instanceof Error ? error.message : 'فشل رفع المستند؛ لم يُضف إلى الطلب.',
+      });
+      return false;
+    }
+  }, [activeBusinessId, userId, isSyntheticPreview, uploadMutation, documents]);
+
+  const handleAddDocument = useCallback(
+    (file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer }) =>
+      uploadDocument(file),
+    [uploadDocument]
   );
 
-  // Replace document
   const handleReplaceDocument = useCallback(
-    (id: string, file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer }) => {
-      setUserModifiedDocs(
-        documents.map((doc) =>
-          doc.id === id
-            ? {
-                ...doc,
-                name: file.name,
-                size: file.size,
-                mimeType: file.mimeType,
-                storageKey: `business-verifications/${activeBusinessId || 'preview'}/${userId || 'user'}/${Date.now()}-${file.name}`,
-                uploadedAt: new Date().toISOString(),
-              }
-            : doc
-        )
-      );
-      setFeedback({ tone: 'success', text: 'تم استبدال المستند بنجاح.' });
-    },
-    [activeBusinessId, userId, documents]
+    (id: string, file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer }) =>
+      uploadDocument(file, id),
+    [uploadDocument]
   );
 
   // Remove document
@@ -366,10 +396,18 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
 
     try {
       const primaryDoc = documents.find((d) => d.isPrimaryRequirement) || documents[0] || null;
+      if (!representative?.name?.trim() || !representative?.role) {
+        setFeedback({ tone: 'danger', text: 'أكمل بيانات المفوض قبل حفظ المستند.' });
+        return false;
+      }
+      if (primaryDoc && !primaryDoc.isUploaded) {
+        setFeedback({ tone: 'danger', text: 'لم يكتمل رفع المستند.' });
+        return false;
+      }
       await saveRepresentativeMutation.mutateAsync({
         businessId: activeBusinessId,
-        name: representative?.name || 'المالك',
-        role: (representative?.role as RepresentativeRole) || 'owner',
+        name: representative.name.trim(),
+        role: representative.role,
         evidenceStorageKey: primaryDoc?.storageKey ?? null,
         evidenceFileName: primaryDoc?.name ?? null,
         evidenceFileSize: primaryDoc?.size ?? null,
@@ -377,8 +415,10 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
       });
 
       setFeedback({
-        tone: 'success',
-        text: 'تم حفظ مسودة الطلب ومراجع المستندات بنجاح.',
+        tone: documents.length > 1 ? 'warning' : 'success',
+        text: documents.length > 1
+          ? 'حُفظ مستند المفوض فقط. المرفقات الإضافية متاحة للإرسال الحالي ولا تُستعاد عند فتح المسودة مجددًا.'
+          : 'تم حفظ مستند المفوض في المسودة بنجاح.',
       });
       return true;
     } catch (err: any) {
@@ -397,7 +437,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     branches,
     primaryBranch,
     documents,
-    isSubmitting,
+    isSubmitting: isSubmitting || uploadMutation.isPending || saveRepresentativeMutation.isPending,
     feedback,
     isReadyToSubmit,
     isStep1Complete,
