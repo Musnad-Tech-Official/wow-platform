@@ -177,9 +177,9 @@ test('BATCH-01: MER-02-04 review screen satisfies UI fidelity, stepper, and cont
   assert.match(reviewHook, /requestType:\s*'initial'/);
   assert.match(reviewHook, /evidenceRefs/);
 
-  // Hook persists and restores document references via existing business_representative_drafts RPC
-  assert.match(reviewHook, /useSaveBusinessRepresentativeDraft/);
-  assert.match(reviewHook, /saveRepresentativeMutation/);
+  // Independent document-draft RPC preserves all references without overwriting representative.
+  assert.match(reviewHook, /useSaveBusinessVerificationEvidenceDraft/);
+  assert.match(reviewHook, /saveEvidenceDraftMutation/);
   assert.match(reviewHook, /evidence_storage_key/);
   assert.match(reviewHook, /REPRESENTATIVE_ROLE_LABELS/);
 
@@ -396,7 +396,9 @@ test('BATCH-01: verification evidence is uploaded before attaching, with no nati
   assert.match(hook, /useUploadWowMedia/);
   assert.match(hook, /await uploadMutation\.mutateAsync/);
   assert.match(hook, /!file\.bytes/);
-  assert.match(screen, /اختيار المستندات على الهاتف غير متاح/);
+  assert.match(screen, /File\.pickFileAsync/);
+  assert.match(screen, /chosen\.arrayBuffer/);
+  assert.match(screen, /acceptedMime/);
   assert.doesNotMatch(screen, /مستند_إضافي_\$\{/);
 });
 
@@ -419,4 +421,20 @@ test('BATCH-01: qualification requires both approvals and production metrics con
   assert.doesNotMatch(status, /return 'QF-2026-0147'/);
   assert.doesNotMatch(charts, /const points = \[20, 28, 22/);
   assert.doesNotMatch(metrics, /12% ↗/);
+});
+
+test('BATCH-01: multi-file draft RPC is typed, owner-scoped and included in query invalidation', () => {
+  const contracts = read('packages/api/src/verifications.ts');
+  const hooks = read('packages/api/src/query/hooks/use-verifications.ts');
+  const migrationFiles = require('node:fs').readdirSync(resolve(repoRoot, 'supabase/migrations'));
+  const evidenceMigration = migrationFiles.find((name) => name.includes('merchant_verification_evidence_draft'));
+  assert.ok(evidenceMigration, 'owner-scoped multi-document draft migration must exist');
+  const migration = read(`supabase/migrations/${evidenceMigration}`);
+  assert.match(contracts, /wow_get_business_verification_draft_evidence/);
+  assert.match(contracts, /wow_save_business_verification_draft_evidence/);
+  assert.match(hooks, /useBusinessVerificationEvidenceDraft/);
+  assert.match(migration, /wow_private\.validate_evidence_refs/);
+  assert.match(migration, /wow_private\.is_business_owner/);
+  assert.match(migration, /REVOKE ALL ON TABLE/);
+  assert.match(migration, /TO authenticated/);
 });

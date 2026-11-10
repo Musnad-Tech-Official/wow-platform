@@ -3,13 +3,15 @@ import { useAuth } from '@wow/auth';
 import {
   useBusinessDraftDetails,
   useBusinessRepresentativeDraft,
-  useSaveBusinessRepresentativeDraft,
+  useBusinessVerificationEvidenceDraft,
+  useSaveBusinessVerificationEvidenceDraft,
   useUploadWowMedia,
   useBusinessBranches,
   useSubmitBusinessVerification,
   type Branch,
   type BusinessDraftDetails,
   type BusinessRepresentativeDraft,
+  type VerificationDraftDocument,
   type RepresentativeRole,
 } from '@wow/api';
 
@@ -82,8 +84,14 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     refetch: refetchBranches,
   } = useBusinessBranches(isSyntheticPreview ? null : activeBusinessId);
 
+  const {
+    data: savedEvidenceDraft,
+    isLoading: isEvidenceDraftLoading,
+    error: evidenceDraftError,
+    refetch: refetchEvidenceDraft,
+  } = useBusinessVerificationEvidenceDraft(isSyntheticPreview ? null : activeBusinessId);
   const submitMutation = useSubmitBusinessVerification();
-  const saveRepresentativeMutation = useSaveBusinessRepresentativeDraft();
+  const saveEvidenceDraftMutation = useSaveBusinessVerificationEvidenceDraft();
   const uploadMutation = useUploadWowMedia();
 
   // Synthetic or Server Data
@@ -177,10 +185,22 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     props.fixtureEvidenceFiles ?? (isSyntheticPreview ? [defaultInitialDoc] : null)
   );
 
-  // Restore from serverRepresentative if not manually modified
+  // Saved draft is authoritative (including an intentionally empty array).
+  // Only fall back to legacy representative evidence when no draft row exists yet.
   const documents = useMemo<EvidenceDocument[]>(() => {
-    if (userModifiedDocs !== null) {
-      return userModifiedDocs;
+    if (userModifiedDocs !== null) return userModifiedDocs;
+    if (savedEvidenceDraft !== undefined && savedEvidenceDraft !== null) {
+      return savedEvidenceDraft.map((doc) => ({
+        id: doc.storageKey,
+        name: doc.name,
+        size: doc.size,
+        mimeType: doc.mimeType,
+        storageKey: doc.storageKey,
+        isUploaded: true,
+        uploadedAt: '',
+        title: doc.isPrimaryRequirement ? 'مستند إثبات النشاط والصلاحية' : 'مستند داعم إضافي',
+        isPrimaryRequirement: doc.isPrimaryRequirement,
+      }));
     }
     if (serverRepresentative?.evidence_storage_key) {
       return [
@@ -198,7 +218,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
       ];
     }
     return isSyntheticPreview ? [defaultInitialDoc] : [];
-  }, [userModifiedDocs, serverRepresentative, isSyntheticPreview, defaultInitialDoc]);
+  }, [userModifiedDocs, savedEvidenceDraft, serverRepresentative, isSyntheticPreview, defaultInitialDoc]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -210,21 +230,24 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
   const isStep1Complete = Boolean(business?.name?.trim() && business.requested_category_id);
   const isStep2Complete = Boolean(representative?.name?.trim() && representative?.role);
   const isStep3Complete = Boolean(primaryBranch && primaryBranch.name && primaryBranch.city);
-  const hasUploadedDocuments = documents.some((d) => d.isUploaded && Boolean(d.storageKey));
+  const hasUploadedDocuments = documents.length <= 12 &&
+    documents.some((d) => d.isUploaded && Boolean(d.storageKey));
 
   const isReadyToSubmit = isStep1Complete && isStep2Complete && isStep3Complete && hasUploadedDocuments &&
     (business?.status === 'draft' || business?.status === 'rejected') &&
-    !isBusinessLoading && !isRepLoading && !isBranchesLoading &&
-    !businessError && !repError && !branchesError && !uploadMutation.isPending;
+    !isBusinessLoading && !isRepLoading && !isBranchesLoading && !isEvidenceDraftLoading &&
+    !businessError && !repError && !branchesError && !evidenceDraftError &&
+    !uploadMutation.isPending && !saveEvidenceDraftMutation.isPending;
 
-  // Upload bytes to the private verification bucket BEFORE marking a document as attached.
-  // The representative draft RPC only stores ONE evidence reference. Extra uploaded files
-  // are kept for the current submission and cannot be advertised as persisted draft files.
+  // Upload bytes to private Storage before adding the reference. A separate,
+  // owner-scoped draft RPC persists all 0–12 documents without altering the representative.
   const uploadDocument = useCallback(async (
     file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer },
     replaceId?: string,
   ): Promise<boolean> => {
-    if (!activeBusinessId || !userId || !file.name || file.size < 1 || file.size > 10 * 1024 * 1024) {
+    if (props.readOnly || !activeBusinessId || !userId || !file.name ||
+        file.name.length > 255 || file.size < 1 || file.size > 10 * 1024 * 1024 ||
+        (!replaceId && documents.length >= 12)) {
       setFeedback({ tone: 'danger', text: 'تعذر التحقق من المستند أو سياق النشاط.' });
       return false;
     }
@@ -270,7 +293,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
       });
       return false;
     }
-  }, [activeBusinessId, userId, isSyntheticPreview, uploadMutation, documents]);
+  }, [activeBusinessId, userId, isSyntheticPreview, uploadMutation, documents, props.readOnly]);
 
   const handleAddDocument = useCallback(
     (file: { name: string; size: number; mimeType: 'application/pdf' | 'image/jpeg' | 'image/png'; bytes?: ArrayBuffer }) =>
@@ -286,9 +309,10 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
 
   // Remove document
   const handleRemoveDocument = useCallback((id: string) => {
+    if (props.readOnly) return;
     setUserModifiedDocs(documents.filter((doc) => doc.id !== id));
-    setFeedback({ tone: 'info', text: 'تم حذف المستند.' });
-  }, [documents]);
+    setFeedback({ tone: 'info', text: 'أُزيل المستند من المسودة. اضغط حفظ لتثبيت التغييرات.' });
+  }, [documents, props.readOnly]);
 
   // Submit Verification
   const { readOnly, onNavigateToStatus } = props;
@@ -376,59 +400,44 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     onNavigateToStatus,
   ]);
 
-  // Save Draft (Persists document references into existing business_representative_drafts table)
+  // Save every document reference without rewriting the representative's identity.
   const saveDraft = useCallback(async (): Promise<boolean> => {
+    if (props.readOnly) return false;
     if (isSyntheticPreview) {
-      setFeedback({
-        tone: 'success',
-        text: 'تم حفظ مسودة الطلب والمستندات بنجاح.',
-      });
+      setFeedback({ tone: 'success', text: 'تم حفظ المسودة التجريبية.' });
       return true;
     }
-
-    if (!activeBusinessId) {
-      setFeedback({
-        tone: 'danger',
-        text: 'لم يتم العثور على سياق النشاط التجاري.',
-      });
+    if (!activeBusinessId || !business || !['draft', 'rejected'].includes(business.status ?? '') ||
+        isEvidenceDraftLoading || evidenceDraftError || uploadMutation.isPending) {
+      setFeedback({ tone: 'danger', text: 'تعذر حفظ المسودة: حالة النشاط أو البيانات غير صالحة.' });
       return false;
     }
-
+    if (documents.length > 12 || documents.some(d => !d.isUploaded || !d.storageKey)) {
+      setFeedback({ tone: 'danger', text: 'تحقق من رفع المستندات (الحد الأقصى 12).' });
+      return false;
+    }
     try {
-      const primaryDoc = documents.find((d) => d.isPrimaryRequirement) || documents[0] || null;
-      if (!representative?.name?.trim() || !representative?.role) {
-        setFeedback({ tone: 'danger', text: 'أكمل بيانات المفوض قبل حفظ المستند.' });
-        return false;
-      }
-      if (primaryDoc && !primaryDoc.isUploaded) {
-        setFeedback({ tone: 'danger', text: 'لم يكتمل رفع المستند.' });
-        return false;
-      }
-      await saveRepresentativeMutation.mutateAsync({
-        businessId: activeBusinessId,
-        name: representative.name.trim(),
-        role: representative.role,
-        evidenceStorageKey: primaryDoc?.storageKey ?? null,
-        evidenceFileName: primaryDoc?.name ?? null,
-        evidenceFileSize: primaryDoc?.size ?? null,
-        evidenceContentType: primaryDoc?.mimeType ?? null,
-      });
-
-      setFeedback({
-        tone: documents.length > 1 ? 'warning' : 'success',
-        text: documents.length > 1
-          ? 'حُفظ مستند المفوض فقط. المرفقات الإضافية متاحة للإرسال الحالي ولا تُستعاد عند فتح المسودة مجددًا.'
-          : 'تم حفظ مستند المفوض في المسودة بنجاح.',
-      });
+      const payload: VerificationDraftDocument[] = documents.map((doc) => ({
+        storageKey: doc.storageKey,
+        name: doc.name,
+        size: doc.size,
+        mimeType: doc.mimeType,
+        isPrimaryRequirement: Boolean(doc.isPrimaryRequirement),
+      }));
+      await saveEvidenceDraftMutation.mutateAsync({ businessId: activeBusinessId, documents: payload });
+      setFeedback({ tone: 'success', text: 'تم حفظ جميع مرفقات مسودة التأهيل واستعادتها متاحة من الخادم.' });
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       setFeedback({
         tone: 'danger',
-        text: err?.message || 'تعذر حفظ مسودة المستندات.',
+        text: err instanceof Error ? err.message : 'تعذر حفظ المسودة على الخادم.',
       });
       return false;
     }
-  }, [isSyntheticPreview, activeBusinessId, documents, representative, saveRepresentativeMutation]);
+  }, [
+    props.readOnly, isSyntheticPreview, activeBusinessId, business, documents,
+    saveEvidenceDraftMutation, isEvidenceDraftLoading, evidenceDraftError, uploadMutation.isPending,
+  ]);
 
   return {
     activeBusinessId,
@@ -437,15 +446,15 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
     branches,
     primaryBranch,
     documents,
-    isSubmitting: isSubmitting || uploadMutation.isPending || saveRepresentativeMutation.isPending,
+    isSubmitting: isSubmitting || uploadMutation.isPending || saveEvidenceDraftMutation.isPending,
     feedback,
     isReadyToSubmit,
     isStep1Complete,
     isStep2Complete,
     isStep3Complete,
     hasUploadedDocuments,
-    isLoading: !isSyntheticPreview && (isBusinessLoading || isRepLoading || isBranchesLoading),
-    hasLoadError: Boolean(!isSyntheticPreview && (businessError || repError || branchesError)),
+    isLoading: !isSyntheticPreview && (isBusinessLoading || isRepLoading || isBranchesLoading || isEvidenceDraftLoading),
+    hasLoadError: Boolean(!isSyntheticPreview && (businessError || repError || branchesError || evidenceDraftError)),
     isSyntheticPreview,
     handleAddDocument,
     handleReplaceDocument,
@@ -456,6 +465,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
       void refetchBusiness();
       void refetchRepresentative();
       void refetchBranches();
+      void refetchEvidenceDraft();
     },
   };
 }

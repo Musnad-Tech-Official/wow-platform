@@ -58,45 +58,75 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
 
   const [documentError, setDocumentError] = useState<string | null>(null);
 
-  // File picking on Web
-  const pickFileWeb = (replaceId?: string) => {
+  // Validate the file extension and its magic bytes before authenticated upload.
+  const acceptedMime = (name: string, bytes: ArrayBuffer):
+    'application/pdf' | 'image/jpeg' | 'image/png' => {
+    const ext = name.split('.').pop()?.toLowerCase();
+    const buf = new Uint8Array(bytes);
+    const pdf = buf.length >= 4 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46;
+    const jpg = buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const png = buf.length >= 8 && [137,80,78,71,13,10,26,10].every((v, i) => buf[i] === v);
+    if (ext === 'pdf' && pdf) return 'application/pdf';
+    if ((ext === 'jpg' || ext === 'jpeg') && jpg) return 'image/jpeg';
+    if (ext === 'png' && png) return 'image/png';
+    throw new Error('الملف ليس PDF أو JPG أو PNG صالحًا أو لا تطابق صيغته محتواه.');
+  };
+
+  const attachFile = async (name: string, size: number, bytes: ArrayBuffer, replaceId?: string) => {
+    if (!Number.isSafeInteger(size) || size < 1 || size > 10 * 1024 * 1024 || name.length > 255 ||
+        size !== bytes.byteLength) {
+      throw new Error('حجم الملف غير صالح أو يتجاوز 10 ميجابايت.');
+    }
+    const mimeType = acceptedMime(name, bytes);
+    const uploaded = replaceId
+      ? await handleReplaceDocument(replaceId, { name, size, mimeType, bytes })
+      : await handleAddDocument({ name, size, mimeType, bytes });
+    if (!uploaded) throw new Error('فشل رفع الملف. تحقق من رسالة الخطأ ثم حاول مجددًا.');
+    setDocumentError(null);
+  };
+
+  const pickDocument = (replaceId?: string) => {
+    if (props.readOnly || isSubmitting) return;
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      // Browser pickers must be opened directly in the user activation callback.
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.pdf,application/pdf,.jpg,.jpeg,image/jpeg,.png,image/png';
-      input.onchange = async () => {
+      input.accept = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
+      input.onchange = () => {
         const file = input.files?.[0];
         if (!file) return;
-        if (file.size <= 0) {
-          setDocumentError('الملف المختار فارغ.');
-          return;
-        }
-        if (file.size > 10 * 1024 * 1024) {
-          setDocumentError('حجم الملف يتجاوز 10 ميجابايت.');
-          return;
-        }
-        const ext = file.name.split('.').pop()?.toLowerCase();
-        let mime: 'application/pdf' | 'image/jpeg' | 'image/png' | null = null;
-        if (ext === 'pdf') mime = 'application/pdf';
-        if (ext === 'jpg' || ext === 'jpeg') mime = 'image/jpeg';
-        if (ext === 'png') mime = 'image/png';
-        if (!mime) {
-          setDocumentError('صيغة المستند غير مدعومة. استخدم PDF أو JPG أو PNG.');
-          return;
-        }
-
-        const bytes = await file.arrayBuffer();
-        const wasUploaded = replaceId
-          ? await handleReplaceDocument(replaceId, { name: file.name, size: file.size, mimeType: mime, bytes })
-          : await handleAddDocument({ name: file.name, size: file.size, mimeType: mime, bytes });
-        setDocumentError(wasUploaded ? null : 'لم يكتمل رفع المستند. تحقق من رسالة الخطأ وأعد المحاولة.');
+        void (async () => {
+          try {
+            const bytes = await file.arrayBuffer();
+            await attachFile(file.name, file.size, bytes, replaceId);
+          } catch (error: unknown) {
+            setDocumentError(error instanceof Error ? error.message : 'تعذر قراءة المستند.');
+          }
+        })();
       };
       input.click();
-    } else {
-      // Never invent a successful upload on native. A native document picker
-      // must be integrated before offering native document selection.
-      setDocumentError('اختيار المستندات على الهاتف غير متاح حاليًا. استخدم الويب لإرفاق ملف حقيقي.');
+      return;
     }
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+      setDocumentError('منتقي المستندات غير متاح على هذا النظام.');
+      return;
+    }
+    void (async () => {
+      try {
+        // Expo SDK 57: built-in picker returns an expo-file-system File on iOS/Android.
+        const { File } = await import('expo-file-system');
+        const picked = await File.pickFileAsync({
+          mimeTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+          multipleFiles: false,
+        });
+        if (picked.canceled) return;
+        const chosen = picked.result;
+        const bytes = await chosen.arrayBuffer();
+        await attachFile(chosen.name, chosen.size, bytes, replaceId);
+      } catch (error: unknown) {
+        setDocumentError(error instanceof Error ? error.message : 'تعذر اختيار المستند أو رفعه.');
+      }
+    })();
   };
 
   const handleBackPress = () => {
@@ -527,6 +557,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                 accessibilityRole="button"
                 accessibilityLabel="حذف المستند"
                 onPress={() => handleRemoveDocument(doc.id)}
+                disabled={isSubmitting || props.readOnly}
                 className="px-3 py-1.5 rounded-lg active:opacity-75"
                 style={{
                   backgroundColor: isDark ? '#451B20' : '#FEE2E2',
@@ -544,7 +575,8 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="استبدال المستند"
-                onPress={() => pickFileWeb(doc.id)}
+                onPress={() => pickDocument(doc.id)}
+                disabled={isSubmitting || props.readOnly}
                 className="px-3 py-1.5 rounded-lg active:opacity-75"
                 style={{
                   backgroundColor: isDark ? '#27272A' : '#F1F5F9',
@@ -568,7 +600,8 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="إضافة مستند داعم إن وجد"
-          onPress={() => pickFileWeb()}
+          onPress={() => pickDocument()}
+          disabled={isSubmitting || props.readOnly || documents.length >= 12}
           className="w-full p-3.5 rounded-2xl border-2 border-dashed items-center justify-center flex-row gap-2 active:opacity-75"
           style={{
             borderColor: isDark ? '#3F3F46' : '#CBD5E1',
