@@ -127,3 +127,35 @@ export async function decideAdminBusinessVerification(
   if (error) throw error;
   return requiredUuid(data, 'wow_admin_decide_business_verification');
 }
+
+/** Owner-scoped verification document draft, independent of representative identity. */
+export interface VerificationDraftDocument {
+  storageKey: string;
+  name: string;
+  size: number;
+  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png';
+  isPrimaryRequirement: boolean;
+}
+export interface SaveVerificationDraftInput {
+  businessId: string;
+  documents: VerificationDraftDocument[];
+}
+/** Null = draft not created; [] = deliberately empty draft. */
+export async function getBusinessVerificationEvidenceDraft(
+  client: WowSupabaseClient, businessId: string,
+): Promise<VerificationDraftDocument[] | null> {
+  const { data, error } = await client.rpc('wow_get_business_verification_draft_evidence', { p_business_id: businessId });
+  if (error) throw error;
+  if (data === null) return null;
+  if (!Array.isArray(data)) throw new Error('Invalid verification evidence draft response');
+  return data as VerificationDraftDocument[];
+}
+export async function saveBusinessVerificationEvidenceDraft(
+  client: WowSupabaseClient, input: SaveVerificationDraftInput,
+): Promise<void> {
+  const { data, error } = await client.rpc('wow_save_business_verification_draft_evidence', {
+    p_business_id: input.businessId, p_documents: input.documents,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error('Draft save was not acknowledged by the server.');
+}
