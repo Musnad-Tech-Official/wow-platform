@@ -40,7 +40,7 @@ export function ActiveBusinessProvider({
   const searchParams = useLocalSearchParams<{ businessId?: string; preview?: string }>();
 
   const isSyntheticPreview =
-    (__DEV__ || process.env.NODE_ENV !== 'production') &&
+    __DEV__ &&
     (searchParams.preview === '1' ||
       (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 

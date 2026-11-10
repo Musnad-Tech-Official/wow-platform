@@ -8,7 +8,7 @@ async function business(c: IntegrationContext) {
   return rows?.length === 1 ? rows[0] : null;
 }
 async function branches(c: IntegrationContext) {
-  return checked(await requireClient(c).from('branches').select('id,business_id,status,is_primary').eq('business_id', c.artifacts.businessId!)) || [];
+  return checked(await requireClient(c).from('business_branches').select('id,business_id,status,is_primary').eq('business_id', c.artifacts.businessId!)) || [];
 }
 function ownerReady(c: IntegrationContext) {
   requireClient(c);
@@ -97,7 +97,7 @@ export const merchantTests: IntegrationTest[] = [
         if (!await business(c)) return skip('Owner can no longer see the test business; absence cannot be established.');
         const visibleBranches = await branches(c);
         if (!c.artifacts.firstBranchId || !visibleBranches.some(b => b.id === c.artifacts.firstBranchId)) return skip('Verify a visible first branch as owner before proving absence of the unauthorized branch.');
-        const rows = checked(await client.from('branches').select('id').eq('business_id', c.artifacts.businessId).eq('name', c.artifacts.unauthorizedAttemptName));
+        const rows = checked(await client.from('business_branches').select('id').eq('business_id', c.artifacts.businessId).eq('name', c.artifacts.unauthorizedAttemptName));
         return rows?.length === 0 ? pass('Second-account RPC was explicitly denied; the owner confirmed no branch with the unique attempt name exists.') : fail('SECURITY: owner inspection found a branch after the denied second-account RPC.');
       }
       if (c.artifacts.unauthorizedAttemptDenied) return skip('RPC rejection captured. Sign back in as the owner and rerun this test to verify no branch was created.');

@@ -7,6 +7,7 @@ node scripts/test-ui-v06.cjs
 node scripts/test-ui-v07.cjs
 node scripts/test-ui-v08.cjs
 node scripts/test-merchant-batch-01.cjs
+node --experimental-strip-types scripts/test-merchant-access-boundary.cjs
 echo '== Workspace type, lint, API and integration checks =='
 pnpm --filter @wow/ui exec tsc --noEmit
 pnpm typecheck

@@ -17,11 +17,11 @@ export default function BusinessOnboardingScreen() {
 
   // In development/test mode, preview=1 allows safe synthetic fixture evaluation without remote writes or bypassing production gates
   const isPreview =
-    (__DEV__ || process.env.NODE_ENV !== 'production') &&
+    __DEV__ &&
     (preview === '1' || (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 
   const isPreviewUnsigned =
-    (__DEV__ || process.env.NODE_ENV !== 'production') &&
+    __DEV__ &&
     (preview === 'unsigned' || (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=unsigned'))));
 
   const fixtureAuth = isClient

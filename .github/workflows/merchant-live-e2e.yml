@@ -1,0 +1,40 @@
+name: WOW merchant live authentication checks (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner_business_id:
+        description: 'Existing dedicated development business UUID owned by Merchant A'
+        required: true
+        type: string
+      owner_branch_id:
+        description: 'Existing dedicated development branch UUID owned by Merchant A'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-read-only:
+    name: Clerk sessions and Supabase business RLS (read-only)
+    runs-on: ubuntu-latest
+    environment: wow-merchant-e2e
+    timeout-minutes: 15
+    env:
+      WOW_E2E_SUPABASE_URL: ${{ vars.WOW_E2E_SUPABASE_URL }}
+      WOW_E2E_SUPABASE_PUBLISHABLE_KEY: ${{ vars.WOW_E2E_SUPABASE_PUBLISHABLE_KEY }}
+      WOW_E2E_OWNER_JWT: ${{ secrets.WOW_E2E_OWNER_JWT }}
+      WOW_E2E_NONOWNER_JWT: ${{ secrets.WOW_E2E_NONOWNER_JWT }}
+      WOW_E2E_ADMIN_CANDIDATE_JWT: ${{ secrets.WOW_E2E_ADMIN_CANDIDATE_JWT }}
+      WOW_E2E_OWNER_BUSINESS_ID: ${{ inputs.owner_business_id }}
+      WOW_E2E_OWNER_BRANCH_ID: ${{ inputs.owner_branch_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exercise real Clerk JWT -> Supabase HTTP boundaries
+        run: node scripts/test-merchant-authenticated-http.cjs

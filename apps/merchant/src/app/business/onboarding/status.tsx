@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@wow/auth';
 import { BusinessQualificationStatusScreen } from '../../../features/business/components/BusinessQualificationStatusScreen';
+import { MerchantRouteGate } from '../../../features/navigation/MerchantRouteGate';
 
 const emptySubscribe = () => () => {};
 
@@ -19,12 +20,12 @@ export default function BusinessOnboardingStatusRoute() {
   );
 
   const isPreview =
-    (__DEV__ || process.env.NODE_ENV !== 'production') &&
+    __DEV__ &&
     (preview === '1' ||
       (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 
   const isPreviewUnsigned =
-    (__DEV__ || process.env.NODE_ENV !== 'production') &&
+    __DEV__ &&
     (preview === 'unsigned' ||
       (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=unsigned'))));
 
@@ -47,11 +48,13 @@ export default function BusinessOnboardingStatusRoute() {
     : undefined;
 
   return (
-    <BusinessQualificationStatusScreen
+    <MerchantRouteGate>
+      <BusinessQualificationStatusScreen
       key={`${effectiveUserId ?? 'anon'}:${businessId ?? 'new'}`}
       businessId={businessId ?? null}
       fixtureAuth={fixtureAuth}
       fixtureBusiness={fixtureBusiness}
-    />
+      />
+    </MerchantRouteGate>
   );
 }

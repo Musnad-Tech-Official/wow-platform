@@ -58,7 +58,7 @@ export function useBusinessOnboardingStep4(props: UseBusinessOnboardingStep4Prop
   const userId = effectiveAuth.userId;
 
   const isSyntheticPreview =
-    (__DEV__ || process.env.NODE_ENV !== 'production') &&
+    __DEV__ &&
     (Boolean(props.fixtureAuth) ||
       (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 
