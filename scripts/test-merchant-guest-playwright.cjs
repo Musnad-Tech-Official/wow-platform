@@ -10,6 +10,7 @@ const { chromium } = require('playwright');
 
 const rootUrl = process.env.WOW_MERCHANT_WEB_URL;
 const exportDir = process.env.WOW_MERCHANT_WEB_EXPORT_DIR;
+const expectProductionPreviewDenied = process.env.WOW_EXPECT_PRODUCTION_PREVIEW_DENIED === '1';
 if (!rootUrl && !exportDir) {
   throw new Error('Provide WOW_MERCHANT_WEB_URL or WOW_MERCHANT_WEB_EXPORT_DIR.');
 }
@@ -76,6 +77,9 @@ after(async () => {
 const routes = [
   ['/', 'MER-03'],
   ['/offers', 'MER-04'],
+  ['/business/onboarding', 'MER-02-01'],
+  ['/business/onboarding/representative', 'MER-02-02'],
+  ['/business/onboarding/branches', 'MER-02-03'],
   ['/business/onboarding/review', 'MER-02-04'],
   ['/business/onboarding/status', 'MER-02-05'],
 ];
@@ -97,7 +101,8 @@ for (const [pathname, screen] of routes) {
     });
     try {
       const pageUrl = new URL(pathname, origin);
-      assert.equal(pageUrl.searchParams.get('preview'), null);
+      if (expectProductionPreviewDenied) pageUrl.searchParams.set('preview', '1');
+      assert.equal(pageUrl.searchParams.get('preview'), expectProductionPreviewDenied ? '1' : null);
       await page.goto(pageUrl.href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.getByText('تسجيل الدخول مطلوب').first().waitFor({ timeout: 20_000 });
       await page.getByRole('button', { name: 'تسجيل الدخول عبر Google' }).first().waitFor({ timeout: 10_000 });
@@ -120,7 +125,7 @@ const previewScreens = [
   ['/business/onboarding/status', 'حالة التأهيل', 'MER-02-05'],
 ];
 for (const [pathname, expected, name] of previewScreens) {
-  test(name + ': development preview renders without cloud writes', async () => {
+  test(name + ': development preview renders without cloud writes', { skip: expectProductionPreviewDenied }, async () => {
     const context = await (await browser()).newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     const unintendedWrites = [];
