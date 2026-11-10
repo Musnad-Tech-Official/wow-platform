@@ -100,6 +100,8 @@ for (const [pathname, screen] of routes) {
       assert.equal(pageUrl.searchParams.get('preview'), null);
       await page.goto(pageUrl.href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.getByText('تسجيل الدخول مطلوب').first().waitFor({ timeout: 20_000 });
+      await page.getByRole('button', { name: 'تسجيل الدخول عبر Google' }).first().waitFor({ timeout: 10_000 });
+      await page.getByRole('button', { name: 'تسجيل الدخول عبر Facebook' }).first().waitFor({ timeout: 10_000 });
       assert.equal(unintendedWrites.length, 0, `Unexpected guest mutations: ${unintendedWrites.join(', ')}`);
       assert.deepEqual(runtimeErrors, [], `Browser errors: ${runtimeErrors.join('; ')}`);
     } finally {

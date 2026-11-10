@@ -44,6 +44,10 @@ test('approved screens retain a common authentication boundary', () => {
   assert.match(gate, /useAuth\(/);
   assert.match(gate, /resolveMerchantRouteAccess\(/);
   assert.match(gate, /تسجيل الدخول مطلوب/);
+  assert.match(gate, /useSSO\(/);
+  assert.match(gate, /startSSOFlow/);
+  assert.match(gate, /تسجيل الدخول عبر Google/);
+  assert.match(gate, /تسجيل الدخول عبر Facebook/);
 });
 
 test('development diagnostic route is not routable in production', () => {
