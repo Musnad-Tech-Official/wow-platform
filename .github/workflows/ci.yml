@@ -45,3 +45,142 @@ jobs:
         run: node scripts/test-design-foundation.cjs
       - name: TypeScript, lint, UI, Query and integration guards
         run: bash scripts/verify-ui-v08.sh
+  merchant-web-guest:
+    name: Merchant Expo web export and browser guest smoke
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      # Public development credentials; no secret/session is exposed to the app.
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Export actual merchant Expo web application
+        run: pnpm --filter merchant exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-merchant-web"
+      - name: Exercise real guest routes in Chromium
+        env:
+          WOW_MERCHANT_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-merchant-web
+        run: node scripts/test-merchant-guest-playwright.cjs
+
+  merchant-live-clerk-auth:
+    name: Real Clerk OTP and Supabase profile RLS (development only)
+    needs: verify
+    # Reuse the dedicated Merchant A fixture; repeated writes are disabled.
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 49 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+      WOW_E2E_ALLOW_FIXTURE_CREATION: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Export real merchant web application
+        run: pnpm --filter merchant exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-merchant-web"
+      - name: Verify real Clerk sessions and Supabase RLS
+        run: WOW_MERCHANT_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-merchant-web" node scripts/test-merchant-live-auth-playwright.cjs
+  merchant-production-preview:
+    name: Production Expo web rejects crafted preview guest links
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Export real production-mode merchant web build
+        run: pnpm --filter merchant exec expo export -p web --output-dir "$RUNNER_TEMP/wow-merchant-production"
+      - name: Ensure production guests never bypass authorization via preview URLs
+        env:
+          WOW_MERCHANT_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-merchant-production
+          WOW_EXPECT_PRODUCTION_PREVIEW_DENIED: '1'
+        run: node scripts/test-merchant-guest-playwright.cjs
+
+  merchant-native-bundles:
+    name: Merchant iOS and Android production JS export
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Export Android bundle
+        run: pnpm --filter merchant exec expo export --platform android --output-dir "$RUNNER_TEMP/wow-merchant-android"
+      - name: Export iOS bundle
+        run: pnpm --filter merchant exec expo export --platform ios --output-dir "$RUNNER_TEMP/wow-merchant-ios"

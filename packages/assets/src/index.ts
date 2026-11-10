@@ -37,6 +37,10 @@ export const wowIllustrations = {
     onboardingBeaconStore: require("../assets/illustrations/merchant/onboarding-beacon-and-store.png"),
     onboardingBeaconDelegate: require("../assets/illustrations/merchant/onboarding-beacon-delegate.png"),
     onboardingBeaconBranches: require("../assets/illustrations/merchant/WOW_MER-02-03_APPROVED_STORE_MASCOT.png"),
+    reviewMascot: require("../assets/illustrations/merchant/WOW_MER-02-04_REVIEW_MASCOT.png"),
+    statusMascot: require("../assets/illustrations/merchant/WOW_MER-02-05_STATUS_MASCOT.png"),
+    dashboardMascot: require("../assets/illustrations/merchant/WOW_MER-03_DASHBOARD_MASCOT.png"),
+    offersMascot: require("../assets/illustrations/merchant/WOW_MER-04_OFFERS_MASCOT_SCENE.png"),
   },
   admin: {
     beaconEmpty: require("../assets/illustrations/admin/beacon-empty.webp"),

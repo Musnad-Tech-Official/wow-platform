@@ -12,6 +12,8 @@ export const wowQueryKeys = {
     business: (businessId: string | null, userId: string | null) => ['branches', 'business', businessId, userId] as const,
   },
   verifications: {
+    evidenceDraft: (businessId: string | null, userId: string | null) =>
+      ['verifications', 'evidenceDraft', businessId, userId] as const,
     business: (businessId: string | null, userId: string | null) =>
       ['verifications', 'business', businessId, userId] as const,
     adminLists: (userId: string | null) => ['verifications', 'admin', 'list', userId] as const,
