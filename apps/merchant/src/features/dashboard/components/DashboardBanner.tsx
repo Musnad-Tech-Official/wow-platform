@@ -64,7 +64,7 @@ export function DashboardBanner({ onNewOfferPress }: DashboardBannerProps) {
           <AppText
             variant="heading"
             className="font-tajawal-bold text-xl leading-7"
-            style={{ color: '#0F172D' }}
+            style={{ color: isDark ? '#FFFFFF' : '#0F172D' }}
           >
             أعمالك بصورة أوضح
           </AppText>
@@ -72,7 +72,7 @@ export function DashboardBanner({ onNewOfferPress }: DashboardBannerProps) {
           <AppText
             variant="caption"
             className="font-tajawal-medium text-xs leading-5"
-            style={{ color: '#475569' }}
+            style={{ color: isDark ? '#D4D4D8' : '#475569' }}
           >
             راقب نشاطك وعروضك، واعرف ما يحتاج إلى إجراء اليوم.
           </AppText>

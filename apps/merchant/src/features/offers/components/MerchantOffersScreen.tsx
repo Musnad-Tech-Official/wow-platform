@@ -15,6 +15,7 @@ export function MerchantOffersScreen() {
   const isDark = resolvedTheme === 'dark';
   const [selectedOffer, setSelectedOffer] = useState<MerchantOfferItem | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const {
     offers,
@@ -59,7 +60,19 @@ export function MerchantOffersScreen() {
       }
     >
       {/* 1. Authoritative Offers Mascot Scene Hero Banner */}
-      <OffersHeroBanner />
+      <OffersHeroBanner onGuidePress={() => setShowGuide(true)} />
+
+      <Modal visible={showGuide} transparent animationType="fade" onRequestClose={() => setShowGuide(false)}>
+        <Pressable className="flex-1 bg-black/50 items-center justify-center p-5" onPress={() => setShowGuide(false)}>
+          <View className="w-full max-w-md rounded-2xl p-5 gap-3" style={{ backgroundColor: colors.surface }}>
+            <AppText variant="heading">دليل إدارة العروض</AppText>
+            <AppText variant="body">المسودات غير منشورة. عند إرسال العرض يُراجع من الإدارة أولًا، ولا تضمن الموافقة وحدها ظهوره للعملاء؛ تُطبق أيضًا شروط أهلية النشاط والاشتراك والفروع وتوقيت العرض.</AppText>
+            <Pressable accessibilityRole="button" onPress={() => setShowGuide(false)} className="min-h-12 rounded-xl items-center justify-center" style={{ backgroundColor: '#FACC15' }}>
+              <AppText style={{ color: '#0F172D' }}>إغلاق</AppText>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Action Feedback Toast */}
       {actionFeedback && (
@@ -290,7 +303,7 @@ export function MerchantOffersScreen() {
       {/* 7. Footnote */}
       <View className="py-4 items-center">
         <AppText variant="caption" muted className="font-tajawal text-[11px] text-center">
-          الأسماء والأرقام والأسعار في هذا التصميم توضيحية فقط
+          تظهر بيانات العروض وفق سجلات النشاط الفعلية
         </AppText>
       </View>
     </MerchantScaffold>

@@ -39,7 +39,7 @@ export function OffersHeroBanner({
           <AppText
             variant="heading"
             className="font-tajawal-bold text-xl leading-7"
-            style={{ color: '#0F172D' }}
+            style={{ color: isDark ? '#FFFFFF' : '#0F172D' }}
           >
             عروضك تحت السيطرة!
           </AppText>
@@ -47,7 +47,7 @@ export function OffersHeroBanner({
           <AppText
             variant="caption"
             className="font-tajawal-medium text-xs leading-5"
-            style={{ color: '#475569' }}
+            style={{ color: isDark ? '#D4D4D8' : '#475569' }}
           >
             أنشئ عروضًا جديدة، وتابع مراجعتها وظهورها لعملائك من مكان واحد.
           </AppText>
@@ -59,6 +59,7 @@ export function OffersHeroBanner({
               accessibilityRole="button"
               accessibilityLabel="دليل العروض"
               onPress={onGuidePress}
+              disabled={!onGuidePress}
               className="px-3 py-1.5 rounded-xl border active:opacity-75"
               style={{
                 backgroundColor: isDark ? '#3F3F46' : '#FFFFFF',
@@ -68,7 +69,7 @@ export function OffersHeroBanner({
               <AppText
                 variant="caption"
                 className="font-tajawal-bold text-xs"
-                style={{ color: '#0F172D' }}
+                style={{ color: isDark ? '#FFFFFF' : '#0F172D' }}
               >
                 دليل العروض
               </AppText>
@@ -79,6 +80,7 @@ export function OffersHeroBanner({
               accessibilityRole="button"
               accessibilityLabel="إنشاء عرض جديد"
               onPress={onNewOfferPress}
+              disabled={!onNewOfferPress}
               className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl active:opacity-85 shadow-sm"
               style={{ backgroundColor: '#0F172D' }}
             >
@@ -88,7 +90,7 @@ export function OffersHeroBanner({
                 className="font-tajawal-bold text-xs"
                 style={{ color: '#FFFFFF' }}
               >
-                + إنشاء عرض جديد
+                {onNewOfferPress ? '+ إنشاء عرض جديد' : 'إنشاء عرض (قيد التطوير)'}
               </AppText>
             </Pressable>
           </View>

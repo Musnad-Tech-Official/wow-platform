@@ -165,7 +165,7 @@ test('BATCH-01: MER-02-04 review screen satisfies UI fidelity, stepper, and cont
     'إرسال الطلب للمراجعة',
     'حفظ كمسودة',
     'السابق',
-    'MER-02-04 — التصميم النهائي للمراجعة • البيانات المعروضة توضيحية',
+    'MER-02-04 — مراجعة طلب التأهيل',
   ];
 
   for (const text of requiredCopy) {
@@ -221,8 +221,8 @@ test('BATCH-01: MER-02-05 status screen satisfies UI fidelity, read-only status,
     'لا توجد ملاحظات حاليًا',
     'معلومة مهمة: قبول التأهيل لا يعني الموافقة التلقائية على نشر العروض',
     'عرض تفاصيل الطلب',
-    'العودة إلى طلباتي',
-    'MER-02-05 — التصميم النهائي للمراجعة • بيانات توضيحية',
+    'العودة إلى الرئيسية',
+    'MER-02-05 — حالة طلب التأهيل',
   ];
 
   for (const text of requiredCopy) {
@@ -285,7 +285,7 @@ test('BATCH-01: MER-03 dashboard satisfies UI fidelity, analytical metrics, and 
     'تحتاج انتباهك',
     'اشتراك النشاط',
     'إجراءات سريعة',
-    'قيم ورسوم توضيحية لمراجعة التصميم، وتُستبدل ببيانات النشاط الفعلية.',
+    'الحالة الحالية',
   ];
 
   for (const text of requiredCopy) {
@@ -333,7 +333,7 @@ test('BATCH-01: MER-04 offers management satisfies UI fidelity, status distribut
     'تصفية',
     'ترتيب:',
     'معلومة مهمة: اعتماد الإدارة لا يعني ظهور العرض تلقائيًا',
-    'الأسماء والأرقام والأسعار في هذا التصميم توضيحية فقط',
+    'تظهر بيانات العروض وفق سجلات النشاط الفعلية',
   ];
 
   for (const text of requiredCopy) {
@@ -378,4 +378,45 @@ test('BATCH-01: Yellow #FACC15 brand token, Navy #0F172D, and >= 48pt touch targ
   // Touch targets >= 48pt
   assert.match(reviewScreen, /min-h-12|min-w-12|width:\s*48,\s*height:\s*48/);
   assert.match(bottomNav, /min-h-\[48px\]/);
+});
+
+// 8. Regression guards for previously confirmed integration failures
+test('BATCH-01: business context wraps data-bearing screen hooks and is not silently optional', () => {
+  const dashboard = read('apps/merchant/src/app/index.tsx');
+  const offers = read('apps/merchant/src/app/offers/index.tsx');
+  const context = read('apps/merchant/src/features/business/context/ActiveBusinessContext.tsx');
+  assert.match(dashboard, /<ActiveBusinessProvider><MerchantDashboardScreen\s*\/>/);
+  assert.match(offers, /<ActiveBusinessProvider><MerchantOffersScreen\s*\/>/);
+  assert.match(context, /requires ActiveBusinessProvider/);
+});
+
+test('BATCH-01: verification evidence is uploaded before attaching, with no native fake file', () => {
+  const hook = read('apps/merchant/src/features/business/hooks/useBusinessOnboardingStep4.ts');
+  const screen = read('apps/merchant/src/features/business/components/BusinessOnboardingStep4.tsx');
+  assert.match(hook, /useUploadWowMedia/);
+  assert.match(hook, /await uploadMutation\.mutateAsync/);
+  assert.match(hook, /!file\.bytes/);
+  assert.match(screen, /اختيار المستندات على الهاتف غير متاح/);
+  assert.doesNotMatch(screen, /مستند_إضافي_\$\{/);
+});
+
+test('BATCH-01: offer metadata is read from actual versions, not manufactured business data', () => {
+  const hook = read('apps/merchant/src/features/offers/hooks/useMerchantOffers.ts');
+  const queries = read('packages/api/src/query/hooks/use-offers.ts');
+  assert.match(queries, /\.in\('offer_id', offerIds\)/);
+  assert.match(hook, /serverVersions\.filter/);
+  assert.match(hook, /version\?\.title/);
+  assert.match(hook, /version\?\.final_price/);
+  assert.doesNotMatch(hook, /title: `عرض تجاري #/);
+  assert.doesNotMatch(hook, /finalPrice: '15,000'/);
+});
+
+test('BATCH-01: qualification requires both approvals and production metrics contain no invented trends', () => {
+  const status = read('apps/merchant/src/features/business/hooks/useBusinessQualificationStatus.ts');
+  const charts = read('apps/merchant/src/features/dashboard/components/DashboardCharts.tsx');
+  const metrics = read('apps/merchant/src/features/dashboard/components/DashboardMetrics.tsx');
+  assert.match(status, /verificationStatus === 'approved' && businessStatus === 'approved'/);
+  assert.doesNotMatch(status, /return 'QF-2026-0147'/);
+  assert.doesNotMatch(charts, /const points = \[20, 28, 22/);
+  assert.doesNotMatch(metrics, /12% ↗/);
 });
