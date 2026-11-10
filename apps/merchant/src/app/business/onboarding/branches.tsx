@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useAuth } from '@wow/auth';
 import { BusinessOnboardingStep3 } from '../../../features/business/components/BusinessOnboardingStep3';
 
@@ -47,6 +47,15 @@ export default function BusinessOnboardingBranchesScreen() {
       businessId={businessId ?? null}
       fixtureAuth={fixtureAuth}
       fixtureBusiness={fixtureBusiness}
+      onNavigateToStep4={(nextBusinessId) => {
+        router.push({
+          pathname: '/business/onboarding/review',
+          params: {
+            businessId: nextBusinessId,
+            ...(isPreview ? { preview: '1' } : {}),
+          },
+        });
+      }}
     />
   );
 }
