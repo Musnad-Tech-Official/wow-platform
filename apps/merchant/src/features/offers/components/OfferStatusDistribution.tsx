@@ -10,23 +10,25 @@ export interface OfferStatusDistributionProps {
   expiredCount?: number;
   needsChangesCount?: number;
   totalCount?: number;
+  pausedCount?: number;
   isSyntheticPreview?: boolean;
 }
 
 export function OfferStatusDistribution({
-  visibleCount = 9,
-  pendingCount = 4,
-  draftCount = 4,
-  expiredCount = 2,
-  needsChangesCount = 1,
-  totalCount = 20,
-  isSyntheticPreview = true,
+  visibleCount = 0,
+  pendingCount = 0,
+  draftCount = 0,
+  expiredCount = 0,
+  needsChangesCount = 0,
+  totalCount = 0,
+  pausedCount = 0,
+  isSyntheticPreview = false,
 }: OfferStatusDistributionProps) {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const total = totalCount > 0 ? totalCount : visibleCount + pendingCount + draftCount + expiredCount + needsChangesCount;
+  const total = totalCount > 0 ? totalCount : visibleCount + pendingCount + draftCount + expiredCount + needsChangesCount + pausedCount;
   const safeTotal = total > 0 ? total : 1;
 
   const visiblePct = (visibleCount / safeTotal) * 100;
@@ -34,6 +36,7 @@ export function OfferStatusDistribution({
   const draftPct = (draftCount / safeTotal) * 100;
   const expiredPct = (expiredCount / safeTotal) * 100;
   const needsChangesPct = (needsChangesCount / safeTotal) * 100;
+  const pausedPct = (pausedCount / safeTotal) * 100;
 
   return (
     <View
@@ -68,6 +71,8 @@ export function OfferStatusDistribution({
             <View style={{ width: `${draftPct}%`, backgroundColor: '#3B82F6' }} />
             {/* منتهي: Navy / Slate */}
             <View style={{ width: `${expiredPct}%`, backgroundColor: '#475569' }} />
+            {/* متوقف: Neutral gray */}
+            <View style={{ width: `${pausedPct}%`, backgroundColor: '#94A3B8' }} />
             {/* يحتاج تعديل: Red / Rose */}
             <View style={{ width: `${needsChangesPct}%`, backgroundColor: '#F43F5E' }} />
           </>

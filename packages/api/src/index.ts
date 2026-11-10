@@ -48,6 +48,7 @@ export {
 } from './query/hooks/use-verifications';
 export {
   useBusinessOffers,
+  useBusinessOfferVersions,
   useOfferVersions,
   useOfferVersionDetails,
   useCreateOffer,

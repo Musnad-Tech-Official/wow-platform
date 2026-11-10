@@ -28,6 +28,7 @@ export interface MerchantOfferItem {
   viewsCount?: number;
   iconType?: 'headphones' | 'phone' | 'shoes' | 'bag' | 'general';
   imageUrl?: string | null;
+  updatedAt?: string;
 }
 
 export interface MerchantOfferCardProps {
@@ -66,10 +67,10 @@ export function MerchantOfferCard({
 
   const statusConfig = {
     visible: {
-      badgeText: '• ظاهر للعملاء',
+      badgeText: '• مفعّل',
       badgeBg: isDark ? '#064E3B' : '#ECFDF5',
       badgeColor: '#059669',
-      primaryBtnText: 'إدارة العرض',
+      primaryBtnText: 'إيقاف مؤقتًا',
       primaryBtnBg: '#FACC15',
       primaryBtnTextColor: '#0F172D',
     },
@@ -85,7 +86,7 @@ export function MerchantOfferCard({
       badgeText: '! يحتاج تعديل',
       badgeBg: isDark ? '#451B20' : '#FFF1F2',
       badgeColor: '#E11D48',
-      primaryBtnText: 'استكمال التعديلات',
+      primaryBtnText: 'عرض الحالة',
       primaryBtnBg: '#FACC15',
       primaryBtnTextColor: '#0F172D',
     },
@@ -93,7 +94,7 @@ export function MerchantOfferCard({
       badgeText: 'مسودة',
       badgeBg: isDark ? '#1E293B' : '#EFF6FF',
       badgeColor: '#2563EB',
-      primaryBtnText: 'استكمال العرض',
+      primaryBtnText: 'عرض المسودة',
       primaryBtnBg: '#FACC15',
       primaryBtnTextColor: '#0F172D',
     },
@@ -101,7 +102,7 @@ export function MerchantOfferCard({
       badgeText: 'منتهي',
       badgeBg: isDark ? '#27272A' : '#F1F5F9',
       badgeColor: '#64748B',
-      primaryBtnText: 'تجديد العرض',
+      primaryBtnText: 'عرض الحالة',
       primaryBtnBg: '#FACC15',
       primaryBtnTextColor: '#0F172D',
     },

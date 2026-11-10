@@ -1,10 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   createOffer,
   decideAdminOffer,
   getBusinessOffers,
   getOfferVersionDetails,
   getOfferVersions,
+  type Offer,
   getAdminOfferReview,
   listAdminPendingOffers,
   saveOfferDraft,
@@ -151,5 +152,20 @@ export function useAdminDecideOffer() {
         queryClient.invalidateQueries({ queryKey: ['billing'] }),
       ]);
     },
+  });
+}
+
+// Fetch real offer versions under the authenticated merchant's RLS scope.
+// Hook count remains constant even when the number of offers changes.
+export function useBusinessOfferVersions(offers: Offer[]) {
+  const context = useWowApiContext();
+  return useQueries({
+    queries: offers.map((offer) => ({
+      queryKey: wowQueryKeys.offers.versions(offer.id, context.userId),
+      enabled: Boolean(context.userId && offer.id),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        getOfferVersions(requireWowApiSession(context).client, offer.id, signal),
+      staleTime: 30_000,
+    })),
   });
 }

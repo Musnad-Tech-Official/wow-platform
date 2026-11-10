@@ -1,12 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useBusinessOffers, useSetOfferAvailability } from '@wow/api';
+import { useBusinessOffers, useBusinessOfferVersions, useSetOfferAvailability } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import {
   type MerchantOfferItem,
   type OfferCardStatus,
 } from '../components/MerchantOfferCard';
 
-export type OfferFilterStatus = 'all' | 'visible' | 'pending' | 'draft' | 'expired' | 'needs_changes';
+export type OfferFilterStatus = 'all' | 'visible' | 'paused' | 'pending' | 'draft' | 'expired' | 'needs_changes';
 export type OfferSortOption = 'newest' | 'price_desc' | 'price_asc';
 
 export const PREVIEW_OFFERS_FIXTURE: MerchantOfferItem[] = [
@@ -76,6 +76,7 @@ export function useMerchantOffers() {
   } = useBusinessOffers(isSyntheticPreview ? null : activeBusinessId);
 
   const setAvailabilityMutation = useSetOfferAvailability();
+  const versionQueries = useBusinessOfferVersions(isSyntheticPreview ? [] : serverOffers);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<OfferFilterStatus>('all');
@@ -89,6 +90,9 @@ export function useMerchantOffers() {
     }
 
     return serverOffers.map((offer, idx) => {
+      const versions = versionQueries[idx]?.data ?? [];
+      const version = versions.find((v) => v.id === offer.current_version_id) ?? versions[0];
+      const latestReview = versions[0]?.review_status;
       let cardStatus: OfferCardStatus = 'draft';
       if (offer.status === 'active') {
         cardStatus = offer.merchant_available ? 'visible' : 'paused';
@@ -98,38 +102,43 @@ export function useMerchantOffers() {
         cardStatus = 'pending';
       } else if (offer.status === 'closed') {
         cardStatus = 'expired';
+      } else if (latestReview === 'rejected') {
+        cardStatus = 'needs_changes';
       }
-
+      const kind = version?.offer_kind;
+      const category = kind === 'product' ? 'منتج'
+        : kind === 'service' ? 'خدمة'
+        : kind === 'bundle' ? 'باقة'
+        : kind === 'clearance' ? 'تصفية' : 'غير محدد';
+      const moneyText = (value: string | number | null | undefined): string =>
+        value === null || value === undefined ? '—' : String(value);
       return {
         id: offer.id,
-        code: `OF-${101 + idx}`,
-        title: `عرض تجاري #${idx + 1}`,
-        category: 'عام',
+        code: `ID-${offer.id.slice(0, 8).toUpperCase()}`,
+        title: version?.title?.trim() || 'عرض دون عنوان',
+        category,
         status: cardStatus,
-        finalPrice: '15,000',
-        originalPrice: null,
-        currency: 'ر.ي',
-        metaText: `تاريخ التحديث: ${new Date(offer.updated_at).toLocaleDateString('ar-YE')}`,
-        footerNote: cardStatus === 'visible' ? 'ظاهر للعملاء' : 'غير منشور',
-        iconType: 'general',
+        finalPrice: moneyText(version?.final_price),
+        originalPrice: version?.original_price == null ? null : moneyText(version.original_price),
+        currency: version?.currency || '',
+        metaText: version?.ends_at
+          ? `ينتهي في ${new Date(version.ends_at).toLocaleDateString('ar-YE')}`
+          : `آخر تحديث: ${new Date(offer.updated_at).toLocaleDateString('ar-YE')}`,
+        footerNote: cardStatus === 'visible' ? 'مفعّل، ويعتمد ظهوره على الأهلية'
+          : cardStatus === 'paused' ? 'متوقف مؤقتًا'
+          : cardStatus === 'pending' ? 'بانتظار قرار الإدارة'
+          : cardStatus === 'needs_changes' ? 'مطلوب تعديل'
+          : 'غير ظاهر للعملاء',
+        iconType: 'general' as const,
+        updatedAt: offer.updated_at,
       };
     });
-  }, [isSyntheticPreview, serverOffers]);
+  }, [isSyntheticPreview, serverOffers, versionQueries]);
 
   // Counts
   const counts = useMemo(() => {
-    if (isSyntheticPreview) {
-      return {
-        all: 20,
-        visible: 9,
-        pending: 4,
-        draft: 4,
-        expired: 2,
-        needs_changes: 1,
-      };
-    }
-
     const visible = allOffers.filter((o) => o.status === 'visible').length;
+    const paused = allOffers.filter((o) => o.status === 'paused').length;
     const pending = allOffers.filter((o) => o.status === 'pending').length;
     const draft = allOffers.filter((o) => o.status === 'draft').length;
     const expired = allOffers.filter((o) => o.status === 'expired').length;
@@ -138,12 +147,13 @@ export function useMerchantOffers() {
     return {
       all: allOffers.length,
       visible,
+      paused,
       pending,
       draft,
       expired,
       needs_changes,
     };
-  }, [isSyntheticPreview, allOffers]);
+  }, [allOffers]);
 
   // Filtered & Sorted Offers
   const filteredOffers = useMemo(() => {
@@ -167,11 +177,13 @@ export function useMerchantOffers() {
 
     // Sort
     result.sort((a, b) => {
-      const priceA = parseFloat(a.finalPrice.replace(/,/g, '')) || 0;
-      const priceB = parseFloat(b.finalPrice.replace(/,/g, '')) || 0;
-      if (sortOption === 'price_desc') return priceB - priceA;
-      if (sortOption === 'price_asc') return priceA - priceB;
-      return 0; // default newest
+      const priceA = a.finalPrice === '—' ? null : Number(a.finalPrice.replace(/,/g, ''));
+      const priceB = b.finalPrice === '—' ? null : Number(b.finalPrice.replace(/,/g, ''));
+      if (sortOption !== 'newest' && priceA === null) return 1;
+      if (sortOption !== 'newest' && priceB === null) return -1;
+      if (sortOption === 'price_desc') return (priceB ?? 0) - (priceA ?? 0);
+      if (sortOption === 'price_asc') return (priceA ?? 0) - (priceB ?? 0);
+      return (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '');
     });
 
     return result;
@@ -218,8 +230,8 @@ export function useMerchantOffers() {
     actionFeedback,
     clearFeedback: () => setActionFeedback(null),
     toggleOfferAvailability,
-    isLoading: !isSyntheticPreview && isServerLoading,
-    hasError: Boolean(!isSyntheticPreview && serverError),
+    isLoading: !isSyntheticPreview && (isServerLoading || versionQueries.some((q) => q.isPending)),
+    hasError: Boolean(!isSyntheticPreview && (serverError || versionQueries.some((q) => q.isError))),
     refetch,
     isSyntheticPreview,
   };

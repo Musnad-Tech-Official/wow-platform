@@ -1,18 +1,20 @@
-import React from 'react';
-import { View, Pressable, TextInput } from 'react-native';
+import React, { useState } from 'react';
+import { View, Pressable, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { Search, SlidersHorizontal, ArrowUpDown, Info, Tag } from 'lucide-react-native';
 import { AppText, ToastBanner } from '@wow/ui';
 import { useWowColors, useTheme } from '@wow/theme';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
 import { OffersHeroBanner } from './OffersHeroBanner';
 import { OfferStatusDistribution } from './OfferStatusDistribution';
-import { MerchantOfferCard } from './MerchantOfferCard';
+import { MerchantOfferCard, type MerchantOfferItem } from './MerchantOfferCard';
 import { useMerchantOffers, type OfferFilterStatus } from '../hooks/useMerchantOffers';
 
 export function MerchantOffersScreen() {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const [selectedOffer, setSelectedOffer] = useState<MerchantOfferItem | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   const {
     offers,
@@ -26,15 +28,20 @@ export function MerchantOffersScreen() {
     actionFeedback,
     clearFeedback,
     toggleOfferAvailability,
+    isLoading,
+    hasError,
+    refetch,
     isSyntheticPreview,
   } = useMerchantOffers();
 
   const filterTabs: { key: OfferFilterStatus; label: string; count: number }[] = [
     { key: 'all', label: 'الكل', count: counts.all },
-    { key: 'visible', label: 'ظاهر', count: counts.visible },
+    { key: 'visible', label: 'مفعّل', count: counts.visible },
+    { key: 'paused', label: 'متوقف', count: counts.paused },
     { key: 'pending', label: 'قيد المراجعة', count: counts.pending },
     { key: 'draft', label: 'مسودة', count: counts.draft },
     { key: 'expired', label: 'منتهي', count: counts.expired },
+    { key: 'needs_changes', label: 'يحتاج تعديل', count: counts.needs_changes },
   ];
 
   return (
@@ -85,6 +92,7 @@ export function MerchantOffersScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="تصفية"
+            onPress={() => setShowFilters(true)}
             className="flex-row items-center gap-1.5 px-3.5 min-h-[44px] rounded-xl border active:opacity-75"
             style={{
               backgroundColor: colors.surface,
@@ -120,7 +128,7 @@ export function MerchantOffersScreen() {
 
         {/* Status Filter Chips Row */}
         <View className="flex-row items-center justify-between gap-1.5 py-1">
-          {filterTabs.map((tab) => {
+          {filterTabs.slice(0, 5).map((tab) => {
             const isSelected = selectedFilter === tab.key;
             return (
               <Pressable
@@ -186,33 +194,79 @@ export function MerchantOffersScreen() {
       </View>
 
       {/* 5. Offers List Cards */}
-      {offers.length === 0 ? (
-        <View
-          className="w-full py-12 rounded-2xl border items-center justify-center p-6 my-2"
-          style={{
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          }}
-        >
+      {isLoading ? (
+        <View className="w-full py-12 items-center gap-3">
+          <ActivityIndicator size="large" color={colors.primary} />
+          <AppText variant="caption" muted>جارٍ تحميل عروض النشاط...</AppText>
+        </View>
+      ) : hasError ? (
+        <View className="w-full p-5 rounded-2xl border items-center gap-3" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+          <AppText variant="label">تعذر تحميل بيانات العروض. لا تُعرض معلومات قديمة باعتبارها مكتملة.</AppText>
+          <Pressable accessibilityRole="button" onPress={() => { void refetch(); }} className="px-4 py-3 rounded-xl" style={{ backgroundColor: '#FACC15' }}>
+            <AppText style={{ color: '#0F172D' }}>إعادة المحاولة</AppText>
+          </Pressable>
+        </View>
+      ) : offers.length === 0 ? (
+        <View className="w-full py-12 rounded-2xl border items-center justify-center p-6 my-2" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
           <Tag size={36} color={isDark ? '#71717A' : '#94A3B8'} />
-          <AppText variant="label" className="font-tajawal-bold text-sm mt-3">
-            لا توجد عروض مطابقة
-          </AppText>
+          <AppText variant="label" className="font-tajawal-bold text-sm mt-3">لا توجد عروض مطابقة</AppText>
           <AppText variant="caption" muted className="text-center text-xs mt-1">
-            لم نجد أي عروض تطابق خيارات البحث والتصفية المحددة.
+            لم نجد عروضًا ضمن هذا النشاط تطابق الخيارات المحددة.
           </AppText>
         </View>
-      ) : (
-        offers.map((offer) => (
-          <MerchantOfferCard
-            key={offer.id}
-            offer={offer}
-            onPrimaryAction={(item) => toggleOfferAvailability(item)}
-            onViewDetails={() => {}}
-            onMenuPress={() => {}}
-          />
-        ))
-      )}
+      ) : offers.map((offer) => (
+        <MerchantOfferCard
+          key={offer.id}
+          offer={offer}
+          onPrimaryAction={(item) => {
+            if (item.status === 'visible' || item.status === 'paused') void toggleOfferAvailability(item);
+            else setSelectedOffer(item);
+          }}
+          onViewDetails={setSelectedOffer}
+          onMenuPress={setSelectedOffer}
+        />
+      ))}
+
+      <Modal visible={showFilters} transparent animationType="fade" onRequestClose={() => setShowFilters(false)}>
+        <Pressable className="flex-1 bg-black/50 items-center justify-center p-5" onPress={() => setShowFilters(false)}>
+          <View className="w-full max-w-md rounded-2xl p-4 gap-3" style={{ backgroundColor: colors.surface }}>
+            <AppText variant="heading" className="text-right">تصفية العروض حسب الحالة</AppText>
+            {filterTabs.map((tab) => (
+              <Pressable key={tab.key} accessibilityRole="button" onPress={() => { setSelectedFilter(tab.key); setShowFilters(false); }}
+                className="min-h-12 flex-row items-center justify-between border-b border-border px-2">
+                <AppText>{tab.label}</AppText>
+                <AppText muted>{tab.count}</AppText>
+              </Pressable>
+            ))}
+            <Pressable accessibilityRole="button" onPress={() => setShowFilters(false)} className="min-h-12 items-center justify-center">
+              <AppText>إغلاق</AppText>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={Boolean(selectedOffer)} transparent animationType="fade" onRequestClose={() => setSelectedOffer(null)}>
+        <Pressable className="flex-1 bg-black/50 items-center justify-center p-5" onPress={() => setSelectedOffer(null)}>
+          <View className="w-full max-w-md rounded-2xl p-5 gap-3" style={{ backgroundColor: colors.surface }}>
+            <AppText variant="heading" className="font-tajawal-bold text-right">تفاصيل العرض</AppText>
+            <AppText variant="label" className="text-right">{selectedOffer?.title ?? '—'}</AppText>
+            <AppText variant="caption" muted>{selectedOffer?.code ?? '—'} • {selectedOffer?.category ?? '—'}</AppText>
+            <AppText variant="label">{selectedOffer?.finalPrice ?? '—'} {selectedOffer?.currency ?? ''}</AppText>
+            <AppText variant="caption" muted>{selectedOffer?.metaText ?? ''}</AppText>
+            <AppText variant="caption" muted>{selectedOffer?.footerNote ?? ''}</AppText>
+            {selectedOffer && (selectedOffer.status === 'visible' || selectedOffer.status === 'paused') && (
+              <Pressable accessibilityRole="button" onPress={() => { void toggleOfferAvailability(selectedOffer); setSelectedOffer(null); }}
+                className="min-h-12 items-center justify-center rounded-xl" style={{ backgroundColor: '#FACC15' }}>
+                <AppText style={{ color: '#0F172D' }}>{selectedOffer.status === 'visible' ? 'إيقاف العرض مؤقتًا' : 'استئناف العرض'}</AppText>
+              </Pressable>
+            )}
+            <Pressable accessibilityRole="button" onPress={() => setSelectedOffer(null)} className="min-h-12 items-center justify-center rounded-xl border"
+              style={{ borderColor: colors.border }}>
+              <AppText>إغلاق</AppText>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* 6. Important Info Alert */}
       <View
