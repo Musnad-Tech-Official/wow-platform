@@ -103,7 +103,10 @@ export function useBusinessQualificationStatus(props: UseBusinessQualificationSt
         }
       );
     }
-    return serverVerifications.length > 0 ? serverVerifications[0] : null;
+    return serverVerifications.length > 0
+      ? [...serverVerifications].sort((a, b) =>
+          (b.submitted_at || b.created_at || '').localeCompare(a.submitted_at || a.created_at || ''))[0]
+      : null;
   }, [isSyntheticPreview, props.fixtureVerification, serverVerifications]);
 
   const branches: Branch[] = useMemo(() => {

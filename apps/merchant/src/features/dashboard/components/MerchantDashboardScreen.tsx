@@ -1,4 +1,6 @@
 import React from 'react';
+import { View, ActivityIndicator, Pressable } from 'react-native';
+import { AppText } from '@wow/ui';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
 import { DashboardBanner } from './DashboardBanner';
 import { DashboardEligibilityBanner } from './DashboardEligibilityBanner';
@@ -17,6 +19,9 @@ export function MerchantDashboardScreen() {
     complaintMetrics,
     inquiriesMetrics,
     attentionOffers,
+    isLoading,
+    hasError,
+    refetch,
     isSyntheticPreview,
   } = useMerchantDashboard();
 
@@ -27,6 +32,25 @@ export function MerchantDashboardScreen() {
       subtitle="نظرة شاملة على أداء نشاطك وعروضك"
       initialBusinessId={activeBusinessId}
     >
+      {!activeBusinessId && !isSyntheticPreview ? (
+        <View className="rounded-2xl border border-border p-6 items-center">
+          <AppText variant="label">لا يوجد نشاط تجاري مرتبط بالحساب. أنشئ نشاطًا أولًا.</AppText>
+        </View>
+      ) : isLoading ? (
+        <View className="p-8 items-center gap-3">
+          <ActivityIndicator size="large" />
+          <AppText variant="caption" muted>جارٍ تحميل لوحة التاجر...</AppText>
+        </View>
+      ) : hasError ? (
+        <View className="rounded-2xl border border-border p-6 items-center gap-3">
+          <AppText variant="label">تعذر تحميل بعض بيانات النشاط. أعد المحاولة.</AppText>
+          <Pressable accessibilityRole="button" onPress={refetch} className="min-h-12 px-5 rounded-xl items-center justify-center"
+            style={{ backgroundColor: '#FACC15' }}>
+            <AppText style={{ color: '#0F172D' }}>إعادة المحاولة</AppText>
+          </Pressable>
+        </View>
+      ) : (
+        <>
       {/* 1. Authoritative Dashboard Mascot Hero Banner */}
       <DashboardBanner />
 
@@ -66,6 +90,8 @@ export function MerchantDashboardScreen() {
       <QuickActionsSection />
 
       {/* Real-data dashboard: show unavailable metrics explicitly rather than fabricated values. */}
+        </>
+      )}
     </MerchantScaffold>
   );
 }

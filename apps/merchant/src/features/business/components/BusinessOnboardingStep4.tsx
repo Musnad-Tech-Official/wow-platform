@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, Platform } from 'react-native';
+import { View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import {
   ArrowLeft,
@@ -42,6 +42,12 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
     isSubmitting,
     feedback,
     isReadyToSubmit,
+    isStep1Complete,
+    isStep2Complete,
+    isStep3Complete,
+    isLoading,
+    hasLoadError,
+    refetch,
     isSyntheticPreview,
     handleAddDocument,
     handleReplaceDocument,
@@ -147,6 +153,20 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
 
   return (
     <PageScaffold app="merchant" maxWidth={600} className="bg-background">
+      {isLoading ? (
+        <View className="p-8 items-center gap-3">
+          <ActivityIndicator size="large" />
+          <AppText muted>جارٍ تحميل بيانات طلب التأهيل...</AppText>
+        </View>
+      ) : hasLoadError ? (
+        <View className="p-6 items-center gap-3">
+          <AppText tone="danger">تعذر تحميل بيانات التأهيل. لا يمكن اعتماد اكتمال الطلب.</AppText>
+          <Pressable accessibilityRole="button" onPress={refetch} className="min-h-12 px-4 rounded-xl items-center justify-center" style={{ backgroundColor: '#FACC15' }}>
+            <AppText style={{ color: '#0F172D' }}>إعادة المحاولة</AppText>
+          </Pressable>
+        </View>
+      ) : (
+      <>
       {/* 1. Header Bar */}
       <View className="w-full flex-row items-center justify-between gap-2.5 pt-2">
         <View className="min-w-0 flex-1 flex-row items-center gap-2.5">
@@ -276,7 +296,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   className="font-tajawal-bold text-[11px]"
                   style={{ color: isDark ? '#86EFAC' : '#166534' }}
                 >
-                  مكتمل ✓
+                  {isStep1Complete ? 'مكتمل ✓' : 'غير مكتمل'}
                 </AppText>
               </View>
               <Pressable
@@ -333,7 +353,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   className="font-tajawal-bold text-[11px]"
                   style={{ color: isDark ? '#86EFAC' : '#166534' }}
                 >
-                  مكتمل ✓
+                  {isStep2Complete ? 'مكتمل ✓' : 'غير مكتمل'}
                 </AppText>
               </View>
               <Pressable
@@ -390,7 +410,7 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
                   className="font-tajawal-bold text-[11px]"
                   style={{ color: isDark ? '#86EFAC' : '#166534' }}
                 >
-                  مكتمل ✓
+                  {isStep3Complete ? 'مكتمل ✓' : 'غير مكتمل'}
                 </AppText>
               </View>
               <Pressable
@@ -688,6 +708,8 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
           MER-02-04 — مراجعة طلب التأهيل
         </AppText>
       </View>
+      </>
+      )}
     </PageScaffold>
   );
 }

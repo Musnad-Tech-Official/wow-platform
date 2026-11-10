@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import {
   ArrowLeft,
@@ -36,6 +36,10 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
     submittedAtText,
     updatedAtText,
     merchantFeedback,
+    latestVerification,
+    isLoading,
+    hasLoadError,
+    refetch,
     isSyntheticPreview,
   } = useBusinessQualificationStatus(props);
 
@@ -88,6 +92,25 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
 
   return (
     <PageScaffold app="merchant" maxWidth={600} className="bg-background">
+      {isLoading ? (
+        <View className="p-8 items-center gap-3">
+          <ActivityIndicator size="large" />
+          <AppText muted>جارٍ تحميل حالة طلب التأهيل...</AppText>
+        </View>
+      ) : hasLoadError ? (
+        <View className="p-6 items-center gap-3">
+          <AppText tone="danger">تعذر تحميل حالة التأهيل.</AppText>
+          <Pressable accessibilityRole="button" onPress={refetch} className="min-h-12 px-4 rounded-xl items-center justify-center" style={{ backgroundColor: '#FACC15' }}>
+            <AppText style={{ color: '#0F172D' }}>إعادة المحاولة</AppText>
+          </Pressable>
+        </View>
+      ) : !latestVerification ? (
+        <View className="p-6 items-center gap-3">
+          <AppText variant="heading">لا يوجد طلب تأهيل مرسل لهذا النشاط.</AppText>
+          <AppButton title="استكمال طلب التأهيل" onPress={handleRevise} />
+        </View>
+      ) : (
+      <>
       {/* 1. Header Bar */}
       <View className="w-full flex-row items-center justify-between gap-2.5 pt-2">
         <View className="min-w-0 flex-1 flex-row items-center gap-2.5">
@@ -551,6 +574,8 @@ export function BusinessQualificationStatusScreen(props: UseBusinessQualificatio
           MER-02-05 — حالة طلب التأهيل
         </AppText>
       </View>
+      </>
+      )}
     </PageScaffold>
   );
 }

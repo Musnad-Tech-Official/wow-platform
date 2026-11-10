@@ -3,6 +3,7 @@ import {
   useBusiness,
   useBusinessBilling,
   useBusinessOffers,
+  useBusinessOfferVersions,
   useBusinessComplaints,
   type MerchantComplaintSummary,
 } from '@wow/api';
@@ -18,18 +19,21 @@ export function useMerchantDashboard() {
   }, []);
 
   // Real Queries
-  const { data: businessData, isLoading: isBusinessLoading } = useBusiness(
+  const { data: businessData, isLoading: isBusinessLoading, error: businessError, refetch: refetchBusiness } = useBusiness(
     isSyntheticPreview ? null : activeBusinessId
   );
-  const { data: billingData, isLoading: isBillingLoading } = useBusinessBilling(
+  const { data: billingData, isLoading: isBillingLoading, error: billingError, refetch: refetchBilling } = useBusinessBilling(
     isSyntheticPreview ? null : activeBusinessId
   );
-  const { data: offersData = [], isLoading: isOffersLoading } = useBusinessOffers(
+  const { data: offersData = [], isLoading: isOffersLoading, error: offersError, refetch: refetchOffers } = useBusinessOffers(
     isSyntheticPreview ? null : activeBusinessId
   );
-  const { data: complaintsData = [], isLoading: isComplaintsLoading } = useBusinessComplaints(
+  const { data: complaintsData = [], isLoading: isComplaintsLoading, error: complaintsError, refetch: refetchComplaints } = useBusinessComplaints(
     isSyntheticPreview || !activeBusinessId ? null : { businessId: activeBusinessId }
   );
+
+  const { data: offerVersions = [], isLoading: versionsLoading, error: versionsError, refetch: refetchVersions } =
+    useBusinessOfferVersions(isSyntheticPreview ? [] : offersData);
 
   // Business qualification status
   const isQualificationApproved = useMemo(() => {
@@ -101,7 +105,7 @@ export function useMerchantDashboard() {
       draftCount,
       totalCount,
     };
-  }, [isSyntheticPreview, offersData]);
+  }, [isSyntheticPreview, offersData, offerVersions]);
 
   // Complaint Metrics
   const complaintMetrics = useMemo(() => {
@@ -165,9 +169,10 @@ export function useMerchantDashboard() {
     return offersData
       .filter((o) => o.status === 'draft' || o.status === 'pending')
       .slice(0, 3)
-      .map((o, idx) => ({
+      .map((o) => ({
         id: o.id,
-        title: `عرض تجاري #${idx + 1}`,
+        title: (offerVersions.find((v) => v.id === o.current_version_id)
+          ?? offerVersions.find((v) => v.offer_id === o.id))?.title || 'عرض دون عنوان',
         subtitle: o.status === 'draft' ? 'مسودة عرض لم تُرسل للمراجعة بعد' : 'قيد مراجعة الإدارة',
         actionText: o.status === 'draft' ? 'استكمال' : 'متابعة',
       }));
@@ -175,7 +180,7 @@ export function useMerchantDashboard() {
 
   const isLoading =
     !isSyntheticPreview &&
-    (isBusinessLoading || isBillingLoading || isOffersLoading || isComplaintsLoading);
+    (isBusinessLoading || isBillingLoading || isOffersLoading || isComplaintsLoading || versionsLoading);
 
   return {
     activeBusiness,
@@ -187,6 +192,8 @@ export function useMerchantDashboard() {
     inquiriesMetrics,
     attentionOffers,
     isLoading,
+    hasError: Boolean(!isSyntheticPreview && (businessError || billingError || offersError || complaintsError || versionsError)),
+    refetch: () => { void Promise.all([refetchBusiness(), refetchBilling(), refetchOffers(), refetchComplaints(), refetchVersions()]); },
     isSyntheticPreview,
   };
 }

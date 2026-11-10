@@ -93,14 +93,7 @@ export function ActiveBusinessProvider({
 export function useActiveBusiness(): ActiveBusinessContextValue {
   const ctx = useContext(ActiveBusinessContext);
   if (!ctx) {
-    return {
-      activeBusinessId: null,
-      activeBusiness: null,
-      businesses: [],
-      setActiveBusinessId: () => {},
-      isLoading: false,
-      isSyntheticPreview: false,
-    };
+    throw new Error('useActiveBusiness requires ActiveBusinessProvider in a route ancestor.');
   }
   return ctx;
 }
