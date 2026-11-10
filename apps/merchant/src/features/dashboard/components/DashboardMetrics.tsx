@@ -5,6 +5,7 @@ import {
   Clock,
   MessageSquare,
   AlertCircle,
+  TrendingUp,
 } from 'lucide-react-native';
 import { AppText } from '@wow/ui';
 import { useWowColors, useTheme } from '@wow/theme';

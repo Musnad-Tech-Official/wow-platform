@@ -76,7 +76,11 @@ export function useMerchantOffers() {
   } = useBusinessOffers(isSyntheticPreview ? null : activeBusinessId);
 
   const setAvailabilityMutation = useSetOfferAvailability();
-  const versionQueries = useBusinessOfferVersions(isSyntheticPreview ? [] : serverOffers);
+  const {
+    data: serverVersions = [],
+    isLoading: isVersionsLoading,
+    error: versionsError,
+  } = useBusinessOfferVersions(isSyntheticPreview ? [] : serverOffers);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<OfferFilterStatus>('all');
@@ -90,7 +94,7 @@ export function useMerchantOffers() {
     }
 
     return serverOffers.map((offer, idx) => {
-      const versions = versionQueries[idx]?.data ?? [];
+      const versions = serverVersions.filter((version) => version.offer_id === offer.id);
       const version = versions.find((v) => v.id === offer.current_version_id) ?? versions[0];
       const latestReview = versions[0]?.review_status;
       let cardStatus: OfferCardStatus = 'draft';
@@ -133,7 +137,7 @@ export function useMerchantOffers() {
         updatedAt: offer.updated_at,
       };
     });
-  }, [isSyntheticPreview, serverOffers, versionQueries]);
+  }, [isSyntheticPreview, serverOffers, serverVersions]);
 
   // Counts
   const counts = useMemo(() => {
@@ -230,8 +234,8 @@ export function useMerchantOffers() {
     actionFeedback,
     clearFeedback: () => setActionFeedback(null),
     toggleOfferAvailability,
-    isLoading: !isSyntheticPreview && (isServerLoading || versionQueries.some((q) => q.isPending)),
-    hasError: Boolean(!isSyntheticPreview && (serverError || versionQueries.some((q) => q.isError))),
+    isLoading: !isSyntheticPreview && (isServerLoading || (serverOffers.length > 0 && isVersionsLoading)),
+    hasError: Boolean(!isSyntheticPreview && (serverError || versionsError)),
     refetch,
     isSyntheticPreview,
   };

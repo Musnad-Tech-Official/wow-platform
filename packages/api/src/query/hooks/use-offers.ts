@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createOffer,
   decideAdminOffer,
@@ -6,6 +6,7 @@ import {
   getOfferVersionDetails,
   getOfferVersions,
   type Offer,
+  type OfferVersion,
   getAdminOfferReview,
   listAdminPendingOffers,
   saveOfferDraft,
@@ -155,17 +156,27 @@ export function useAdminDecideOffer() {
   });
 }
 
-// Fetch real offer versions under the authenticated merchant's RLS scope.
-// Hook count remains constant even when the number of offers changes.
+// Single RLS-scoped bulk query; avoids one network request per offer.
 export function useBusinessOfferVersions(offers: Offer[]) {
   const context = useWowApiContext();
-  return useQueries({
-    queries: offers.map((offer) => ({
-      queryKey: wowQueryKeys.offers.versions(offer.id, context.userId),
-      enabled: Boolean(context.userId && offer.id),
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        getOfferVersions(requireWowApiSession(context).client, offer.id, signal),
-      staleTime: 30_000,
-    })),
+  const businessId = offers[0]?.business_id ?? null;
+  const offerIds = offers.map((o) => o.id).sort();
+  const sameBusiness = offers.every((o) => o.business_id === businessId);
+
+  return useQuery<OfferVersion[]>({
+    queryKey: [...wowQueryKeys.offers.business(businessId, context.userId), 'versions', offerIds],
+    enabled: Boolean(context.userId && businessId && offerIds.length > 0 && sameBusiness),
+    queryFn: async ({ signal }) => {
+      if (!businessId || !sameBusiness || offerIds.length === 0) return [];
+      let request = requireWowApiSession(context).client.from('offer_versions')
+        .select('id,business_id,offer_id,version_no,title,description,offer_kind,original_price,final_price,currency,benefit_details,mandatory_fees,terms,stock_or_condition_notice,starts_at,ends_at,review_status,submitted_at,approved_at,created_at,updated_at')
+        .eq('business_id', businessId)
+        .in('offer_id', offerIds)
+        .order('version_no', { ascending: false });
+      if (signal) request = request.abortSignal(signal);
+      const { data, error } = await request;
+      if (error) throw error;
+      return (data ?? []) as OfferVersion[];
+    },
   });
 }

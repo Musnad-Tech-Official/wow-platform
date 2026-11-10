@@ -70,9 +70,14 @@ export function BusinessOnboardingStep4(props: UseBusinessOnboardingStep4Props) 
           return;
         }
         const ext = file.name.split('.').pop()?.toLowerCase();
-        let mime: 'application/pdf' | 'image/jpeg' | 'image/png' = 'application/pdf';
+        let mime: 'application/pdf' | 'image/jpeg' | 'image/png' | null = null;
+        if (ext === 'pdf') mime = 'application/pdf';
         if (ext === 'jpg' || ext === 'jpeg') mime = 'image/jpeg';
         if (ext === 'png') mime = 'image/png';
+        if (!mime) {
+          setDocumentError('صيغة المستند غير مدعومة. استخدم PDF أو JPG أو PNG.');
+          return;
+        }
 
         const bytes = await file.arrayBuffer();
         const wasUploaded = replaceId
