@@ -261,6 +261,26 @@ export async function lookupMyRatingForOffer(
   return null;
 }
 
+export type ExistingRatingLookupStatus = 'loading' | 'ready' | 'error';
+
+/**
+ * A live form may proceed only after the current account/offer lookup succeeds.
+ * The lookup key prevents reusing a stale answer after a retry or identity change.
+ */
+export function resolveExistingRatingLookupStatus(options: {
+  required: boolean;
+  hasActiveSession: boolean;
+  activeLookupKey: string;
+  settledLookupKey: string | null;
+  status: ExistingRatingLookupStatus;
+}): ExistingRatingLookupStatus {
+  if (!options.required) return 'ready';
+  if (!options.hasActiveSession || options.activeLookupKey !== options.settledLookupKey) {
+    return 'loading';
+  }
+  return options.status;
+}
+
 /**
  * Pure execution helper for submitting offer ratings with double-tap protection,
  * validation, and honest error mapping for server-enforced assessment windows.
