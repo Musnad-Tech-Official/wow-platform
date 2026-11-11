@@ -1,7 +1,7 @@
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser, useClerk } from '@wow/auth';
-import { useAdminBusinessVerifications } from '@wow/api';
+import { useAdminBusinessVerifications, useWowApiContext } from '@wow/api';
 import type { AdminAccessStatus, AdminRole } from './admin-access';
 
 export interface UseAdminAccessResult {
@@ -28,6 +28,7 @@ export function useAdminAccess(): UseAdminAccessResult {
   const { isLoaded, isSignedIn, userId, signOut } = useAuth();
   const { user } = useUser();
   const { signOut: clerkSignOut } = useClerk();
+  const apiContext = useWowApiContext();
   const params = useLocalSearchParams<{ preview?: string }>();
 
   // CRITICAL SECURITY GUARD: Preview parameters are STRICTLY development-only (__DEV__).
@@ -45,10 +46,11 @@ export function useAdminAccess(): UseAdminAccessResult {
 
   // Authoritative server check: attempt a minimal admin-only call
   // PostgreSQL checks wow_private.has_admin_permission(false)
-  const isQueryEnabled = Boolean(isLoaded && isSignedIn && userId && !preview);
+  const isQueryEnabled = Boolean(isLoaded && isSignedIn && userId && apiContext.userId === userId && !preview);
   const {
     error: rpcError,
     isLoading: isCheckingRpc,
+    isSuccess: isRpcSuccess,
     refetch,
   } = useAdminBusinessVerifications({ limit: 1 });
 
@@ -66,27 +68,10 @@ export function useAdminAccess(): UseAdminAccessResult {
     }
   }, [signOut, clerkSignOut]);
 
-  // Stable frame for static HTML prerender
+  // Server prerender and first browser hydration must render the SAME unauthenticated gate.
+  // Expo static HTML does not have per-request preview query parameters. Resolving them
+  // here creates a mismatch and React replaces the document with a hydration error.
   if (!isClient) {
-    if (
-      isDev &&
-      (preview === 'adm02' ||
-        preview === 'adm02-empty' ||
-        preview === 'adm14' ||
-        preview === 'adm14-gap')
-    ) {
-      return {
-        status: 'authorized',
-        role: preview.startsWith('adm14') ? 'super_admin' : 'reviewer',
-        isAuthorized: true,
-        error: null,
-        user: null,
-        retry: handleRetry,
-        signOut: handleSignOut,
-        preview,
-        isFixture: true,
-      };
-    }
     return {
       status: 'unauthenticated',
       role: null,
@@ -234,6 +219,22 @@ export function useAdminAccess(): UseAdminAccessResult {
       isAuthorized: false,
       error: effectiveError instanceof Error ? effectiveError : new Error(errorMsg),
       user: user ?? null,
+      retry: handleRetry,
+      signOut: handleSignOut,
+      preview: undefined,
+      isFixture: false,
+    };
+  }
+
+  // Never grant administrative access because a query is idle, disabled, pending,
+  // or has not returned a verified success for this exact authenticated session.
+  if (!isQueryEnabled || !isRpcSuccess) {
+    return {
+      status: 'loading',
+      role: null,
+      isAuthorized: false,
+      error: null,
+      user: null,
       retry: handleRetry,
       signOut: handleSignOut,
       preview: undefined,
