@@ -63,7 +63,7 @@ BEGIN
 EXCEPTION WHEN invalid_text_representation THEN
   RETURN false;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION wow_private.can_read_wow_object(p_bucket text, p_key text)
@@ -135,7 +135,7 @@ BEGIN
 EXCEPTION WHEN invalid_text_representation THEN
   RETURN false;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION wow_private.validate_offer_evidence_refs(
@@ -255,7 +255,7 @@ BEGIN
 
   RETURN true;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.wow_get_offer_review_notes(p_version_id uuid)
