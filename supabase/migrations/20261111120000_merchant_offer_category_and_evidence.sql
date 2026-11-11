@@ -4,13 +4,16 @@
 -- 1. Schema: Add category_id to public.offer_versions
 ALTER TABLE "public"."offer_versions"
   ADD COLUMN IF NOT EXISTS "category_id" "uuid" REFERENCES "public"."categories"("id") ON DELETE RESTRICT;
+ALTER TABLE "public"."offer_versions"
+  ADD COLUMN IF NOT EXISTS "is_clearance" boolean NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS "offer_versions_category_id_idx"
   ON "public"."offer_versions"("category_id");
 
 -- 2. Schema: wow_private.offer_evidence_drafts
 CREATE TABLE IF NOT EXISTS "wow_private"."offer_evidence_drafts" (
-  "offer_id" "uuid" PRIMARY KEY REFERENCES "public"."offers"("id") ON DELETE CASCADE,
+  "offer_version_id" "uuid" PRIMARY KEY REFERENCES "public"."offer_versions"("id") ON DELETE CASCADE,
+  "offer_id" "uuid" NOT NULL REFERENCES "public"."offers"("id") ON DELETE CASCADE,
   "documents" "jsonb" NOT NULL DEFAULT '[]'::jsonb,
   "updated_by_user_id" "text" NOT NULL,
   "updated_at" timestamp with time zone NOT NULL DEFAULT "now"(),
@@ -19,6 +22,8 @@ CREATE TABLE IF NOT EXISTS "wow_private"."offer_evidence_drafts" (
   )
 );
 
+CREATE INDEX IF NOT EXISTS "offer_evidence_drafts_offer_id_idx"
+  ON "wow_private"."offer_evidence_drafts"("offer_id");
 ALTER TABLE "wow_private"."offer_evidence_drafts" ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE "wow_private"."offer_evidence_drafts" FROM PUBLIC, anon, authenticated;
 
@@ -41,7 +46,7 @@ DECLARE
   v_i INTEGER := 0;
   v_j INTEGER;
   v_allowed_keys TEXT[] := ARRAY[
-    'title','description','offer_kind','category_id','original_price','final_price',
+    'title','description','offer_kind','category_id','is_clearance','original_price','final_price',
     'currency','benefit_details','mandatory_fees','terms',
     'stock_or_condition_notice','starts_at','ends_at','items','branches'
   ];
@@ -58,8 +63,8 @@ BEGIN
   IF jsonb_typeof(p_payload->'items') IS DISTINCT FROM 'array'
      OR jsonb_typeof(p_payload->'branches') IS DISTINCT FROM 'array'
      OR jsonb_array_length(p_payload->'items') NOT BETWEEN 1 AND 50
-     OR jsonb_array_length(p_payload->'branches') NOT BETWEEN 1 AND 50 THEN
-    RAISE EXCEPTION 'Draft requires 1-50 items and 1-50 branches' USING ERRCODE = '22023';
+     OR jsonb_array_length(p_payload->'branches') NOT BETWEEN 0 AND 50 THEN
+    RAISE EXCEPTION 'Draft requires 1-50 items and 0-50 branches' USING ERRCODE = '22023';
   END IF;
   SELECT business_id INTO v_business_id
     FROM public.offers WHERE id = p_offer_id FOR UPDATE;
@@ -74,6 +79,10 @@ BEGIN
     IF NOT EXISTS (
       SELECT 1 FROM public.categories c
       WHERE c.id = v_category_id AND c.is_active
+        AND EXISTS (
+          SELECT 1 FROM public.business_categories bc
+          WHERE bc.business_id = v_business_id AND bc.category_id = c.id
+        )
     ) THEN
       RAISE EXCEPTION 'Category not found or inactive' USING ERRCODE = '22023';
     END IF;
@@ -102,6 +111,7 @@ BEGIN
     description = NULLIF(btrim(p_payload->>'description'),''),
     offer_kind = NULLIF(btrim(p_payload->>'offer_kind'),''),
     category_id = v_category_id,
+    is_clearance = COALESCE((p_payload->>'is_clearance')::boolean, false),
     original_price = NULLIF(p_payload->>'original_price','')::NUMERIC,
     final_price = NULLIF(p_payload->>'final_price','')::NUMERIC,
     currency = NULLIF(btrim(p_payload->>'currency'),''),
@@ -174,6 +184,7 @@ DECLARE
   v_actor TEXT := (SELECT auth.jwt() ->> 'sub');
   v_business UUID;
   v_docs JSONB;
+  v_version UUID;
 BEGIN
   IF (SELECT auth.jwt() ->> 'role') IS DISTINCT FROM 'authenticated'
      OR v_actor IS NULL THEN
@@ -183,7 +194,12 @@ BEGIN
   IF v_business IS NULL OR NOT wow_private.can_manage_offer_business(v_business, 'draft') THEN
     RAISE EXCEPTION 'Offer drafting permission required' USING ERRCODE = '42501';
   END IF;
-  SELECT documents INTO v_docs FROM wow_private.offer_evidence_drafts WHERE offer_id = p_offer_id;
+  SELECT v.id INTO v_version
+    FROM public.offer_versions v WHERE v.offer_id = p_offer_id
+    ORDER BY (v.review_status = 'draft') DESC, v.version_no DESC
+    LIMIT 1;
+  SELECT documents INTO v_docs FROM wow_private.offer_evidence_drafts
+    WHERE offer_version_id = v_version;
   RETURN COALESCE(v_docs, '[]'::jsonb);
 END;
 $$;
@@ -198,6 +214,7 @@ DECLARE
   v_actor TEXT := (SELECT auth.jwt() ->> 'sub');
   v_business UUID;
   v_status TEXT;
+  v_version UUID;
   v_doc JSONB;
   v_key TEXT;
   v_name TEXT;
@@ -215,8 +232,12 @@ BEGIN
   IF v_business IS NULL OR NOT wow_private.can_manage_offer_business(v_business, 'draft') THEN
     RAISE EXCEPTION 'Offer drafting permission required' USING ERRCODE = '42501';
   END IF;
-  IF v_status IS NULL OR v_status NOT IN ('draft', 'pending', 'active', 'paused') THEN
-    RAISE EXCEPTION 'Invalid offer status for evidence attachment' USING ERRCODE = '22023';
+  -- Evidence must belong to a specific, editable draft version. Submitted
+  -- evidence is immutable and remains attached to its reviewed version.
+  SELECT id INTO v_version FROM public.offer_versions
+    WHERE offer_id = p_offer_id AND review_status = 'draft' FOR UPDATE;
+  IF v_version IS NULL THEN
+    RAISE EXCEPTION 'Offer evidence requires an editable draft version' USING ERRCODE = '22023';
   END IF;
   IF p_documents IS NULL OR jsonb_typeof(p_documents) IS DISTINCT FROM 'array'
      OR jsonb_array_length(p_documents) > 12 THEN
@@ -252,10 +273,16 @@ BEGIN
     ));
   END LOOP;
 
+  IF array_length(v_keys, 1) > 0 THEN
+    -- Verify every key belongs to the authenticated uploader, matches the
+    -- business and exists in private Storage. Metadata alone is not proof.
+    PERFORM wow_private.validate_evidence_refs(to_jsonb(v_keys), v_business, v_actor);
+  END IF;
+
   INSERT INTO wow_private.offer_evidence_drafts
-    (offer_id, documents, updated_by_user_id, updated_at)
-  VALUES (p_offer_id, v_sanitized, v_actor, now())
-  ON CONFLICT (offer_id) DO UPDATE SET
+    (offer_version_id, offer_id, documents, updated_by_user_id, updated_at)
+  VALUES (v_version, p_offer_id, v_sanitized, v_actor, now())
+  ON CONFLICT (offer_version_id) DO UPDATE SET
     documents = EXCLUDED.documents,
     updated_by_user_id = EXCLUDED.updated_by_user_id,
     updated_at = now();
@@ -283,3 +310,93 @@ REVOKE ALL ON FUNCTION "public"."wow_get_offer_evidence_draft"("uuid") FROM PUBL
 REVOKE ALL ON FUNCTION "public"."wow_save_offer_evidence_draft"("uuid", "jsonb") FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION "public"."wow_get_offer_evidence_draft"("uuid") TO "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."wow_save_offer_evidence_draft"("uuid", "jsonb") TO "authenticated";
+
+
+-- 5. Admin review includes private evidence for that exact offer version.
+-- The existing internal review function performs admin authorization.
+CREATE OR REPLACE FUNCTION public.wow_admin_get_offer_review(p_version_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO ''
+AS $$
+DECLARE
+  v_review jsonb;
+  v_evidence jsonb;
+BEGIN
+  v_review := wow_private.admin_get_offer_review_internal(p_version_id);
+  IF v_review IS NULL THEN RETURN NULL; END IF;
+  SELECT documents INTO v_evidence FROM wow_private.offer_evidence_drafts
+    WHERE offer_version_id = p_version_id;
+  RETURN v_review || jsonb_build_object(
+    'private_evidence', COALESCE(v_evidence, '[]'::jsonb));
+END;
+$$;
+REVOKE ALL ON FUNCTION public.wow_admin_get_offer_review(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.wow_admin_get_offer_review(uuid) TO authenticated;
+
+-- 6. Server-side submission must enforce approved category and evidence.
+-- Drafts may remain incomplete; submission may not.
+CREATE OR REPLACE FUNCTION wow_private.submit_offer_internal(p_offer_id uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+DECLARE
+  v_business uuid;
+  v_version uuid;
+BEGIN
+  SELECT business_id INTO v_business FROM public.offers
+    WHERE id = p_offer_id FOR UPDATE;
+  IF v_business IS NULL OR NOT wow_private.can_manage_offer_business(v_business,'submit') THEN
+    RAISE EXCEPTION 'Offer submission permission required' USING ERRCODE = '42501';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.businesses WHERE id=v_business AND status='approved'
+  ) THEN
+    RAISE EXCEPTION 'Business must be approved to submit offers' USING ERRCODE = '22023';
+  END IF;
+  SELECT id INTO v_version FROM public.offer_versions
+    WHERE offer_id=p_offer_id AND review_status='draft' FOR UPDATE;
+  IF v_version IS NULL OR EXISTS (
+    SELECT 1 FROM public.offer_versions WHERE offer_id=p_offer_id AND review_status='pending'
+  ) THEN
+    RAISE EXCEPTION 'One completed draft and no pending review required' USING ERRCODE = '22023';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.offer_versions v
+    JOIN public.business_categories bc
+      ON bc.business_id=v_business AND bc.category_id=v.category_id
+    JOIN public.categories c ON c.id=bc.category_id AND c.is_active
+    WHERE v.id=v_version AND v.title IS NOT NULL AND v.offer_kind IS NOT NULL
+      AND v.category_id IS NOT NULL AND v.final_price IS NOT NULL
+      AND v.currency IS NOT NULL AND v.starts_at IS NOT NULL AND v.ends_at IS NOT NULL
+      AND v.ends_at > v.starts_at
+      AND (v.original_price IS NULL OR v.original_price >= v.final_price)
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.offer_items WHERE offer_version_id=v_version
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.offer_branches WHERE offer_version_id=v_version
+  ) OR EXISTS (
+    SELECT 1 FROM public.offer_branches ob
+    JOIN public.business_branches b ON b.id=ob.branch_id
+    WHERE ob.offer_version_id=v_version
+      AND (b.business_id<>v_business OR b.status <> 'approved')
+  ) THEN
+    RAISE EXCEPTION 'Incomplete offer, unapproved category or unapproved branch' USING ERRCODE = '22023';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.offer_versions v WHERE v.id=v_version
+      AND (v.original_price IS NOT NULL OR v.is_clearance)
+  ) AND NOT EXISTS (
+    SELECT 1 FROM wow_private.offer_evidence_drafts e WHERE e.offer_version_id=v_version
+      AND jsonb_array_length(e.documents) > 0
+  ) THEN
+    RAISE EXCEPTION 'Evidence required for reference price or clearance claim' USING ERRCODE = '22023';
+  END IF;
+  UPDATE public.offer_versions SET review_status='pending', submitted_at=now()
+    WHERE id=v_version;
+  -- A revised submission does not hide the previously approved version.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.offers WHERE id=p_offer_id AND current_version_id IS NOT NULL
+  ) THEN
+    UPDATE public.offers SET status='pending' WHERE id=p_offer_id;
+  END IF;
+  RETURN v_version;
+END;
+$$;
