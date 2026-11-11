@@ -5,7 +5,7 @@ import { Package, Wrench, Layers, AlertCircle, ChevronDown, CheckCircle2, ArrowR
 import { AppText, ToastBanner } from '@wow/ui';
 import { useWowColors, useTheme } from '@wow/theme';
 import { wowIllustrations } from '@wow/assets';
-import { usePublicCategories, type OfferKind } from '@wow/api';
+import { usePublicCategories, useOfferEligibleCategories, type OfferKind } from '@wow/api';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
 import { useOfferEditor } from '../context/OfferEditorContext';
 import { OfferEditorStepper } from './OfferEditorStepper';
@@ -37,6 +37,15 @@ export function OfferDefinitionScreen() {
 
   const [categorySheetVisible, setCategorySheetVisible] = useState(false);
   const { data: allCategories = [] } = usePublicCategories();
+  const {
+    data: approvedCategories = [],
+    isLoading: approvedCategoriesLoading,
+    isError: approvedCategoriesError,
+  } = useOfferEligibleCategories(isSyntheticPreview ? null : businessId);
+  const approvedCategoryIds = isSyntheticPreview
+    ? allCategories.map((category) => category.id)
+    : approvedCategories.map((category) => category.id);
+
 
   // Find selected category name
   const selectedCategory = allCategories.find((c) => c.id === draft.categoryId);
@@ -275,6 +284,23 @@ export function OfferDefinitionScreen() {
               {categoryDisplayName}
             </AppText>
           </Pressable>
+          {!isSyntheticPreview && approvedCategoriesError && (
+            <AppText variant="caption" style={{ color: colors.danger }} className="text-right">
+              تعذر التحقق من الفئات المعتمدة. لن يمكن حفظ عرض بهذه الفئة حتى يتوفر الاتصال.
+            </AppText>
+          )}
+          {!isSyntheticPreview && approvedCategoriesLoading && (
+            <AppText variant="caption" muted className="text-right">
+              جارٍ التحقق من الأنشطة المعتمدة...
+            </AppText>
+          )}
+          {!isSyntheticPreview && draft.categoryId &&
+            !approvedCategoriesLoading && !approvedCategoriesError &&
+            !approvedCategoryIds.includes(draft.categoryId) && (
+              <AppText variant="caption" style={{ color: colors.danger }} className="text-right">
+                هذه الفئة ليست ضمن الأنشطة المعتمدة للنشاط التجاري الحالي.
+              </AppText>
+            )}
           {errors.categoryId ? (
             <AppText variant="caption" style={{ color: colors.danger }} className="text-right">
               {errors.categoryId}
@@ -322,6 +348,7 @@ export function OfferDefinitionScreen() {
       <CategorySelectSheet
         visible={categorySheetVisible}
         selectedCategoryId={draft.categoryId}
+        allowedCategoryIds={approvedCategoryIds}
         onSelect={(cat) => {
           updateDraft({ categoryId: cat.id });
           setCategorySheetVisible(false);
@@ -335,7 +362,8 @@ export function OfferDefinitionScreen() {
           accessibilityRole="button"
           accessibilityLabel="التالي: الانتقال إلى السعر والمزايا"
           onPress={handleNext}
-          disabled={!canProceed(1)}
+          disabled={!canProceed(1) || businessConflict || isSaving ||
+            (!isSyntheticPreview && (approvedCategoriesLoading || approvedCategoriesError || !approvedCategoryIds.includes(draft.categoryId || '')))}
           className="w-full min-h-[48px] rounded-xl items-center justify-center active:opacity-85 shadow-sm"
           style={{
             backgroundColor: canProceed(1) ? '#FACC15' : isDark ? '#3F3F46' : '#E2E8F0',
