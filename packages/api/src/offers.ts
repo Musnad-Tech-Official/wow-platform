@@ -314,7 +314,8 @@ export async function saveOfferEvidenceDraft(
     p_documents: input.documents,
   });
   if (error) throw error;
-  return Boolean(data);
+  if (data !== true) throw new Error('Offer evidence was not confirmed as saved.');
+  return true;
 }
 
 export async function submitOffer(client: WowSupabaseClient, offerId: string): Promise<string> {
