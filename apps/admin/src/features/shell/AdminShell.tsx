@@ -42,7 +42,7 @@ interface AdminShellProps {
 
 export function AdminShell({
   currentRole,
-  userEmail = 'admin@wow.local',
+  userEmail,
   userName = 'المسؤول المخوّل',
   onSignOut,
   children,
@@ -62,7 +62,8 @@ export function AdminShell({
 
   const navTo = (path: string) => {
     setMobileMenuOpen(false);
-    const target = params.preview ? `${path}?preview=${params.preview}` : path;
+    const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+    const target = isDev && params.preview ? `${path}?preview=${encodeURIComponent(params.preview)}` : path;
     router.push(target as any);
   };
 
