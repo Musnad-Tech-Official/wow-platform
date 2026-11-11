@@ -162,14 +162,6 @@ export function CustomerRateOfferScreen({
     if (!shouldLookupExistingRating || !apiContext.userId) return;
 
     const lookupIdentity = `${apiContext.userId}:${offerId}`;
-    if (lookupIdentityRef.current !== lookupIdentity) {
-      lookupIdentityRef.current = lookupIdentity;
-      isUserEditedRef.current = false;
-      hasHydratedRef.current = false;
-      setExistingRating(null);
-      setConformity(null);
-      setExperienceStars(null);
-    }
 
     // A different lookupKey already yields 'loading' until this request settles.
     // Avoid synchronous setState inside the effect (React 19 lint rule).
@@ -181,6 +173,15 @@ export function CustomerRateOfferScreen({
         const resolvedRating = await lookupMyRatingForOffer(client, offerId);
         if (isCancelled) return;
 
+        // Reset stale form state only after the async request resolves, keeping
+        // React effects free of synchronous state updates.
+        if (lookupIdentityRef.current !== lookupIdentity) {
+          lookupIdentityRef.current = lookupIdentity;
+          isUserEditedRef.current = false;
+          hasHydratedRef.current = false;
+          setConformity(null);
+          setExperienceStars(null);
+        }
         setExistingRating(resolvedRating);
         if (resolvedRating && !hasHydratedRef.current) {
           hasHydratedRef.current = true;
