@@ -423,7 +423,11 @@ test('11. Review Finding 1: Delayed-Query Hydration and Edit Preservation', asyn
   // 1. Verify screen tracks user edits and hydration state with refs
   assert.match(rateScreenSrc, /isUserEditedRef\s*=\s*useRef\(false\)/, 'Tracks user interactions');
   assert.match(rateScreenSrc, /hasHydratedRef\s*=\s*useRef\(isPreHydrated\)/, 'Tracks hydration state');
-  assert.match(rateScreenSrc, /do NOT overwrite user edits/i, 'Explicit protection against late query overwrite');
+  assert.match(
+    rateScreenSrc,
+    /if \(!isUserEditedRef\.current\) \{[\s\S]*?setConformity\(resolvedRating\.conformity\)/,
+    'Existing rating hydrates only when the user has not edited the form',
+  );
 
   // 2. Behavioral verification of the hydration state machine:
   function simulateHydrationState(initialEdits, delayedRating) {
