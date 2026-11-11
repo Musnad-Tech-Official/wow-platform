@@ -102,21 +102,24 @@ test('BATCH-02: Dedicated routes exist and are wired correctly', () => {
     'apps/merchant/src/app/offers/details.tsx',
   ];
 
-  for (const r of routes) {
-    assert(existsSync(resolve(repoRoot, r)), `Route file missing: ${r}`);
-    const content = read(r);
-    assert(content.includes('MerchantRouteGate'), `${r} must be protected by MerchantRouteGate`);
-    assert(content.includes('ActiveBusinessProvider'), `${r} must be scoped with ActiveBusinessProvider`);
-  }
+  for (const r of routes) assert(existsSync(resolve(repoRoot, r)), `Route file missing: ${r}`);
 
-  // Details route must have OfferDetailsScreen
+  // Shared Expo Router layout protects all child editor routes and prevents
+  // the provider being remounted for every step (which lost unsaved input).
+  const editorLayoutPath = 'apps/merchant/src/app/offers/editor/_layout.tsx';
+  assert(existsSync(resolve(repoRoot, editorLayoutPath)), 'Shared editor layout missing');
+  const editorLayout = read(editorLayoutPath);
+  for (const symbol of ['MerchantRouteGate','ActiveBusinessProvider','OfferEditorProvider','Slot']) {
+    assert(editorLayout.includes(symbol), `Editor layout missing ${symbol}`);
+  }
+  for (const r of routes.filter((value) => value.includes('/editor/'))) {
+    const route = read(r);
+    assert(!route.includes('<OfferEditorProvider>'), `Do not remount draft in ${r}`);
+  }
   const detailsRoute = read('apps/merchant/src/app/offers/details.tsx');
   assert(detailsRoute.includes('OfferDetailsScreen'));
-
-  // Editor index must wrap with OfferEditorProvider
-  const editorIndex = read('apps/merchant/src/app/offers/editor/index.tsx');
-  assert(editorIndex.includes('OfferEditorProvider'));
-  assert(editorIndex.includes('OfferDefinitionScreen'));
+  assert(detailsRoute.includes('MerchantRouteGate'));
+  assert(read('apps/merchant/src/app/offers/editor/index.tsx').includes('OfferDefinitionScreen'));
 });
 
 // 3. Offer Editor Stepper
@@ -249,7 +252,7 @@ test('BATCH-02: MER-06 Offer Details handles independent review and customer vis
   // Independent Review Status
   assert(det.includes('حالة مراجعة المحتوى'), 'Content review status section missing');
   // Independent Customer Visibility
-  assert(det.includes('الظهور الحالي'), 'Customer visibility section missing');
+  assert(det.includes('ظهور النسخة المحددة'), 'Selected-version visibility section missing');
   // Version switch
   assert(det.includes('نسخة منشورة'), 'Published version tab missing');
   assert(det.includes('نسخة معلّقة'), 'Pending revision tab missing');
@@ -298,4 +301,49 @@ test('BATCH-02: @wow/api exports category_id and evidence RPC hooks', () => {
   const apiIndex = read('packages/api/src/index.ts');
   assert(apiIndex.includes('useOfferEvidenceDraft'), 'useOfferEvidenceDraft export missing from index');
   assert(apiIndex.includes('useSaveOfferEvidenceDraft'), 'useSaveOfferEvidenceDraft export missing from index');
+});
+
+test('BATCH-02: Navigation waits for saved draft and shared state survives route transitions', () => {
+  const state = read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
+  assert(state.includes('useGlobalSearchParams'), 'Shared layout must read current route params');
+  assert(state.includes('await saveDraftMutation.mutateAsync'), 'Draft persistence must be awaited');
+  assert(state.includes('documents: draft.evidenceFile?.isUploaded'), 'Evidence removal must persist as empty list');
+  assert(!state.includes('if (payload.branches.length > 0)'), 'Partial drafts must be stored without branches');
+
+  for (const screen of ['OfferDefinitionScreen','OfferPricingScreen','OfferBranchesScreen','OfferEvidenceScreen']) {
+    const s = read(`apps/merchant/src/features/offers/components/${screen}.tsx`);
+    assert(s.includes('const savedOfferId = await saveDraft()'), `${screen}: wait for draft save`);
+    assert(s.includes('if (!savedOfferId) return;'), `${screen}: failed save must block next step`);
+    assert(!s.includes('void saveDraft();'), `${screen}: no fire-and-forget navigation saves`);
+  }
+});
+
+test('BATCH-02: Offer API never silently drops category or claims evidence was saved', () => {
+  const api = read('packages/api/src/offers.ts');
+  assert(!api.includes('fallbackPayload'), 'Never silently drop merchant category');
+  assert(!api.includes('return true;\n    }\n    throw error;'), 'Missing RPC must never be treated as successful save');
+  assert(api.includes('Offer evidence was not confirmed as saved'), 'Require positive evidence save acknowledgment');
+  assert(api.includes('getOfferEligibleCategories'), 'Category list must be business-authorized');
+});
+
+test('BATCH-02: Server enforces category, versioned evidence, partial drafts and proof at submission', () => {
+  const sql = read('supabase/migrations/20261111120000_merchant_offer_category_and_evidence.sql');
+  for (const contract of [
+    'NOT BETWEEN 0 AND 50',
+    'public.business_categories bc',
+    'public.wow_get_offer_eligible_categories',
+    'offer_version_id',
+    'validate_evidence_refs',
+    'private_evidence',
+    'Evidence required for reference price or clearance claim',
+  ]) assert(sql.includes(contract), `Migration missing: ${contract}`);
+});
+
+test('BATCH-02: Details uses persisted status, not hard-coded preview values', () => {
+  const det = read('apps/merchant/src/features/offers/components/OfferDetailsScreen.tsx');
+  assert(det.includes('useBusinessOffers'), 'Details must load authoritative offer state');
+  assert(det.includes('offer?.status'), 'Details must inspect actual offer status');
+  assert(det.includes('offer.current_version_id'), 'Visibility must be version-aware');
+  assert(!det.includes('setIsOfferActive'), 'Do not invent local offer status');
+  assert(!det.includes('OF-101 • إلكترونيات'), 'Do not show hard-coded offer number/category');
 });
