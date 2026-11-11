@@ -1,16 +1,18 @@
 import { Platform, Pressable, View } from 'react-native';
-import { ChevronLeft, FileText, Heart } from 'lucide-react-native';
+import { ChevronLeft, FileText, Heart, Star } from 'lucide-react-native';
 import { useTheme, useWowColors, wowBrandColors } from '@wow/theme';
 import { AppText } from '@wow/ui';
 
 export interface CustomerActivitySectionProps {
   onPressComplaints: () => void;
   onPressFavorites: () => void;
+  onPressRatings?: () => void;
 }
 
 export function CustomerActivitySection({
   onPressComplaints,
   onPressFavorites,
+  onPressRatings,
 }: CustomerActivitySectionProps) {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
@@ -178,6 +180,78 @@ export function CustomerActivitySection({
             strokeWidth={2}
           />
         </Pressable>
+
+        {/* Separator & Row 3: My Ratings (when handler provided) */}
+        {onPressRatings && (
+          <>
+            <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: 16 }} />
+
+            <Pressable
+              {...rtlWebProps}
+              onPress={onPressRatings}
+              accessibilityRole="button"
+              accessibilityLabel="تقييماتي للعروض"
+              accessibilityHint="ينتقل إلى سجل تقييمات مطابقة العروض"
+              style={({ pressed }) => ({
+                minHeight: 56,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                backgroundColor: pressed
+                  ? isDark
+                    ? 'rgba(255,255,255,0.06)'
+                    : 'rgba(0,0,0,0.04)'
+                  : 'transparent',
+              })}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: isDark ? '#2D2D32' : '#F1F5F9',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Star size={18} color={wowBrandColors.yellow} strokeWidth={2} />
+                </View>
+
+                <View style={{ flex: 1, alignItems: 'flex-start', gap: 2 }}>
+                  <AppText
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: colors.foreground,
+                      textAlign: 'right',
+                    }}
+                  >
+                    تقييماتي للعروض
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    muted
+                    style={{
+                      fontSize: 12,
+                      textAlign: 'right',
+                    }}
+                  >
+                    سجل تقييمات مطابقة العروض والتجربة
+                  </AppText>
+                </View>
+              </View>
+
+              <ChevronLeft
+                size={18}
+                color={isDark ? '#94A3B8' : '#64748B'}
+                strokeWidth={2}
+              />
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );

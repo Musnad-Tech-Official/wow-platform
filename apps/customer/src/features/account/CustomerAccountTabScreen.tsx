@@ -140,6 +140,10 @@ export function CustomerAccountTabScreen({
     router.push('/complaints');
   }
 
+  function handleRatingsNavigation() {
+    router.push('/ratings');
+  }
+
   function handlePrivacyRequestAction(title: string) {
     setNoticeTone('info');
     setNoticeMessage(`ميزة "${title}" قيد التجهيز الإلكتروني وفق المتطلبات التنظيمية وسياسات الاحتفاظ المعتمدة.`);
@@ -279,6 +283,7 @@ export function CustomerAccountTabScreen({
               <CustomerActivitySection
                 onPressComplaints={handleComplaintsNavigation}
                 onPressFavorites={handleFavoritesNavigation}
+                onPressRatings={handleRatingsNavigation}
               />
 
               {/* Section 3: Account Settings ("إعدادات الحساب") */}
