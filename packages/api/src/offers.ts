@@ -188,6 +188,25 @@ function requireJsonArray<T>(data: unknown, rpc: string): T[] {
   return data as T[];
 }
 
+export interface OfferEligibleCategory {
+  id: string;
+  name_ar: string;
+  name_en: string | null;
+  parent_id: string | null;
+}
+
+export async function getOfferEligibleCategories(
+  client: WowSupabaseClient,
+  businessId: string,
+  signal?: AbortSignal,
+): Promise<OfferEligibleCategory[]> {
+  let request = client.rpc('wow_get_offer_eligible_categories', { p_business_id: businessId });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (error) throw error;
+  return requireJsonArray<OfferEligibleCategory>(data, 'wow_get_offer_eligible_categories');
+}
+
 export async function getBusinessOffers(
   client: WowSupabaseClient,
   businessId: string,
