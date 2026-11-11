@@ -53,6 +53,8 @@ export {
   useBusinessOfferVersions,
   useOfferVersions,
   useOfferVersionDetails,
+  useOfferEvidenceDraft,
+  useSaveOfferEvidenceDraft,
   useCreateOffer,
   useSaveOfferDraft,
   useSubmitOffer,

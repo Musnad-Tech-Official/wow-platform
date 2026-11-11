@@ -12,6 +12,9 @@ import {
   saveOfferDraft,
   setOfferAvailability,
   submitOffer,
+  getOfferEvidenceDraft,
+  saveOfferEvidenceDraft,
+  type SaveOfferEvidenceInput,
   type AdminDecideOfferInput,
   type AdminOfferListOptions,
   type CreateOfferInput,
@@ -53,6 +56,32 @@ export function useOfferVersionDetails(versionId?: string | null) {
     queryFn: ({ signal }) => {
       if (!versionId) throw new Error('Offer version ID required.');
       return getOfferVersionDetails(requireWowApiSession(context).client, versionId, signal);
+    },
+  });
+}
+
+export function useOfferEvidenceDraft(offerId?: string | null) {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: wowQueryKeys.offers.evidence(offerId ?? null, context.userId),
+    enabled: !!context.userId && !!offerId,
+    queryFn: ({ signal }) => {
+      if (!offerId) throw new Error('Offer ID required.');
+      return getOfferEvidenceDraft(requireWowApiSession(context).client, offerId, signal);
+    },
+  });
+}
+
+export function useSaveOfferEvidenceDraft() {
+  const context = useWowApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SaveOfferEvidenceInput) =>
+      saveOfferEvidenceDraft(requireWowApiSession(context).client, input),
+    onSuccess: async (_result, input) => {
+      await queryClient.invalidateQueries({
+        queryKey: wowQueryKeys.offers.evidence(input.offerId, context.userId),
+      });
     },
   });
 }

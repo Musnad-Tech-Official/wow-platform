@@ -41,6 +41,12 @@ export const wowIllustrations = {
     statusMascot: require("../assets/illustrations/merchant/WOW_MER-02-05_STATUS_MASCOT.png"),
     dashboardMascot: require("../assets/illustrations/merchant/WOW_MER-03_DASHBOARD_MASCOT.png"),
     offersMascot: require("../assets/illustrations/merchant/WOW_MER-04_OFFERS_MASCOT_SCENE.png"),
+    offerDefinitionThinking: require("../assets/illustrations/merchant/MER-05-01_WOW_OFFICIAL_THINKING.webp"),
+    offerPricingGuide: require("../assets/illustrations/merchant/MER-05-02_WOW_OFFICIAL_GUIDE.webp"),
+    offerBranchesCalendar: require("../assets/illustrations/merchant/MER-05-03_WOW_OFFICIAL_BRANCHES_CALENDAR.png"),
+    offerEvidencePrivacy: require("../assets/illustrations/merchant/MER-05-04_WOW_OFFICIAL_PRIVACY.webp"),
+    offerReviewBase: require("../assets/illustrations/merchant/MER-05-05_WOW_OFFICIAL_BASE.webp"),
+    offerDetailsReview: require("../assets/illustrations/merchant/MER-06_WOW_OFFICIAL_REVIEW.webp"),
   },
   admin: {
     beaconEmpty: require("../assets/illustrations/admin/beacon-empty.webp"),
