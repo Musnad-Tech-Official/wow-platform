@@ -60,8 +60,9 @@ export function getRoleBadgeTone(role?: AdminRole | null): 'primary' | 'warning'
  * wow_private.has_admin_permission(false), so isAuthorized=true grants review capability.
  */
 export function canReviewItems(role?: AdminRole | null, isAuthorized?: boolean): boolean {
-  if (isAuthorized) return true;
-  return role === 'super_admin' || role === 'reviewer';
+  // A generic administrative read permission (which includes 'viewer') does not
+  // prove approval/review mutation privileges. Require a verified review role.
+  return isAuthorized === true && (role === 'super_admin' || role === 'reviewer');
 }
 
 /**
