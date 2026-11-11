@@ -171,7 +171,7 @@ export function AdminAccessScreen({
                     </AppText>
                   </View>
                   <AppText className="text-sm text-[#7F1D1D] dark:text-[#FECACA] font-tajawal leading-relaxed">
-                    تمت مصادقة الهوية عبر Clerk بنجاح، ولكن الحساب الحالي ({userEmail || 'المسجل'}) ليس لديه عضوية إدارية فعالة في قاعدة البيانات (wow_private.admin_members).
+                    الحساب الحالي ({userEmail || 'المسجل'}) لا يمتلك صلاحية إدارية فعّالة. تواصل مع مسؤول النظام إذا كان الوصول مطلوباً.
                   </AppText>
                   <AppText variant="caption" className="text-[#991B1B] dark:text-[#F87171] font-tajawal-bold">
                     قاعدة الأمان: تسجيل الدخول وحده لا يمنح أي امتيازات إدارية دون تفويض الخادم.
@@ -209,7 +209,7 @@ export function AdminAccessScreen({
                     </AppText>
                   </View>
                   <AppText muted className="text-sm font-tajawal leading-relaxed">
-                    {errorMessage || 'حدث خطأ في الاتصال بخادم قاعدة البيانات أو انقطعت الجلسة. يتم الإغلاق الآمن للمحتوى المحمي.'}
+                    {__DEV__ && errorMessage ? errorMessage : 'تعذّر التحقق من الصلاحيات حالياً. يرجى إعادة المحاولة لاحقاً.'}
                   </AppText>
                 </View>
 
@@ -247,6 +247,8 @@ export function AdminAccessScreen({
                     onPress={() => void handleSSO('oauth_facebook')}
                   />
                 </View>
+
+                {ssoLoading && <ActivityIndicator color="#FACC15" />}
 
                 <View className="pt-2">
                   <AppText variant="caption" muted className="text-center font-tajawal text-xs">
