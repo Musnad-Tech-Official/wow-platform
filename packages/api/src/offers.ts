@@ -188,6 +188,24 @@ function requireJsonArray<T>(data: unknown, rpc: string): T[] {
   return data as T[];
 }
 
+export interface OfferReviewNote {
+  decision: OfferReviewDecision;
+  reason: string | null;
+  createdAt: string;
+}
+
+export async function getOfferReviewNotes(
+  client: WowSupabaseClient,
+  versionId: string,
+  signal?: AbortSignal,
+): Promise<OfferReviewNote[]> {
+  let request = client.rpc('wow_get_offer_review_notes', { p_version_id: versionId });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (error) throw error;
+  return requireJsonArray<OfferReviewNote>(data, 'wow_get_offer_review_notes');
+}
+
 export interface OfferEligibleCategory {
   id: string;
   name_ar: string;
