@@ -42,7 +42,6 @@ interface AdminShellProps {
 
 export function AdminShell({
   currentRole,
-  userEmail,
   userName = 'المسؤول المخوّل',
   onSignOut,
   children,
