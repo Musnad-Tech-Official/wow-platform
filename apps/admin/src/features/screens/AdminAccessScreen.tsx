@@ -51,6 +51,8 @@ export function AdminAccessScreen({
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+      } else {
+        setSsoError('لم تكتمل المصادقة. لم تُفعّل جلسة دخول جديدة.');
       }
     } catch (err) {
       setSsoError(err instanceof Error ? err.message : 'تعذر إتمام تسجيل الدخول عبر مزود الهوية.');
@@ -108,7 +110,7 @@ export function AdminAccessScreen({
           <View>
             {/* Top Logo & Restricted Badge */}
             <View className="flex-row items-center justify-between mb-8 pb-4 border-b border-[#E2E8F0] dark:border-[#27272A]">
-              <View className="flex-row items-center gap-3">
+              <View className="flex-row items-center gap-3 min-w-0 flex-shrink">
                 <Image
                   source={isDark ? wowBrand.logoPrimaryDark : wowBrand.logoPrimary}
                   contentFit="contain"
@@ -239,7 +241,7 @@ export function AdminAccessScreen({
                   />
 
                   <AppButton
-                    title="تسجيل الدخول المؤسسي (SSO / Clerk)"
+                    title="المتابعة باستخدام Facebook"
                     variant="secondary"
                     disabled={ssoLoading}
                     onPress={() => void handleSSO('oauth_facebook')}
