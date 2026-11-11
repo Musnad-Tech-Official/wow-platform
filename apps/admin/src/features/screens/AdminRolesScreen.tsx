@@ -40,8 +40,8 @@ export function AdminRolesScreen({
   const isDark = resolvedTheme === 'dark';
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMemberId, setSelectedMemberId] = useState<string>('USR-112');
-  const [proposedRole, setProposedRole] = useState<AdminRole | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(isFixture ? 'USR-112' : 'CURRENT-SESSION');
+  const [proposedRole, setProposedRole] = useState<AdminRole | null>(isFixture ? 'reviewer' : null);
   const [justificationReason, setJustificationReason] = useState('');
 
   // Truthful data boundary:
@@ -153,7 +153,7 @@ export function AdminRolesScreen({
               حسابات الإدارة ونطاقها
             </AppText>
             <AppText variant="caption" muted className="font-tajawal text-xs text-right">
-              عرض المشرفين المعتمدين وتفويضاتهم التشغيلية
+              معلومات الجلسة الحالية؛ دليل الأعضاء الكامل يتطلب عقد خادم مصرحاً
             </AppText>
           </View>
 
@@ -174,6 +174,14 @@ export function AdminRolesScreen({
             />
           </View>
         </View>
+
+        {filteredMembers.length === 0 && (
+          <View className="py-8 items-center">
+            <AppText variant="caption" muted className="text-sm text-center">
+              لا توجد حسابات مطابقة لمعايير البحث.
+            </AppText>
+          </View>
+        )}
 
         {/* 1. Desktop Layout (Table) - Hidden on Mobile (< md) */}
         <View className="hidden md:flex w-full overflow-x-auto">
@@ -325,7 +333,7 @@ export function AdminRolesScreen({
               نطاق الموظف المحدد
             </AppText>
             <AppText variant="caption" muted className="font-tajawal text-xs text-right">
-              بيانات الصلاحية الفعلية المقيدة بالخادم
+              الدور والنطاق المعروضان بحسب المعلومات المتاحة لهذه الجلسة
             </AppText>
           </View>
 
