@@ -373,8 +373,8 @@ export function OfferBranchesScreen() {
               <TextInput
                 value={draft.endsAt ? draft.endsAt.slice(0, 10) : ''}
                 onChangeText={(text) => {
-                  // ISO format: YYYY-MM-DD
-                  updateDraft({ endsAt: text ? `${text}T23:59:59.000Z` : '' });
+                  // Keep the partially typed date as-is; serialize on save only.
+                  updateDraft({ endsAt: text });
                 }}
                 placeholder="2026-12-15"
                 placeholderTextColor={isDark ? '#71717A' : '#94A3B8'}
@@ -402,7 +402,7 @@ export function OfferBranchesScreen() {
               <TextInput
                 value={draft.startsAt ? draft.startsAt.slice(0, 10) : ''}
                 onChangeText={(text) => {
-                  updateDraft({ startsAt: text ? `${text}T00:00:00.000Z` : '' });
+                  updateDraft({ startsAt: text });
                 }}
                 placeholder="2026-11-15"
                 placeholderTextColor={isDark ? '#71717A' : '#94A3B8'}
