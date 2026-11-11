@@ -19,6 +19,9 @@ import {
   useOfferVersions,
   useSetOfferAvailability,
   useBusinessBranches,
+  useBusinessOffers,
+  useOfferVersionDetails,
+  usePublicCategories,
   type OfferVersion,
 } from '@wow/api';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
@@ -91,7 +94,7 @@ export function OfferDetailsScreen() {
     (searchParams.preview === '1' ||
       (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 
-  const offerId = searchParams.offerId || 'dev-synthetic-offer-preview';
+  const offerId = searchParams.offerId || null;
   const effectiveBusinessId = searchParams.businessId || activeBusinessId || null;
 
   const [selectedVersionTab, setSelectedVersionTab] = useState<'published' | 'pending'>(
@@ -106,6 +109,9 @@ export function OfferDetailsScreen() {
     isSyntheticPreview ? null : offerId
   );
   const { data: serverBranches = [] } = useBusinessBranches(effectiveBusinessId);
+  const { data: serverOffers = [] } = useBusinessOffers(isSyntheticPreview ? null : effectiveBusinessId);
+  const { data: categories = [] } = usePublicCategories();
+  const offer = serverOffers.find((item) => item.id === offerId) ?? null;
 
   const setAvailabilityMutation = useSetOfferAvailability();
 
@@ -135,20 +141,24 @@ export function OfferDetailsScreen() {
     return versions[0] ?? null;
   }, [selectedVersionTab, pendingVersion, publishedVersion, versions]);
 
-  const branches = useMemo(() => {
-    if (isSyntheticPreview) return PREVIEW_BRANCHES_FIXTURE;
-    return serverBranches;
-  }, [isSyntheticPreview, serverBranches]);
+  const { data: activeVersionDetails } = useOfferVersionDetails(
+    isSyntheticPreview ? null : activeVersion?.id
+  );
+  const branches = useMemo(() => isSyntheticPreview ? PREVIEW_BRANCHES_FIXTURE : serverBranches,
+    [isSyntheticPreview, serverBranches]);
+  const versionBranchIds = activeVersionDetails?.branches.map((branch) => branch.branch_id) ?? [];
+  const participatingBranches = isSyntheticPreview
+    ? PREVIEW_BRANCHES_FIXTURE.filter((branch) => branch.status === 'approved')
+    : branches.filter((branch) => versionBranchIds.includes(branch.id));
+  const branchName = participatingBranches.map((branch) => branch.name).join('، ') || '—';
+  const categoryName = categories.find((category) => category.id === activeVersion?.category_id)?.name_ar || '—';
 
-  const branchName = useMemo(() => {
-    if (branches.length > 0) {
-      return branches[0].name;
-    }
-    return 'فرع التحرير';
-  }, [branches]);
-
-  // Operational State
-  const [isOfferActive, setIsOfferActive] = useState(true);
+  // The server owns operational state; never invent an active offer locally.
+  const isOfferActive = isSyntheticPreview
+    ? true
+    : offer?.status === 'active' && offer.merchant_available === true;
+  const canToggleAvailability = isSyntheticPreview ||
+    Boolean(offer && offer.current_version_id && ['active','paused'].includes(offer.status));
 
   // Authoritative Content Review Status
   const reviewStatus = (activeVersion?.review_status as string) || 'pending';
@@ -193,37 +203,48 @@ export function OfferDetailsScreen() {
 
   // Independent Public Visibility Status
   // Content review and customer visibility are strictly independent!
+  const now = Date.now();
+  const validWindow = Boolean(
+    activeVersion?.starts_at && activeVersion.ends_at &&
+    new Date(activeVersion.starts_at).getTime() <= now &&
+    new Date(activeVersion.ends_at).getTime() > now
+  );
+  const hasApprovedBranch = isSyntheticPreview ||
+    participatingBranches.some((branch) => branch.status === 'approved');
+  const currentApprovedVersion = isSyntheticPreview ||
+    (offer?.current_version_id != null && offer.current_version_id === activeVersion?.id);
   const isVisibleToCustomers =
-    activeVersion?.review_status === 'approved' && isOfferActive;
+    activeVersion?.review_status === 'approved' &&
+    currentApprovedVersion && isOfferActive && validWindow && hasApprovedBranch;
 
   const visibilityReason = useMemo(() => {
-    const status = (activeVersion?.review_status as string) || 'pending';
-    if (status === 'pending') {
-      return 'بانتظار استكمال مراجعة محتوى العرض من قبل الإدارة.';
-    }
-    if (status === 'needs_changes') {
-      return 'يتطلب العرض استكمال التعديلات المطلوبة قبل نشره.';
-    }
-    if (status === 'rejected') {
-      return 'العرض مرفوض من الإدارة.';
-    }
-    if (!isOfferActive) {
-      return 'العرض متوقف مؤقتاً برغبة التاجر.';
-    }
-    return 'العرض معتمد من الإدارة ومؤهل للظهور للعملاء وفق الشروط.';
-  }, [activeVersion?.review_status, isOfferActive]);
+    const status = activeVersion?.review_status;
+    if (!activeVersion) return 'لا توجد بيانات عرض مؤكدة بعد.';
+    if (status === 'pending') return 'هذه النسخة ما زالت قيد مراجعة الإدارة.';
+    if (status === 'draft') return 'هذه النسخة مسودة غير مرسلة للمراجعة.';
+    if (status === 'rejected') return 'هذه النسخة لم تعتمدها الإدارة.';
+    if (!currentApprovedVersion) return 'هذه النسخة ليست الإصدار المعتمد حاليًا.';
+    if (!isOfferActive) return 'العرض غير متاح حاليًا بحسب حالته الفعلية.';
+    if (!validWindow) return 'المدة المحددة للعرض لم تبدأ بعد أو انتهت.';
+    if (!hasApprovedBranch) return 'لا يوجد فرع مشارك معتمد لهذه النسخة.';
+    return 'النسخة المعتمدة مؤهلة للظهور بحسب بيانات التوافر الحالية.';
+  }, [activeVersion, currentApprovedVersion, isOfferActive, validWindow, hasApprovedBranch]);
 
   const handleToggleAvailability = async () => {
+    if (!canToggleAvailability || !offerId) {
+      setFeedback('لا يمكن تغيير التوافر في حالة العرض الحالية.');
+      return;
+    }
     try {
       const nextActive = !isOfferActive;
-      if (!isSyntheticPreview && offerId) {
+      if (!isSyntheticPreview) {
         await setAvailabilityMutation.mutateAsync({
           offerId,
           available: nextActive,
           paused: !nextActive,
         });
       }
-      setIsOfferActive(nextActive);
+      // React Query invalidates the merchant offer cache on success.
       setFeedback(nextActive ? 'تم استئناف توفر العرض للعملاء.' : 'تم إيقاف توفر العرض مؤقتاً.');
     } catch (err: any) {
       setFeedback(err?.message || 'تعذر تغيير حالة توفر العرض.');
@@ -324,7 +345,7 @@ export function OfferDetailsScreen() {
             {activeVersion?.final_price || '—'} {activeVersion?.currency || 'ريال يمني'}
           </AppText>
           <AppText variant="caption" muted className="text-xs">
-            OF-101 • إلكترونيات
+            {offerId ? offerId.slice(0, 8).toUpperCase() : '—'} • {categoryName}
           </AppText>
         </View>
 
@@ -389,7 +410,7 @@ export function OfferDetailsScreen() {
               </AppText>
             </View>
             <AppText variant="body" className="font-tajawal text-xs text-right">
-              الظهور الحالي
+              ظهور النسخة المحددة
             </AppText>
           </View>
         </View>
@@ -423,7 +444,7 @@ export function OfferDetailsScreen() {
 
           <View className="flex-row items-center justify-between py-1 border-b border-border/40">
             <AppText className="font-tajawal-bold text-xs">
-              {activeVersion?.starts_at ? activeVersion.starts_at.slice(0, 10) : '2026-10-20'}
+              {activeVersion?.starts_at ? activeVersion.starts_at.slice(0, 10) : '—'}
             </AppText>
             <AppText variant="caption" muted className="text-xs">
               البداية
@@ -432,7 +453,7 @@ export function OfferDetailsScreen() {
 
           <View className="flex-row items-center justify-between py-1">
             <AppText className="font-tajawal-bold text-xs">
-              {activeVersion?.ends_at ? activeVersion.ends_at.slice(0, 10) : '2026-11-25'}
+              {activeVersion?.ends_at ? activeVersion.ends_at.slice(0, 10) : '—'}
             </AppText>
             <AppText variant="caption" muted className="text-xs">
               النهاية
@@ -440,7 +461,7 @@ export function OfferDetailsScreen() {
           </View>
 
           <AppText variant="caption" muted className="text-right text-[11px] mt-1">
-            {activeVersion?.terms || 'حسب المواصفات المدرجة في العرض، لدى الفرع المشارك.'}
+            {activeVersion?.terms || 'لم تُدرج شروط إضافية.'}
           </AppText>
         </View>
       </View>
@@ -545,7 +566,7 @@ export function OfferDetailsScreen() {
             accessibilityRole="button"
             accessibilityLabel={isOfferActive ? 'إيقاف التوفر' : 'استئناف التوفر'}
             onPress={handleToggleAvailability}
-            disabled={setAvailabilityMutation.isPending}
+            disabled={setAvailabilityMutation.isPending || !canToggleAvailability}
             className="flex-1 min-h-[48px] rounded-xl items-center justify-center flex-row gap-2 active:opacity-85 shadow-sm"
             style={{ backgroundColor: '#0F172D' }}
           >
