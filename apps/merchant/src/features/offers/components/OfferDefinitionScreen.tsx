@@ -49,12 +49,14 @@ export function OfferDefinitionScreen() {
   ];
 
   const handleNext = async () => {
-    if (!validateStep(1)) return;
-    void saveDraft();
+    if (isSaving || businessConflict || !validateStep(1)) return;
+    // Never navigate until server-side draft/evidence persistence succeeds.
+    const savedOfferId = await saveDraft();
+    if (!savedOfferId) return;
     router.push({
       pathname: '/offers/editor/pricing',
       params: {
-        ...(offerId ? { offerId } : {}),
+        ...(!isSyntheticPreview ? { offerId: savedOfferId } : {}),
         ...(businessId ? { businessId } : {}),
         ...(isSyntheticPreview ? { preview: '1' } : {}),
       },
