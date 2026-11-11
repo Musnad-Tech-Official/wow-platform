@@ -347,3 +347,47 @@ test('BATCH-02: Details uses persisted status, not hard-coded preview values', (
   assert(!det.includes('setIsOfferActive'), 'Do not invent local offer status');
   assert(!det.includes('OF-101 • إلكترونيات'), 'Do not show hard-coded offer number/category');
 });
+
+test('BATCH-02: Native evidence picker is present for Android/iOS and stays private', () => {
+  const picker = read('apps/merchant/src/features/business/components/EvidencePicker.tsx');
+  const packageJson = JSON.parse(read('apps/merchant/package.json'));
+  const lockfile = read('pnpm-lock.yaml');
+  assert.equal(packageJson.dependencies['expo-document-picker'], '~57.0.3');
+  assert(lockfile.includes('expo-document-picker@57.0.3'));
+  assert(picker.includes('Platform.OS === \'ios\' || Platform.OS === \'android\''));
+  assert(picker.includes('DocumentPicker.getDocumentAsync'));
+  assert(picker.includes('copyToCacheDirectory: true'));
+  assert(picker.includes('new ExpoFile(asset.uri).arrayBuffer()'));
+  assert(picker.includes('bytes.byteLength !== asset.size'), 'Reject short reads of native documents');
+  const evidence = read('apps/merchant/src/features/offers/components/OfferEvidenceScreen.tsx');
+  assert(evidence.includes("kind: 'offerEvidence'"));
+  const media = read('packages/api/src/media.ts');
+  assert(media.includes("kind: 'offerEvidence'"));
+  assert(media.includes('offer-verifications/'));
+});
+
+test('BATCH-02: Availability is version-scoped and applied only on admin approval', () => {
+  const db = read('supabase/migrations/20261111231000_merchant_offer_draft_availability_on_approval.sql');
+  const context = read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
+  const api = read('packages/api/src/offers.ts');
+  assert(db.includes('merchant_available_requested'));
+  assert(db.includes('merchant_available=(SELECT merchant_available_requested'));
+  assert(context.includes('merchant_available_requested: draft.merchantAvailable'));
+  assert(context.includes('merchantAvailable: v.merchant_available_requested'));
+  assert(api.includes('merchant_available_requested?: boolean'));
+});
+
+test('BATCH-02: Private evidence ACL is separate from owner-only verification', () => {
+  const migration = read('supabase/migrations/20261111230000_merchant_offer_private_evidence_access_and_review_notes.sql');
+  const api = read('packages/api/src/offers.ts');
+  const details = read('apps/merchant/src/features/offers/components/OfferDetailsScreen.tsx');
+  assert(migration.includes("v_parts[1]='offer-verifications'"));
+  assert(migration.includes('wow_private.can_manage_offer_business'));
+  assert(migration.includes('wow_private.is_business_owner'));
+  assert(migration.includes('validate_offer_evidence_refs'));
+  assert(migration.includes('storage.objects'));
+  assert(migration.includes('wow_get_offer_review_notes'));
+  assert(api.includes('getOfferReviewNotes'));
+  assert(details.includes('useOfferReviewNotes'));
+  assert(details.includes('latestReviewNote'));
+});
