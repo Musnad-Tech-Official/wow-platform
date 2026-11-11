@@ -12,4 +12,6 @@ pnpm typecheck
 pnpm lint
 pnpm test:query
 pnpm test:integration
+node scripts/test-customer-auth-completion.cjs
+node scripts/test-customer-offer-ratings.cjs
 printf '\nStatic tests passed. Web/native visual, keyboard, screen-reader, and physical-device acceptance are separate gates.\n'

@@ -14,7 +14,9 @@ import {
   Info,
   Package,
   Share2,
+  Star,
 } from 'lucide-react-native';
+import { useAuth } from '@wow/auth';
 import { usePublicOffer } from '@wow/api';
 import { useTheme, useWowColors, useWowViewport } from '@wow/theme';
 import { AppText, DataState } from '@wow/ui';
@@ -44,7 +46,10 @@ export function CustomerOfferDetailsScreen({ offerId, mockOffer }: CustomerOffer
   // 1. Strict UUID validation
   const isUuidValid = isValidUuid(offerId);
 
-  // 2. Fetch live public offer data
+  // 2. Auth session check for gated actions
+  const { isSignedIn } = useAuth();
+
+  // 3. Fetch live public offer data
   const offerQuery = usePublicOffer(isUuidValid ? offerId : null);
   const offer = mockOffer ?? offerQuery.data;
 
@@ -54,6 +59,22 @@ export function CustomerOfferDetailsScreen({ offerId, mockOffer }: CustomerOffer
       router.back();
     } else {
       router.replace('/discover');
+    }
+  }
+
+  function handleRateOffer() {
+    if (!offer) return;
+    if (isSignedIn) {
+      router.push(`/offer/${offer.id}/rate`);
+    } else {
+      router.push({
+        pathname: '/sign-in',
+        params: {
+          returnTo: `/offer/${offer.id}/rate`,
+          offerId: offer.id,
+          action: 'rate',
+        },
+      });
     }
   }
 
@@ -636,6 +657,82 @@ export function CustomerOfferDetailsScreen({ offerId, mockOffer }: CustomerOffer
     />
   );
 
+  const renderOfferAssessmentSection = () => {
+    if (!offer) return null;
+
+    return (
+      <View
+        style={{
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+          padding: 16,
+          gap: 12,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Star size={18} color="#FACC15" fill="#FACC15" />
+          <AppText
+            variant="heading"
+            style={{
+              fontSize: 15,
+              fontWeight: '700',
+              color: colors.foreground,
+              textAlign: 'right',
+            }}
+          >
+            تقييم مطابقة العرض
+          </AppText>
+        </View>
+
+        <AppText
+          variant="caption"
+          muted
+          style={{
+            fontSize: 13,
+            lineHeight: 20,
+            color: colors.mutedForeground,
+            textAlign: 'right',
+          }}
+        >
+          هل استفدت من هذا العرض؟ شاركنا تقييم مدى التزام الفرع ومطابقة الخدمة لما هو معلن للمساعدة في قياس الجودة.
+        </AppText>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="تقييم مطابقة هذا العرض"
+          accessibilityHint="ينقلك إلى صفحة تقييم العرض والتجربة"
+          onPress={handleRateOffer}
+          style={({ pressed }) => ({
+            minHeight: 48,
+            borderRadius: 12,
+            backgroundColor: isDark ? '#1F2937' : '#FEF9C3',
+            borderWidth: 1,
+            borderColor: isDark ? '#374151' : '#FDE047',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            paddingHorizontal: 16,
+            opacity: pressed ? 0.8 : 1,
+          })}
+        >
+          <Star size={16} color={isDark ? '#FACC15' : '#854D0E'} fill="#FACC15" />
+          <AppText
+            style={{
+              fontSize: 14,
+              fontWeight: '700',
+              color: isDark ? '#FACC15' : '#854D0E',
+            }}
+          >
+            تقييم مطابقة العرض
+          </AppText>
+        </Pressable>
+      </View>
+    );
+  };
+
   const renderReportIssueSection = () => (
     <View
       style={{
@@ -743,6 +840,7 @@ export function CustomerOfferDetailsScreen({ offerId, mockOffer }: CustomerOffer
               <View style={{ width: 380, gap: 16 }}>
                 {renderMerchantCard()}
                 {renderBranchesSection()}
+                {renderOfferAssessmentSection()}
                 {renderReportIssueSection()}
               </View>
             </View>
@@ -763,6 +861,7 @@ export function CustomerOfferDetailsScreen({ offerId, mockOffer }: CustomerOffer
               {renderEssentialTerms()}
               {renderIncludedItems()}
               {renderBranchesSection()}
+              {renderOfferAssessmentSection()}
               {renderReportIssueSection()}
             </View>
           )}

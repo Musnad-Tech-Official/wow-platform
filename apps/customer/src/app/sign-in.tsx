@@ -1,12 +1,20 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, HelpCircle, Info } from 'lucide-react-native';
 import { useSSO } from '@wow/auth';
 import { useTheme, useWowColors, useWowViewport } from '@wow/theme';
-import { AppButton, AppText } from '@wow/ui';
+import { AppButton, AppText, Card } from '@wow/ui';
+import { resolveAuthErrorMessage, validateInternalReturnPath } from '../features/auth/auth-display';
 
 type Provider = 'oauth_google' | 'oauth_facebook';
 
@@ -17,16 +25,38 @@ export default function SignInScreen() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const { isDesktop } = useWowViewport();
+  const rtlWebProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
 
-  const params = useLocalSearchParams<{ mode?: string }>();
-  const [isSignUp, setIsSignUp] = useState(params.mode === 'sign-up');
+  const params = useLocalSearchParams<{
+    mode?: string;
+    returnTo?: string;
+    offerId?: string;
+    action?: string;
+    preview?: string;
+  }>();
+
+  // Mode: sign-up vs sign-in
+  const isInitialSignUp = params.mode === 'sign-up' || params.preview === 'sign-up';
+  const [isSignUp, setIsSignUp] = useState(isInitialSignUp);
+
+  // Return navigation intent
+  const validatedReturnTarget = validateInternalReturnPath(params.returnTo, params.offerId);
+  const hasGatedReturnIntent =
+    Boolean(params.returnTo || params.action || params.offerId || params.preview === 'return-intent') &&
+    validatedReturnTarget !== '/';
+
+  const isRateAction = params.action === 'rate' || params.returnTo?.includes('/rate') || params.preview === 'return-intent';
 
   const { startSSOFlow } = useSSO();
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    params.preview === 'error' ? 'تم إلغاء عملية المصادقة من قبلك.' : null,
+  );
 
   async function signIn(provider: Provider) {
     if (loading) return;
     setLoading(true);
+    setErrorMessage(null);
 
     try {
       // Use the same callback route that Expo Router registers for the web
@@ -43,17 +73,24 @@ export default function SignInScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.replace('/');
+
+        // Safe continuable return destination: strictly validated against internal routes
+        const destination = validateInternalReturnPath(params.returnTo, params.offerId);
+        router.replace(destination as any);
       } else {
+        const errorMsg = 'تعذر تفعيل الجلسة أو يتطلب الحساب خطوات إضافية من مزود الهوية.';
+        setErrorMessage(errorMsg);
         Alert.alert(
           isSignUp ? 'لم يكتمل إنشاء الحساب' : 'لم يكتمل تسجيل الدخول',
-          'تعذر تفعيل الجلسة أو يتطلب الحساب خطوات إضافية من مزود الهوية.',
+          errorMsg,
         );
       }
     } catch (error) {
+      const friendlyMessage = resolveAuthErrorMessage(error, isSignUp);
+      setErrorMessage(friendlyMessage);
       Alert.alert(
-        'حدث خطأ',
-        error instanceof Error ? error.message : 'تعذر إتمام العملية',
+        isSignUp ? 'تنبيه إنشاء الحساب' : 'تنبيه تسجيل الدخول',
+        friendlyMessage,
       );
     } finally {
       setLoading(false);
@@ -68,8 +105,19 @@ export default function SignInScreen() {
     }
   }
 
+  function handleNavigateRecovery() {
+    router.push({
+      pathname: '/recovery',
+      params: {
+        returnTo: params.returnTo,
+        offerId: params.offerId,
+      },
+    });
+  }
+
   return (
     <View
+      {...rtlWebProps}
       style={{
         flex: 1,
         backgroundColor: colors.background,
@@ -135,12 +183,71 @@ export default function SignInScreen() {
             flexGrow: 1,
             justifyContent: 'center',
             paddingHorizontal: 24,
-            paddingVertical: 24,
+            paddingVertical: 20,
             alignItems: 'center',
           }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={{ width: '100%', alignItems: 'center', gap: 20 }}>
+          <View style={{ width: '100%', alignItems: 'center', gap: 18 }}>
+            {/* Gated Intent Banner (if redirected from a gated action) */}
+            {hasGatedReturnIntent && (
+              <Card
+                {...rtlWebProps}
+                style={{
+                  width: '100%',
+                  backgroundColor: isDark ? '#1E293B' : '#FEF9C3',
+                  borderColor: isDark ? '#334155' : '#FDE047',
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  padding: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <Info size={18} color="#CA8A04" />
+                <AppText
+                  style={{
+                    fontSize: 13,
+                    color: isDark ? '#F1F5F9' : '#854D0E',
+                    textAlign: 'right',
+                    flex: 1,
+                    lineHeight: 18,
+                  }}
+                >
+                  {isRateAction
+                    ? 'سجّل دخولك أولاً لإتمام تقييم مطابقة العرض والمتابعة مباشرة.'
+                    : 'سجّل دخولك لمتابعة الإجراء المطلوب والعودة تلقائياً.'}
+                </AppText>
+              </Card>
+            )}
+
+            {/* Error Message Notice if any */}
+            {errorMessage && (
+              <Card
+                {...rtlWebProps}
+                style={{
+                  width: '100%',
+                  backgroundColor: isDark ? '#450A0A' : '#FEF2F2',
+                  borderColor: isDark ? '#7F1D1D' : '#FCA5A5',
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  padding: 12,
+                }}
+              >
+                <AppText
+                  style={{
+                    fontSize: 13,
+                    color: isDark ? '#FCA5A5' : '#991B1B',
+                    textAlign: 'right',
+                    lineHeight: 18,
+                  }}
+                >
+                  {errorMessage}
+                </AppText>
+              </Card>
+            )}
+
             {/* Title & Subtitle */}
             <View style={{ alignItems: 'center', gap: 8 }}>
               <AppText
@@ -170,7 +277,7 @@ export default function SignInScreen() {
             </View>
 
             {/* Provider Buttons */}
-            <View style={{ width: '100%', gap: 12, marginTop: 12 }}>
+            <View style={{ width: '100%', gap: 12, marginTop: 8 }}>
               <AppButton
                 title={isSignUp ? 'التسجيل بواسطة Google' : 'المتابعة باستخدام Google'}
                 variant="primary"
@@ -198,13 +305,15 @@ export default function SignInScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={isSignUp ? 'الانتقال لتسجيل الدخول' : 'الانتقال لإنشاء حساب'}
-              onPress={() => setIsSignUp(!isSignUp)}
+              onPress={() => {
+                setIsSignUp(!isSignUp);
+                setErrorMessage(null);
+              }}
               style={{
                 minHeight: 48,
                 alignItems: 'center',
                 justifyContent: 'center',
                 paddingVertical: 8,
-                marginTop: 8,
               }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
@@ -219,6 +328,34 @@ export default function SignInScreen() {
                 {isSignUp
                   ? 'لديك حساب بالفعل؟ تسجيل الدخول ←'
                   : 'ليس لديك حساب؟ إنشاء حساب جديد ←'}
+              </AppText>
+            </Pressable>
+
+            {/* CUS-05-03: Recovery Help Link */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="مساعدة في استعادة الوصول إلى الحساب"
+              onPress={handleNavigateRecovery}
+              style={{
+                minHeight: 48,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                paddingVertical: 6,
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <HelpCircle size={15} color={isDark ? '#94A3B8' : '#64748B'} />
+              <AppText
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: isDark ? '#94A3B8' : '#64748B',
+                  textAlign: 'center',
+                }}
+              >
+                مساعدة في استعادة الوصول إلى الحساب
               </AppText>
             </Pressable>
           </View>

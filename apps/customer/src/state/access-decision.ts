@@ -102,6 +102,7 @@ export function resolveAccessDecision(input: AccessDecisionInput): AccessDecisio
   const isWhitelisted =
     currentPath === '/access' ||
     currentPath === '/sign-in' ||
+    currentPath === '/recovery' ||
     currentPath === '/sso-callback' ||
     currentPath === '/integration-test';
 
