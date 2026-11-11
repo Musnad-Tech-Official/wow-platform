@@ -12,7 +12,7 @@ export interface AdminMemberRecord {
   userId: string;
   email: string;
   displayName: string;
-  role: AdminRole;
+  role: AdminRole | null;
   scope: string;
   isActive: boolean;
 }
