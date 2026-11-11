@@ -77,6 +77,23 @@ export interface OfferEditorContextValue {
 
 const OfferEditorContext = createContext<OfferEditorContextValue | null>(null);
 
+/** Form fields contain yyyy-mm-dd or previously saved ISO values.
+ * Date-only user input must never acquire a time suffix while being edited.
+ */
+export function isValidOfferDateValue(value: string): boolean {
+  const date = value.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  if (value.length !== 10 && !/^\d{4}-\d{2}-\d{2}T/.test(value)) return false;
+  const timestamp = Date.parse(date + 'T00:00:00.000Z');
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === date;
+}
+
+function offerDateTimestamp(value: string, endOfDay: boolean): string | null {
+  if (!value) return null;
+  if (!isValidOfferDateValue(value)) throw new Error('Invalid offer date');
+  return value.slice(0, 10) + (endOfDay ? 'T23:59:59.000Z' : 'T00:00:00.000Z');
+}
+
 const DEFAULT_DRAFT_STATE: OfferDraftState = {
   offerKind: 'product',
   title: '',
@@ -335,13 +352,17 @@ export function OfferEditorProvider({
 
         if (!draft.startsAt) {
           errs.startsAt = 'يرجى تحديد تاريخ بداية سريان العرض.';
+        } else if (!isValidOfferDateValue(draft.startsAt)) {
+          errs.startsAt = 'تاريخ البداية غير صالح. استخدم YYYY-MM-DD.';
         }
 
         if (!draft.endsAt) {
           errs.endsAt = 'يرجى تحديد تاريخ نهاية سريان العرض.';
-        } else if (draft.startsAt) {
-          const start = new Date(draft.startsAt).getTime();
-          const end = new Date(draft.endsAt).getTime();
+        } else if (!isValidOfferDateValue(draft.endsAt)) {
+          errs.endsAt = 'تاريخ النهاية غير صالح. استخدم YYYY-MM-DD.';
+        } else if (isValidOfferDateValue(draft.startsAt)) {
+          const start = Date.parse(offerDateTimestamp(draft.startsAt, false)!);
+          const end = Date.parse(offerDateTimestamp(draft.endsAt, true)!);
           if (end <= start) {
             errs.endsAt = 'تاريخ نهاية العرض يجب أن يكون بعد تاريخ البداية.';
           }
@@ -376,9 +397,10 @@ export function OfferEditorProvider({
       if (step === 3) {
         return Boolean(
           draft.selectedBranchIds.length > 0 &&
-          draft.startsAt &&
-          draft.endsAt &&
-          new Date(draft.endsAt).getTime() > new Date(draft.startsAt).getTime()
+          isValidOfferDateValue(draft.startsAt) &&
+          isValidOfferDateValue(draft.endsAt) &&
+          Date.parse(offerDateTimestamp(draft.endsAt, true)!) >
+            Date.parse(offerDateTimestamp(draft.startsAt, false)!)
         );
       }
       if (step === 4) {
@@ -400,6 +422,13 @@ export function OfferEditorProvider({
 
     if (!draftBusinessId || businessConflict) {
       setActionFeedback('يرجى تأكيد النشاط التجاري المرتبط بهذه المسودة أولاً.');
+      return null;
+    }
+    // Empty dates are allowed in draft. Partially typed or impossible dates
+    // must be rejected rather than silently lost when serializing to Postgres.
+    if ((draft.startsAt && !isValidOfferDateValue(draft.startsAt)) ||
+        (draft.endsAt && !isValidOfferDateValue(draft.endsAt))) {
+      setActionFeedback('تحقق من صحة تواريخ العرض قبل حفظ المسودة (YYYY-MM-DD).');
       return null;
     }
 
@@ -430,8 +459,8 @@ export function OfferEditorProvider({
         mandatory_fees: draft.mandatoryFees.trim() || null,
         benefit_details: draft.benefitType,
         stock_or_condition_notice: draft.quantityOrTimeNotice.trim() || null,
-        starts_at: draft.startsAt || null,
-        ends_at: draft.endsAt || null,
+        starts_at: offerDateTimestamp(draft.startsAt, false),
+        ends_at: offerDateTimestamp(draft.endsAt, true),
         items: [
           {
             item_type: draft.offerKind === 'service' ? 'service' : 'product',
