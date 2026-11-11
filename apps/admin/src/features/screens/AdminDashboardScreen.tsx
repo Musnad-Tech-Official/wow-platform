@@ -65,23 +65,29 @@ export function AdminDashboardScreen({
   const allAvailable = isFixture || queries.every((q) => q.isSuccess);
   const total = metrics.reduce((sum, metric) => sum + (metric.count ?? 0), 0);
 
+  // A malformed or unexpected API payload must never crash the protected shell.
+  const verificationRows = Array.isArray(verifications.data) ? verifications.data : [];
+  const offerRows = Array.isArray(offers.data) ? offers.data : [];
+  const complaintRows = Array.isArray(complaints.data) ? complaints.data : [];
+  const paymentRows = Array.isArray(payments.data) ? payments.data : [];
+
   const liveQueue: QueueEntry[] = [
-    ...(verifications.data ?? []).slice(0, 2).map((record) => ({
+    ...verificationRows.slice(0, 2).map((record) => ({
       key: 'business-' + record.id, source: 'تأهيل نشاط',
       label: record.business_name || 'طلب تأهيل',
       detail: 'رقم الطلب: ' + record.id,
     })),
-    ...(offers.data ?? []).slice(0, 2).map((record) => ({
+    ...offerRows.slice(0, 2).map((record) => ({
       key: 'offer-' + record.version_id, source: 'مراجعة عرض',
       label: record.title || record.business_name || 'عرض مقدم',
       detail: 'رقم النسخة: ' + record.version_id,
     })),
-    ...(complaints.data ?? []).slice(0, 2).map((record) => ({
+    ...complaintRows.slice(0, 2).map((record) => ({
       key: 'complaint-' + record.id, source: 'شكوى',
       label: 'شكوى مسجلة',
       detail: 'رقم الشكوى: ' + record.id,
     })),
-    ...(payments.data ?? []).slice(0, 2).map((record) => ({
+    ...paymentRows.slice(0, 2).map((record) => ({
       key: 'payment-' + record.payment_id, source: 'اشتراك',
       label: 'سجل دفع اشتراك',
       detail: 'رقم الدفعة: ' + record.payment_id,
