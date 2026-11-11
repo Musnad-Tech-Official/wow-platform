@@ -50,6 +50,7 @@ export {
 } from './query/hooks/use-verifications';
 export {
   useBusinessOffers,
+  useOfferEligibleCategories,
   useBusinessOfferVersions,
   useOfferVersions,
   useOfferVersionDetails,
