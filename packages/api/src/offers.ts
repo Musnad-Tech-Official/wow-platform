@@ -204,9 +204,6 @@ export async function getBusinessOffers(
 const OFFER_VERSION_SELECT_WITH_CATEGORY =
   'id,business_id,offer_id,version_no,category_id,title,description,offer_kind,original_price,final_price,currency,benefit_details,mandatory_fees,terms,stock_or_condition_notice,starts_at,ends_at,review_status,submitted_at,approved_at,created_at,updated_at';
 
-const OFFER_VERSION_SELECT_BASELINE =
-  'id,business_id,offer_id,version_no,title,description,offer_kind,original_price,final_price,currency,benefit_details,mandatory_fees,terms,stock_or_condition_notice,starts_at,ends_at,review_status,submitted_at,approved_at,created_at,updated_at';
-
 export async function getOfferVersions(
   client: WowSupabaseClient,
   offerId: string,
@@ -218,23 +215,7 @@ export async function getOfferVersions(
     .order('version_no', { ascending: false });
   if (signal) request = request.abortSignal(signal);
   const { data, error } = await request;
-  if (error) {
-    const isMissingColumn =
-      error.code === '42703' ||
-      error.code === 'PGRST204' ||
-      /category_id/i.test(error.message || '');
-    if (isMissingColumn) {
-      let fallbackReq = client.from('offer_versions')
-        .select(OFFER_VERSION_SELECT_BASELINE)
-        .eq('offer_id', offerId)
-        .order('version_no', { ascending: false });
-      if (signal) fallbackReq = fallbackReq.abortSignal(signal);
-      const fallback = await fallbackReq;
-      if (fallback.error) throw fallback.error;
-      return (fallback.data ?? []).map((v) => ({ ...v, category_id: null })) as OfferVersion[];
-    }
-    throw error;
-  }
+  if (error) throw error;
   return (data ?? []) as OfferVersion[];
 }
 
@@ -248,24 +229,8 @@ export async function getOfferVersionDetails(
     .select(OFFER_VERSION_SELECT_WITH_CATEGORY)
     .eq('id', versionId);
   if (signal) versionRequest = versionRequest.abortSignal(signal);
-  let { data: version, error: versionError } = await versionRequest.maybeSingle<OfferVersion>();
-  if (versionError) {
-    const isMissingColumn =
-      versionError.code === '42703' ||
-      versionError.code === 'PGRST204' ||
-      /category_id/i.test(versionError.message || '');
-    if (isMissingColumn) {
-      let fallbackReq = client.from('offer_versions')
-        .select(OFFER_VERSION_SELECT_BASELINE)
-        .eq('id', versionId);
-      if (signal) fallbackReq = fallbackReq.abortSignal(signal);
-      const fallback = await fallbackReq.maybeSingle<OfferVersion>();
-      if (fallback.error) throw fallback.error;
-      version = fallback.data ? { ...fallback.data, category_id: null } : null;
-    } else {
-      throw versionError;
-    }
-  }
+  const { data: version, error: versionError } = await versionRequest.maybeSingle<OfferVersion>();
+  if (versionError) throw versionError;
   if (!version) return null;
 
   let itemsRequest = client.from('offer_items')
@@ -324,18 +289,7 @@ export async function saveOfferDraft(
     p_offer_id: input.offerId,
     p_payload: input.payload,
   });
-  if (error) {
-    if (input.payload.category_id !== undefined && /unknown draft field/i.test(error.message || '')) {
-      const { category_id: _removed, ...fallbackPayload } = input.payload;
-      const retry = await client.rpc('wow_save_offer_draft', {
-        p_offer_id: input.offerId,
-        p_payload: fallbackPayload,
-      });
-      if (retry.error) throw retry.error;
-      return checkedUuid(retry.data, 'wow_save_offer_draft');
-    }
-    throw error;
-  }
+  if (error) throw error;
   return checkedUuid(data, 'wow_save_offer_draft');
 }
 
@@ -344,23 +298,11 @@ export async function getOfferEvidenceDraft(
   offerId: string,
   signal?: AbortSignal,
 ): Promise<OfferEvidenceDocument[]> {
-  try {
-    let request = client.rpc('wow_get_offer_evidence_draft', { p_offer_id: offerId });
-    if (signal) request = request.abortSignal(signal);
-    const { data, error } = await request;
-    if (error) {
-      if (/does not exist/i.test(error.message || '') || error.code === '42883') {
-        return [];
-      }
-      throw error;
-    }
-    return requireJsonArray<OfferEvidenceDocument>(data ?? [], 'wow_get_offer_evidence_draft');
-  } catch (err: any) {
-    if (/does not exist/i.test(err?.message || '') || err?.code === '42883') {
-      return [];
-    }
-    throw err;
-  }
+  let request = client.rpc('wow_get_offer_evidence_draft', { p_offer_id: offerId });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (error) throw error;
+  return requireJsonArray<OfferEvidenceDocument>(data ?? [], 'wow_get_offer_evidence_draft');
 }
 
 export async function saveOfferEvidenceDraft(
@@ -371,12 +313,7 @@ export async function saveOfferEvidenceDraft(
     p_offer_id: input.offerId,
     p_documents: input.documents,
   });
-  if (error) {
-    if (/does not exist/i.test(error.message || '') || error.code === '42883') {
-      return true;
-    }
-    throw error;
-  }
+  if (error) throw error;
   return Boolean(data);
 }
 
