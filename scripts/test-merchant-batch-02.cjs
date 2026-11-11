@@ -391,3 +391,15 @@ test('BATCH-02: Private evidence ACL is separate from owner-only verification', 
   assert(details.includes('useOfferReviewNotes'));
   assert(details.includes('latestReviewNote'));
 });
+
+test('BATCH-02: Date fields retain partial input and validate before UTC serialization', () => {
+  const branches = read('apps/merchant/src/features/offers/components/OfferBranchesScreen.tsx');
+  const state = read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
+  assert(branches.includes("updateDraft({ startsAt: text });"));
+  assert(branches.includes("updateDraft({ endsAt: text });"));
+  assert(!branches.includes('text ? `${text}T23:59:59.000Z`'), 'Never suffix date as the user types');
+  assert(state.includes('isValidOfferDateValue'));
+  assert(state.includes('new Date(timestamp).toISOString().slice(0, 10) === date'), 'Reject invalid calendar dates');
+  assert(state.includes('starts_at: offerDateTimestamp(draft.startsAt, false)'));
+  assert(state.includes('ends_at: offerDateTimestamp(draft.endsAt, true)'));
+});
