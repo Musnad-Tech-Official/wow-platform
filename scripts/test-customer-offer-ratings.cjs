@@ -585,3 +585,38 @@ test('13. Review Finding 4: Input Disabling and Duplicate Submission Hardening',
     'Ref guard released on failure to permit retry',
   );
 });
+
+
+// =============================================================================
+// Suite 14: Live owner rating lookup must finish before submitting
+// =============================================================================
+test('14. Live owner lookup gates submission through pending, failed and retried states', () => {
+  const { resolveExistingRatingLookupStatus } = ratingDisplay;
+  const args = {
+    required: true,
+    hasActiveSession: true,
+    activeLookupKey: 'user-a:offer-1:0',
+    settledLookupKey: 'user-a:offer-1:0',
+    status: 'loading',
+  };
+  assert.equal(resolveExistingRatingLookupStatus(args), 'loading');
+  assert.equal(resolveExistingRatingLookupStatus({ ...args, status: 'error' }), 'error');
+  assert.equal(resolveExistingRatingLookupStatus({ ...args, status: 'ready' }), 'ready');
+  assert.equal(resolveExistingRatingLookupStatus({ ...args, hasActiveSession: false, status: 'ready' }), 'loading');
+  assert.equal(resolveExistingRatingLookupStatus({ ...args, activeLookupKey: 'user-a:offer-2:0', status: 'ready' }), 'loading');
+  assert.equal(resolveExistingRatingLookupStatus({ ...args, activeLookupKey: 'user-a:offer-1:1', status: 'ready' }), 'loading');
+  assert.equal(resolveExistingRatingLookupStatus({ ...args, required: false, status: 'error' }), 'ready');
+
+  // This runtime helper drives both the screen-level gate and handleSubmit guard.
+  assert.match(rateScreenSrc, /const lookupStatus = resolveExistingRatingLookupStatus\(/);
+  assert.match(rateScreenSrc, /if \(lookupStatus !== 'ready'\) \{/);
+  assert.match(rateScreenSrc, /if \(shouldLookupExistingRating && lookupStatus !== 'ready'\)/);
+  assert.match(rateScreenSrc, /setLookupState\(\{ key: lookupKey, status: 'error' \}\)/);
+  assert.match(rateScreenSrc, /actionLabel="إعادة المحاولة"/);
+  assert.match(rateScreenSrc, /setLookupRetryCount\(\(n\) => n \+ 1\)/);
+
+  // Automatic list paging is suppressed on errors; only the Retry button restarts it.
+  assert.match(myRatingsScreenSrc, /if \(loadMoreError && !isManualRetry\) return/);
+  assert.match(myRatingsScreenSrc, /onPress=\{\(\) => void handleLoadMore\(true\)\}/);
+  assert.match(myRatingsScreenSrc, /onEndReached=\{\(\) => \{ if \(!loadMoreError\) void handleLoadMore\(\); \}\}/);
+});
