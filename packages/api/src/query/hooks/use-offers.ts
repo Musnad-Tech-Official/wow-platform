@@ -4,6 +4,7 @@ import {
   decideAdminOffer,
   getBusinessOffers,
   getOfferEligibleCategories,
+  getOfferReviewNotes,
   getOfferVersionDetails,
   getOfferVersions,
   type Offer,
@@ -46,6 +47,18 @@ export function useBusinessOffers(businessId?: string | null) {
     queryFn: ({ signal }) => {
       if (!businessId) throw new Error('Business ID required.');
       return getBusinessOffers(requireWowApiSession(context).client, businessId, signal);
+    },
+  });
+}
+
+export function useOfferReviewNotes(versionId?: string | null) {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: [...wowQueryKeys.offers.version(versionId ?? null, context.userId), 'review-notes'],
+    enabled: !!context.userId && !!versionId,
+    queryFn: ({ signal }) => {
+      if (!versionId) throw new Error('Offer version required.');
+      return getOfferReviewNotes(requireWowApiSession(context).client, versionId, signal);
     },
   });
 }
