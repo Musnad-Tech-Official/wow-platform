@@ -3,6 +3,9 @@ import {
   decideAdminBusinessVerification,
   getAdminBusinessVerification,
   getBusinessVerifications,
+  getBusinessVerificationEvidenceDraft,
+  saveBusinessVerificationEvidenceDraft,
+  type SaveVerificationDraftInput,
   listAdminBusinessVerifications,
   resubmitBusinessVerification,
   submitBusinessVerification,
@@ -89,6 +92,32 @@ export function useAdminDecideBusinessVerification() {
         queryClient.invalidateQueries({ queryKey: ['businesses'] }),
         queryClient.invalidateQueries({ queryKey: ['branches'] }),
       ]);
+    },
+  });
+}
+
+/** Owner-only document draft; no unauthenticated fallback. */
+export function useBusinessVerificationEvidenceDraft(businessId?: string | null) {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: wowQueryKeys.verifications.evidenceDraft(businessId ?? null, context.userId),
+    enabled: Boolean(context.userId && businessId),
+    queryFn: () => {
+      if (!businessId) throw new Error('Business ID is required.');
+      return getBusinessVerificationEvidenceDraft(requireWowApiSession(context).client, businessId);
+    },
+  });
+}
+export function useSaveBusinessVerificationEvidenceDraft() {
+  const context = useWowApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SaveVerificationDraftInput) =>
+      saveBusinessVerificationEvidenceDraft(requireWowApiSession(context).client, input),
+    onSuccess: async (_result, input) => {
+      await queryClient.invalidateQueries({
+        queryKey: wowQueryKeys.verifications.evidenceDraft(input.businessId, context.userId),
+      });
     },
   });
 }

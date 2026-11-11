@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@wow/auth';
 import { BusinessOnboardingStep1 } from '../../features/business/components/BusinessOnboardingStep1';
+import { MerchantRouteGate } from '../../features/navigation/MerchantRouteGate';
 
 const emptySubscribe = () => () => {};
 
@@ -17,11 +18,11 @@ export default function BusinessOnboardingScreen() {
 
   // In development/test mode, preview=1 allows safe synthetic fixture evaluation without remote writes or bypassing production gates
   const isPreview =
-    (__DEV__ || process.env.NODE_ENV !== 'production') &&
+    __DEV__ &&
     (preview === '1' || (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 
   const isPreviewUnsigned =
-    (__DEV__ || process.env.NODE_ENV !== 'production') &&
+    __DEV__ &&
     (preview === 'unsigned' || (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=unsigned'))));
 
   const fixtureAuth = isClient
@@ -35,7 +36,8 @@ export default function BusinessOnboardingScreen() {
   const effectiveUserId = fixtureAuth ? fixtureAuth.userId : auth.userId;
 
   return (
-    <BusinessOnboardingStep1
+    <MerchantRouteGate>
+      <BusinessOnboardingStep1
       key={`${effectiveUserId ?? 'anon'}:${businessId ?? 'new'}`}
       businessId={businessId ?? null}
       fixtureAuth={fixtureAuth}
@@ -52,6 +54,7 @@ export default function BusinessOnboardingScreen() {
           params,
         });
       }}
-    />
+      />
+    </MerchantRouteGate>
   );
 }

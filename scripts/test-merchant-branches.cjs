@@ -248,7 +248,7 @@ test('W03.3 Step 3 continue behavior: saves draft and honestly reports Step 4 de
 
 test('W03.3 Dev-only preview safety: synthetic fixture cannot activate in production', () => {
   const routeCode = read('apps/merchant/src/app/business/onboarding/branches.tsx');
-  assert(routeCode.includes('__DEV__ || process.env.NODE_ENV !== \'production\''));
+  assert(routeCode.includes('__DEV__ &&'));
   assert(routeCode.includes('preview === \'1\''));
 });
 

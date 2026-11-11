@@ -291,14 +291,14 @@ test('W03.2 Navigation and scope contract (f): dev-only fixture never opens prod
 
   for (const route of [step1Route, step2Route]) {
     assert(
-      route.includes("(__DEV__ || process.env.NODE_ENV !== 'production')"),
-      'Preview check must strictly gate on dev/non-production environment'
+      route.includes('__DEV__ &&'),
+      'Preview check must strictly require __DEV__'
     );
   }
 
   // Evaluate production environment simulation
   function evaluatePreviewMode(nodeEnv, isDev, searchParams) {
-    const isPreview = (isDev || nodeEnv !== 'production') && (searchParams.preview === '1');
+    const isPreview = isDev && (searchParams.preview === '1');
     return isPreview;
   }
 

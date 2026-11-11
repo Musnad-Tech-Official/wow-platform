@@ -487,6 +487,62 @@
         1254,
         1254
       ]
+    },
+    {
+      "id": "review-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MER-02-04_REVIEW_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-02-04_REVIEW_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 675754,
+      "sha256": "c64262d57f5ad002a3b36b77479e33a636230b1eb8d3f4b87e9ee9d51ab2e866",
+      "dimensions": [
+        1254,
+        1254
+      ]
+    },
+    {
+      "id": "status-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MER-02-05_STATUS_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-02-05_STATUS_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 711662,
+      "sha256": "517a8a346ae0ad44606ab7a4bead2e3e93bc4568f0ba04cd852f04122c92d979",
+      "dimensions": [
+        1207,
+        1247
+      ]
+    },
+    {
+      "id": "dashboard-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MER-03_DASHBOARD_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-03_DASHBOARD_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 742813,
+      "sha256": "59c882f42de00bec3d71bca24810f4c1136b954fda71857f9894cfa497493e58",
+      "dimensions": [
+        1254,
+        1254
+      ]
+    },
+    {
+      "id": "offers-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "WOW_MER-04_OFFERS_MASCOT_SCENE.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-04_OFFERS_MASCOT_SCENE.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 408338,
+      "sha256": "912b8195147653bca3a6ef783e33813aec7ad6c987450e8d4546ba78c2271985",
+      "dimensions": [
+        900,
+        850
+      ]
     }
   ]
 }
