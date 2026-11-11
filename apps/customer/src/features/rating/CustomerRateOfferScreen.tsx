@@ -171,8 +171,9 @@ export function CustomerRateOfferScreen({
       setExperienceStars(null);
     }
 
+    // A different lookupKey already yields 'loading' until this request settles.
+    // Avoid synchronous setState inside the effect (React 19 lint rule).
     let isCancelled = false;
-    setLookupState({ key: lookupKey, status: 'loading' });
 
     async function fetchExistingRating() {
       try {
