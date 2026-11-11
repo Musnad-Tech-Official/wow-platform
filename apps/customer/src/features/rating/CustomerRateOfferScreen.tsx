@@ -36,6 +36,8 @@ import {
   executeGuardedRatingSubmission,
   formatRatingArabicDate,
   lookupMyRatingForOffer,
+  resolveExistingRatingLookupStatus,
+  type ExistingRatingLookupStatus,
 } from './rating-display';
 
 export interface CustomerRateOfferScreenProps {
@@ -81,6 +83,25 @@ export function CustomerRateOfferScreen({
 
   // 3. Existing Rating Lookup & Asynchronous Hydration
   const apiContext = useWowApiContext();
+  const shouldLookupExistingRating =
+    previewMode === 'live' &&
+    Boolean(isSignedIn) &&
+    isUuidValid &&
+    !mockOffer &&
+    mockExistingRating === undefined;
+  const [lookupRetryCount, setLookupRetryCount] = useState(0);
+  const lookupKey = `${apiContext.userId ?? 'unready'}:${offerId}:${lookupRetryCount}`;
+  const [lookupState, setLookupState] = useState<{
+    key: string | null;
+    status: ExistingRatingLookupStatus;
+  }>({ key: null, status: 'loading' });
+  const lookupStatus = resolveExistingRatingLookupStatus({
+    required: shouldLookupExistingRating,
+    hasActiveSession: Boolean(apiContext.userId),
+    activeLookupKey: lookupKey,
+    settledLookupKey: lookupState.key,
+    status: lookupState.status,
+  });
 
   const isPreHydrated =
     mockExistingRating !== undefined ||
@@ -133,21 +154,25 @@ export function CustomerRateOfferScreen({
   // Mutation
   const rateOfferMutation = useRateOffer();
 
-  // Review Finding 1 & 2: Asynchronous lookup of existing rating across pagination
-  // Hydrates the form ONLY if the user has not already edited/interacted with the form.
+  // A retry must never reuse a successful lookup from an earlier request.
+  // A changed offer ID must not inherit the prior offer's form selection.
+  const lookupIdentityRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (
-      previewMode !== 'live' ||
-      !isSignedIn ||
-      !apiContext.userId ||
-      !isUuidValid ||
-      Boolean(mockOffer) ||
-      mockExistingRating !== undefined
-    ) {
-      return;
+    if (!shouldLookupExistingRating || !apiContext.userId) return;
+
+    const lookupIdentity = `${apiContext.userId}:${offerId}`;
+    if (lookupIdentityRef.current !== lookupIdentity) {
+      lookupIdentityRef.current = lookupIdentity;
+      isUserEditedRef.current = false;
+      hasHydratedRef.current = false;
+      setExistingRating(null);
+      setConformity(null);
+      setExperienceStars(null);
     }
 
     let isCancelled = false;
+    setLookupState({ key: lookupKey, status: 'loading' });
 
     async function fetchExistingRating() {
       try {
@@ -156,29 +181,26 @@ export function CustomerRateOfferScreen({
         if (isCancelled) return;
 
         setExistingRating(resolvedRating);
-
         if (resolvedRating && !hasHydratedRef.current) {
+          hasHydratedRef.current = true;
           if (!isUserEditedRef.current) {
-            // User has not touched the form: safely hydrate existing rating into form
-            hasHydratedRef.current = true;
+            // Preserve edits made before a delayed lookup resolves.
             setConformity(resolvedRating.conformity);
             setExperienceStars(resolvedRating.experience_stars ?? null);
-          } else {
-            // User has already made edits: do NOT overwrite user edits!
-            hasHydratedRef.current = true;
           }
         }
+        setLookupState({ key: lookupKey, status: 'ready' });
       } catch {
-        // Non-blocking lookup failure: allows user to proceed with fresh rating submission
+        if (!isCancelled) {
+          // Never present a failed owner lookup as "no previous rating".
+          setLookupState({ key: lookupKey, status: 'error' });
+        }
       }
     }
 
     void fetchExistingRating();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [apiContext, isSignedIn, isUuidValid, mockExistingRating, mockOffer, offerId, previewMode]);
+    return () => { isCancelled = true; };
+  }, [apiContext, shouldLookupExistingRating, offerId, lookupKey]);
 
   // Navigation handlers
   function handleBack() {
@@ -221,6 +243,11 @@ export function CustomerRateOfferScreen({
 
   async function handleSubmit() {
     if (isSubmitting || isSubmittingRef.current) return;
+    // Prevent writes while the authenticated owner's prior rating is unknown.
+    if (lookupStatus !== 'ready') {
+      setSubmitError('يرجى إكمال التحقق من تقييمك السابق قبل الإرسال.');
+      return;
+    }
     if (!conformity) {
       setSubmitError('يرجى اختيار مدى مطابقة العرض أولاً.');
       return;
@@ -532,6 +559,44 @@ export function CustomerRateOfferScreen({
             </Card>
           </View>
         </ScrollView>
+      </View>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Existing Rating Lookup Gate
+  // ---------------------------------------------------------------------------
+  if (shouldLookupExistingRating && lookupStatus !== 'ready') {
+    return (
+      <View {...rtlWebProps} style={{ flex: 1, backgroundColor: colors.background }}>
+        {renderHeader()}
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            padding: 24,
+            maxWidth: 600,
+            alignSelf: 'center',
+            width: '100%',
+          }}
+        >
+          {lookupStatus === 'error' ? (
+            <DataState
+              kind="error"
+              title="تعذّر التحقق من تقييمك السابق"
+              description="لم نتمكن من التحقق مما إذا كنت قد قيّمت هذا العرض. لم يُرسل أي تقييم. أعد المحاولة للمتابعة."
+              actionLabel="إعادة المحاولة"
+              onAction={() => setLookupRetryCount((n) => n + 1)}
+            />
+          ) : (
+            <View style={{ alignItems: 'center', gap: 14 }}>
+              <ActivityIndicator size="large" color="#FACC15" />
+              <AppText style={{ color: colors.mutedForeground, textAlign: 'center' }}>
+                جارٍ التحقق من تقييماتك السابقة...
+              </AppText>
+            </View>
+          )}
+        </View>
       </View>
     );
   }
