@@ -35,6 +35,7 @@ export function CompactThemeControl({ className = '' }: CompactThemeControlProps
             accessibilityLabel={`المظهر: ${item.label}`}
             accessibilityState={{ selected: isSelected }}
             hitSlop={8}
+            style={{ minHeight: 40 }}
             className={`flex-row items-center justify-center px-2.5 py-1 rounded-full transition-all ${
               isSelected
                 ? 'bg-white dark:bg-[#18181B] shadow-sm border border-[#E2E8F0] dark:border-[#3F3F46]'
