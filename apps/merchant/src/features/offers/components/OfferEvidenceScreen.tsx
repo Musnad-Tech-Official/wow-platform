@@ -62,7 +62,7 @@ export function OfferEvidenceScreen() {
       try {
         setUploadProgress('جارٍ رفع المستند بأمان إلى التخزين الخاص...');
         const uploaded = await uploadMutation.mutateAsync({
-          scope: { kind: 'verification', businessId },
+          scope: { kind: 'offerEvidence', businessId },
           bytes: file.bytes,
           contentType: file.mimeType,
         });
