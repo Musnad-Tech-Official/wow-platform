@@ -42,7 +42,7 @@ export function AdminRolesScreen({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('USR-112');
-  const [proposedRole, setProposedRole] = useState<AdminRole>('reviewer');
+  const [proposedRole, setProposedRole] = useState<AdminRole | null>(null);
   const [justificationReason, setJustificationReason] = useState('');
 
   // Truthful data boundary:
@@ -52,9 +52,9 @@ export function AdminRolesScreen({
     id: 'CURRENT-SESSION',
     userId: 'auth_current_user',
     displayName: 'حساب الإدارة الحالي',
-    email: userEmail || 'admin@wow.local',
-    role: currentRole ?? 'reviewer',
-    scope: 'العمليات المعتمدة بالخادم',
+    email: userEmail || 'غير متاح',
+    role: currentRole ?? null,
+    scope: 'لم يصدر نطاق الصلاحيات من الخادم',
     isActive: true,
   };
 
@@ -81,8 +81,8 @@ export function AdminRolesScreen({
     setProposedRole(role);
   };
 
-  // Authoritative check: canManageRoles requires proven super_admin authority
-  const userCanManage = canManageRoles(currentRole);
+  // A verified role alone would not make a missing mutation RPC available.
+  const roleAuthorityVerified = canManageRoles(currentRole);
 
   return (
     <View className="gap-8">
@@ -117,8 +117,9 @@ export function AdminRolesScreen({
       )}
 
       {/* Prominent Contract Gap Alert (active when highlighted or in gap review mode) */}
-      {(highlightGap || !userCanManage) && (
-        <View className="rounded-2xl p-4 bg-[#FFFBEB] dark:bg-[#451A03]/50 border-2 border-[#F59E0B] dark:border-[#D97706] flex-row items-center gap-3">
+      {/* The role mutation RPC is absent for EVERY role, including super_admin. */}
+      { /* The mutation RPC is unavailable to every caller. */ }
+      <View className="rounded-2xl p-4 bg-[#FFFBEB] dark:bg-[#451A03]/50 border-2 border-[#F59E0B] dark:border-[#D97706] flex-row items-center gap-3">
           <AlertTriangle size={22} color="#D97706" />
           <View className="flex-1">
             <AppText className="text-sm font-tajawal-bold text-[#B45309] dark:text-[#FDE68A] text-right">
@@ -129,7 +130,6 @@ export function AdminRolesScreen({
             </AppText>
           </View>
         </View>
-      )}
 
       {/* Page Header */}
       <View className="gap-1">
@@ -345,7 +345,7 @@ export function AdminRolesScreen({
               <AppText variant="caption" muted className="font-tajawal text-xs text-right mb-1">
                 الدور الحالي
               </AppText>
-              <AppText className="font-tajawal-bold text-sm text-right text-[#FACC15]">
+              <AppText className="font-tajawal-bold text-sm text-right text-[#A16207] dark:text-[#FACC15]">
                 {getRoleArabicLabel(selectedMember.role)}
               </AppText>
             </View>
@@ -377,6 +377,8 @@ export function AdminRolesScreen({
 
             <View className="flex-row gap-2">
               <Pressable
+                disabled={!isFixture}
+                accessibilityState={{ disabled: !isFixture }}
                 onPress={() => handleProposedRoleChange('super_admin')}
                 className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
                   proposedRole === 'super_admin'
@@ -396,6 +398,8 @@ export function AdminRolesScreen({
               </Pressable>
 
               <Pressable
+                disabled={!isFixture}
+                accessibilityState={{ disabled: !isFixture }}
                 onPress={() => handleProposedRoleChange('reviewer')}
                 className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
                   proposedRole === 'reviewer'
@@ -415,6 +419,8 @@ export function AdminRolesScreen({
               </Pressable>
 
               <Pressable
+                disabled={!isFixture}
+                accessibilityState={{ disabled: !isFixture }}
                 onPress={() => handleProposedRoleChange('viewer')}
                 className={`flex-1 py-2.5 px-3 rounded-xl border items-center ${
                   proposedRole === 'viewer'
