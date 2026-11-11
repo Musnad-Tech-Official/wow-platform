@@ -400,3 +400,23 @@ BEGIN
   RETURN v_version;
 END;
 $$;
+
+-- 7. Merchant may choose only categories approved for the current business.
+CREATE OR REPLACE FUNCTION public.wow_get_offer_eligible_categories(p_business_id uuid)
+RETURNS TABLE(id uuid, name_ar text, name_en text, parent_id uuid)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO ''
+AS $$
+BEGIN
+  IF p_business_id IS NULL OR NOT wow_private.can_manage_offer_business(p_business_id,'draft') THEN
+    RAISE EXCEPTION 'Offer drafting permission required' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+    SELECT c.id, c.name_ar::text, c.name_en::text, c.parent_id
+    FROM public.business_categories bc
+    JOIN public.categories c ON c.id=bc.category_id
+    WHERE bc.business_id=p_business_id AND c.is_active
+    ORDER BY c.sort_order, c.name_ar;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.wow_get_offer_eligible_categories(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.wow_get_offer_eligible_categories(uuid) TO authenticated;
