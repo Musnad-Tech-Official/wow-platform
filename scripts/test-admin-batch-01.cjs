@@ -61,7 +61,7 @@ test('Pure role checks deny unproven privileges', () => {
 
 test('Dashboard does not emit fictitious production records or trends', () => {
   const s = read('apps/admin/src/features/screens/AdminDashboardScreen.tsx');
-  assert.match(s, /isFixture \? previewCounts/);
+  assert.match(s, /isFixture \? \(?previewCounts/);
   assert.match(s, /query\.isSuccess/);
   assert.match(s, /isLoading \? '…' : '—'/);
   assert.match(s, /وضع المعاينة التطويرية/);
