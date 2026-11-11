@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useMemo, useCallback, type PropsWithChildren } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, type PropsWithChildren } from 'react';
+import { useGlobalSearchParams } from 'expo-router';
 import {
   useCreateOffer,
   useSaveOfferDraft,
@@ -127,7 +127,7 @@ export function OfferEditorProvider({
   children,
   initialOfferId,
 }: PropsWithChildren<{ initialOfferId?: string | null }>) {
-  const searchParams = useLocalSearchParams<{
+  const searchParams = useGlobalSearchParams<{
     offerId?: string;
     businessId?: string;
     preview?: string;
@@ -148,6 +148,11 @@ export function OfferEditorProvider({
   const [currentOfferId, setCurrentOfferId] = useState<string | null>(
     initialOfferId ?? searchParams.offerId ?? null
   );
+
+  // The active business may load asynchronously after the editor layout mounts.
+  useEffect(() => {
+    if (!draftBusinessId && effectiveBusinessId) setDraftBusinessId(effectiveBusinessId);
+  }, [draftBusinessId, effectiveBusinessId]);
 
   const [draft, setDraft] = useState<OfferDraftState>(() => {
     if (isSyntheticPreview) return PREVIEW_OFFER_FIXTURE;
@@ -172,7 +177,7 @@ export function OfferEditorProvider({
 
   // Synchronize draft from server when version details load without cascading effects
   const [syncedVersionId, setSyncedVersionId] = useState<string | null>(null);
-  if (!isSyntheticPreview && versionDetails?.version && versionDetails.version.id !== syncedVersionId) {
+  if (!isSyntheticPreview && !isDirty && versionDetails?.version && versionDetails.version.id !== syncedVersionId) {
     setSyncedVersionId(versionDetails.version.id);
     const v = versionDetails.version;
     setDraft((prev) => ({
@@ -390,8 +395,8 @@ export function OfferEditorProvider({
       return currentOfferId || 'dev-synthetic-offer-preview';
     }
 
-    if (!draftBusinessId) {
-      setActionFeedback('يرجى تحديد نشاط تجاري أولاً.');
+    if (!draftBusinessId || businessConflict) {
+      setActionFeedback('يرجى تأكيد النشاط التجاري المرتبط بهذه المسودة أولاً.');
       return null;
     }
 
@@ -435,34 +440,24 @@ export function OfferEditorProvider({
         branches: draft.selectedBranchIds.length > 0 ? draft.selectedBranchIds : [],
       };
 
-      // Branches fallback if empty: must have at least 1 branch to satisfy DB constraint if saving
-      if (payload.branches.length === 0 && versionDetails?.branches && versionDetails.branches.length > 0) {
-        payload.branches = versionDetails.branches.map((b) => b.branch_id);
-      }
+      // 3. Persist even incomplete drafts. The database accepts zero branches
+      // for drafts; submission still requires at least one approved branch.
+      await saveDraftMutation.mutateAsync({ offerId: targetOfferId, payload });
 
-      // 3. Save draft version
-      if (payload.branches.length > 0) {
-        await saveDraftMutation.mutateAsync({
-          offerId: targetOfferId,
-          payload,
-        });
-      }
-
-      // 4. Save evidence draft if present
-      if (draft.evidenceFile && draft.evidenceFile.storageKey) {
-        await saveEvidenceMutation.mutateAsync({
-          offerId: targetOfferId,
-          documents: [
-            {
+      // 4. Persist both attachments and explicit removal. Never report a
+      // successful draft save when private evidence persistence fails.
+      await saveEvidenceMutation.mutateAsync({
+        offerId: targetOfferId,
+        documents: draft.evidenceFile?.isUploaded && draft.evidenceFile.storageKey
+          ? [{
               storageKey: draft.evidenceFile.storageKey,
               name: draft.evidenceFile.name,
               size: draft.evidenceFile.size,
               mimeType: draft.evidenceFile.mimeType,
               isPrimaryRequirement: true,
-            },
-          ],
-        });
-      }
+            }]
+          : [],
+      });
 
       setIsDirty(false);
       setActionFeedback('تم حفظ المسودة بنجاح.');
@@ -479,7 +474,7 @@ export function OfferEditorProvider({
     createOfferMutation,
     saveDraftMutation,
     saveEvidenceMutation,
-    versionDetails,
+    businessConflict,
   ]);
 
   // Submit Offer Action
