@@ -146,11 +146,11 @@ export function AdminShell({
             >
               <LayoutDashboard
                 size={18}
-                color={isDashboardActive ? '#FACC15' : colors.mutedForeground}
+                color={isDashboardActive ? (isDark ? '#FACC15' : '#854D0E') : colors.mutedForeground}
               />
               <AppText
                 className={`flex-1 text-sm text-right ${
-                  isDashboardActive ? 'font-tajawal-bold text-[#FACC15]' : 'font-tajawal-medium'
+                  isDashboardActive ? 'font-tajawal-bold text-[#854D0E] dark:text-[#FACC15]' : 'font-tajawal-medium'
                 }`}
               >
                 لوحة العمليات
@@ -248,11 +248,11 @@ export function AdminShell({
               >
                 <UsersRound
                   size={18}
-                  color={isRolesActive ? '#FACC15' : colors.mutedForeground}
+                  color={isRolesActive ? (isDark ? '#FACC15' : '#854D0E') : colors.mutedForeground}
                 />
                 <AppText
                   className={`flex-1 text-sm text-right ${
-                    isRolesActive ? 'font-tajawal-bold text-[#FACC15]' : 'font-tajawal-medium'
+                    isRolesActive ? 'font-tajawal-bold text-[#854D0E] dark:text-[#FACC15]' : 'font-tajawal-medium'
                   }`}
                 >
                   الصلاحيات
@@ -342,7 +342,7 @@ export function AdminShell({
                   مساحة الإدارة
                 </AppText>
                 <ChevronLeft size={14} color={colors.mutedForeground} className="hidden sm:flex" />
-                <AppText className="font-tajawal-bold text-xs sm:text-sm text-[#FACC15] truncate">
+                <AppText className="font-tajawal-bold text-xs sm:text-sm text-[#854D0E] dark:text-[#FACC15] truncate">
                   {pageTitle}
                 </AppText>
               </View>
