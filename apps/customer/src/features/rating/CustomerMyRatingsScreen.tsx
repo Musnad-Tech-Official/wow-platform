@@ -272,7 +272,8 @@ export function CustomerMyRatingsScreen({
       ? true
       : previewMode === 'live' && ratingsQuery.isError;
 
-  const handleLoadMore = useCallback(async () => {
+  const handleLoadMore = useCallback(async (isManualRetry = false) => {
+    if (loadMoreError && !isManualRetry) return;
     if (isFetchingMoreRef.current || !hasMorePages || ratingsQuery.isLoading) return;
     if (previewMode !== 'live' || !effectiveIsSignedIn || !apiContext.userId) return;
 
@@ -303,7 +304,7 @@ export function CustomerMyRatingsScreen({
       isFetchingMoreRef.current = false;
       setIsFetchingMore(false);
     }
-  }, [apiContext, effectiveIsSignedIn, hasMorePages, offset, previewMode, ratingsQuery.isLoading]);
+  }, [apiContext, effectiveIsSignedIn, hasMorePages, loadMoreError, offset, previewMode, ratingsQuery.isLoading]);
 
   function handleBack() {
     if (router.canGoBack()) {
@@ -573,7 +574,7 @@ export function CustomerMyRatingsScreen({
           <AppButton
             title="إعادة المحاولة"
             variant="outline"
-            onPress={() => void handleLoadMore()}
+            onPress={() => void handleLoadMore(true)}
             style={{ height: 36, minHeight: 36, paddingHorizontal: 12 }}
           />
         </Card>
@@ -622,7 +623,7 @@ export function CustomerMyRatingsScreen({
           />
         )}
         ListFooterComponent={renderFooter}
-        onEndReached={() => void handleLoadMore()}
+        onEndReached={() => { if (!loadMoreError) void handleLoadMore(); }}
         onEndReachedThreshold={0.3}
       />
     </View>
