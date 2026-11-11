@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import {
   Store, Tag, MessageSquareWarning, CreditCard,
   ShieldCheck, AlertTriangle, ClipboardList,
@@ -46,7 +46,7 @@ export function AdminDashboardScreen({
 
   const previewCounts = isEmptyPreview ? [0, 0, 0, 0] : [2, 3, 2, 3];
   const countOf = (query: { isSuccess: boolean; data?: unknown[] }, fixtureIndex: number) =>
-    isFixture ? previewCounts[fixtureIndex] : query.isSuccess && Array.isArray(query.data) ? query.data.length : null;
+    isFixture ? (previewCounts[fixtureIndex] ?? 0) : query.isSuccess && Array.isArray(query.data) ? query.data.length : null;
 
   const metrics: Metric[] = [
     { key: 'verification', label: 'طلبات التأهيل المقدمة', count: countOf(verifications, 0),
@@ -135,9 +135,11 @@ export function AdminDashboardScreen({
             <AppText className="font-tajawal-bold text-sm text-right text-[#92400E] dark:text-[#FDE68A]">
               بعض مصادر البيانات غير متاحة أو لا تسمح بها الصلاحيات الحالية
             </AppText>
-            <AppText className="text-xs text-right text-[#92400E] dark:text-[#FDE68A]" onPress={retryQueries}>
-              إعادة محاولة المصادر المتعثرة
-            </AppText>
+            <Pressable accessibilityRole="button" accessibilityLabel="إعادة محاولة تحميل المصادر المتعثرة" onPress={retryQueries} className="py-2">
+              <AppText className="text-xs font-tajawal-bold text-right text-[#92400E] dark:text-[#FDE68A]">
+                إعادة محاولة المصادر المتعثرة
+              </AppText>
+            </Pressable>
           </View>
         </View>
       )}
