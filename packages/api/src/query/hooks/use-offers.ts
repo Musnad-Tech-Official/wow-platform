@@ -3,6 +3,7 @@ import {
   createOffer,
   decideAdminOffer,
   getBusinessOffers,
+  getOfferEligibleCategories,
   getOfferVersionDetails,
   getOfferVersions,
   type Offer,
@@ -23,6 +24,19 @@ import {
 } from '../../offers';
 import { requireWowApiSession, useWowApiContext } from '../WowQueryProvider';
 import { wowQueryKeys } from '../query-keys';
+
+/** Business-scoped category whitelist; never use public category search to authorize offer category. */
+export function useOfferEligibleCategories(businessId?: string | null) {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: [...wowQueryKeys.offers.business(businessId ?? null, context.userId), 'eligible-categories'],
+    enabled: !!context.userId && !!businessId,
+    queryFn: ({ signal }) => {
+      if (!businessId) throw new Error('Business ID required.');
+      return getOfferEligibleCategories(requireWowApiSession(context).client, businessId, signal);
+    },
+  });
+}
 
 export function useBusinessOffers(businessId?: string | null) {
   const context = useWowApiContext();
