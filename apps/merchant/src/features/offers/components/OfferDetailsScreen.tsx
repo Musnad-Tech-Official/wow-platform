@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Pressable, Image } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
@@ -203,7 +203,12 @@ export function OfferDetailsScreen() {
 
   // Independent Public Visibility Status
   // Content review and customer visibility are strictly independent!
-  const now = Date.now();
+  // Keep validity up to date while the screen remains open, without impure render calls.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const clock = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(clock);
+  }, []);
   const validWindow = Boolean(
     activeVersion?.starts_at && activeVersion.ends_at &&
     new Date(activeVersion.starts_at).getTime() <= now &&
