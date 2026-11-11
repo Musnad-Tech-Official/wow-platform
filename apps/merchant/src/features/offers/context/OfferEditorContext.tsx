@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, type PropsWithChildren } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, type PropsWithChildren } from 'react';
 import { useGlobalSearchParams } from 'expo-router';
 import {
   useCreateOffer,
@@ -149,10 +149,11 @@ export function OfferEditorProvider({
     initialOfferId ?? searchParams.offerId ?? null
   );
 
-  // The active business may load asynchronously after the editor layout mounts.
-  useEffect(() => {
-    if (!draftBusinessId && effectiveBusinessId) setDraftBusinessId(effectiveBusinessId);
-  }, [draftBusinessId, effectiveBusinessId]);
+  // Bind once when the active business loads. A guarded same-component render
+  // update is intentional: no effect that races with the user's first edit.
+  if (!draftBusinessId && effectiveBusinessId) {
+    setDraftBusinessId(effectiveBusinessId);
+  }
 
   const [draft, setDraft] = useState<OfferDraftState>(() => {
     if (isSyntheticPreview) return PREVIEW_OFFER_FIXTURE;
