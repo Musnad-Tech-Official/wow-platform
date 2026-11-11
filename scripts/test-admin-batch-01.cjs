@@ -1,203 +1,108 @@
-// scripts/test-admin-batch-01.cjs
-// Verification Test Suite for MUSNAD-WOW Admin Batch 01 (ADM-01, ADM-02, ADM-14)
-// Consolidated Security, UI/UX & Brand Fidelity Verification
+// Admin Batch 01 safety and UI invariants. Only tracked sources are required.
+// Runtime browser tests are a separate gate in capture-admin-batch01-screenshots.cjs.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync, existsSync } = require('node:fs');
 const { resolve } = require('node:path');
 
-const repoRoot = resolve(__dirname, '..');
-const read = (relPath) => readFileSync(resolve(repoRoot, relPath), 'utf8');
-const readBinary = (relPath) => readFileSync(resolve(repoRoot, relPath));
+const root = resolve(__dirname, '..');
+const read = (path) => readFileSync(resolve(root, path), 'utf8');
 
-// 1. Reference Assets & Provenance Verification
-test('ADMIN BATCH-01: Approved reference images and structures exist and match provenance', () => {
-  const expectedFiles = [
-    {
-      role: 'ADM-01 visual reference',
-      path: 'references/images/ADM-01_approved_v02.png',
-      minBytes: 50000,
-    },
-    {
-      role: 'ADM-02 visual reference',
-      path: 'references/images/ADM-02_approved_v02.png',
-      minBytes: 90000,
-    },
-    {
-      role: 'ADM-14 visual reference',
-      path: 'references/images/ADM-14_approved_v02.png',
-      minBytes: 70000,
-    },
-    {
-      role: 'ADM-01 structural markdown',
-      path: 'references/structures/ADM-01.md',
-    },
-    {
-      role: 'ADM-02 structural markdown',
-      path: 'references/structures/ADM-02.md',
-    },
-    {
-      role: 'ADM-14 structural markdown',
-      path: 'references/structures/ADM-14.md',
-    },
-  ];
-
-  for (const item of expectedFiles) {
-    const fullPath = resolve(repoRoot, item.path);
-    assert(existsSync(fullPath), `Missing required file: ${item.path}`);
-    if (item.minBytes) {
-      const buf = readBinary(item.path);
-      assert(buf.length >= item.minBytes, `${item.role} is smaller than expected (${buf.length} bytes)`);
-    }
+test('Admin code and official WOW brand assets are tracked dependencies', () => {
+  for (const path of [
+    'apps/admin/src/app/index.tsx',
+    'apps/admin/src/app/roles.tsx',
+    'apps/admin/src/app/oauth-callback.tsx',
+    'apps/admin/src/features/auth/use-admin-access.ts',
+    'apps/admin/src/features/screens/AdminDashboardScreen.tsx',
+    'apps/admin/src/features/screens/AdminRolesScreen.tsx',
+    'packages/assets/assets/brand/logo-primary.png',
+    'packages/assets/assets/brand/logo-navy.png',
+  ]) {
+    assert(existsSync(resolve(root, path)), 'Missing repository file: ' + path);
   }
 });
 
-// 2. CRITICAL SECURITY: Production Preview Bypass Prevention
-test('ADMIN BATCH-01: Preview parameters are strictly development-only (__DEV__)', () => {
-  const useAdminAccess = read('apps/admin/src/features/auth/use-admin-access.ts');
-
-  // Must declare and use isDev based on __DEV__
-  assert(
-    useAdminAccess.includes("const isDev = typeof __DEV__ !== 'undefined' && Boolean(__DEV__);"),
-    'Must strictly verify __DEV__ before reading or respecting preview parameters'
-  );
-
-  // Preview must only be evaluated if isDev is true
-  assert(
-    useAdminAccess.includes('const preview = isDev'),
-    'Preview parameter resolution must be gated behind isDev'
-  );
-
-  // Preview branch must check isDev
-  assert(
-    useAdminAccess.includes('if (isDev && preview)'),
-    'Preview branch execution must be strictly gated by isDev'
-  );
-
-  // Prerender must not expose authorized fixtures when !isDev
-  assert(
-    useAdminAccess.includes('if (\n      isDev &&\n      (preview === \'adm02\''),
-    'Static prerender must not unlock authorized fixtures when !isDev'
-  );
+test('Production preview is guarded and SSR hydration cannot prerender admin fixtures', () => {
+  const s = read('apps/admin/src/features/auth/use-admin-access.ts');
+  assert.match(s, /typeof __DEV__ !== 'undefined' && Boolean\(__DEV__\)/);
+  assert.match(s, /const preview = isDev/);
+  assert.match(s, /if \(isDev && preview\)/);
+  const prerender = s.split('if (!isClient) {')[1]?.split('// 1. Preview overrides')[0];
+  assert(prerender, 'No stable SSR snapshot found');
+  assert.match(prerender, /status: 'unauthenticated'/);
+  assert.match(prerender, /isAuthorized: false/);
+  assert.doesNotMatch(prerender, /status: 'authorized'|isAuthorized: true/);
 });
 
-// 3. CRITICAL AUTHORIZATION: Server Authority & Zero Invented Roles
-test('ADMIN BATCH-01: Effective admin roles are never invented or defaulted to reviewer/super_admin', () => {
-  const useAdminAccess = read('apps/admin/src/features/auth/use-admin-access.ts');
-  const adminAccess = read('apps/admin/src/features/auth/admin-access.ts');
+test('Access requires a successful matching-session server request', () => {
+  const s = read('apps/admin/src/features/auth/use-admin-access.ts');
+  assert.match(s, /isSuccess: isRpcSuccess/);
+  assert.match(s, /apiContext\.userId === userId/);
+  assert.match(s, /if \(!isQueryEnabled \|\| !isRpcSuccess\)/);
+  const guard = s.split('if (!isQueryEnabled || !isRpcSuccess)')[1];
+  assert(guard?.includes("status: 'authorized'"), 'Success must be gated');
+  assert.doesNotMatch(s, /publicMetadata/);
+});
 
-  // In production authorization resolution, role must be null (not defaulted to reviewer or super_admin)
-  assert(
-    useAdminAccess.includes('role: null, // Truthful server contract: admin verified, specific granular role unexposed by RPC'),
-    'Production authorization must return role: null when specific role is unexposed by backend RPC'
-  );
-
-  // Clerk metadata must not be trusted for admin roles
-  assert(
-    !useAdminAccess.includes('user?.publicMetadata?.role as AdminRole'),
-    'Must not derive effective admin role from untrusted Clerk metadata'
-  );
-
-  // canManageRoles must strictly require super_admin; null or unassigned must return false
-  const { canManageRoles, canReviewItems, getRoleArabicLabel } = require('../apps/admin/src/features/auth/admin-access.ts');
-  assert.equal(canManageRoles(null), false, 'Null role must not have role management permission');
-  assert.equal(canManageRoles(undefined), false, 'Undefined role must not have role management permission');
-  assert.equal(canManageRoles('reviewer'), false, 'Reviewer must not have role management permission');
-  assert.equal(canManageRoles('viewer'), false, 'Viewer must not have role management permission');
-  assert.equal(canManageRoles('super_admin'), true, 'super_admin is the only role with role management permission');
-
-  // canReviewItems allows review when isAuthorized is true from server RPC
-  assert.equal(canReviewItems(null, true), true, 'Server-verified admin can review queues');
-  assert.equal(canReviewItems(null, false), false, 'Unverified session cannot review queues');
-
-  // getRoleArabicLabel returns truthful fallback
+test('Pure role checks deny unproven privileges', () => {
+  const { canManageRoles, canReviewItems, getRoleArabicLabel } =
+    require('../apps/admin/src/features/auth/admin-access.ts');
+  assert.equal(canManageRoles(null), false);
+  assert.equal(canManageRoles('viewer'), false);
+  assert.equal(canManageRoles('reviewer'), false);
+  assert.equal(canManageRoles('super_admin'), true);
+  assert.equal(canReviewItems(null, true), false);
+  assert.equal(canReviewItems('viewer', true), false);
+  assert.equal(canReviewItems('reviewer', true), true);
+  assert.equal(canReviewItems('super_admin', false), false);
   assert.equal(getRoleArabicLabel(null), 'إداري موثّق');
-  assert.equal(getRoleArabicLabel(undefined), 'إداري موثّق');
 });
 
-// 4. Official WOW Logo Branding
-test('ADMIN BATCH-01: Official WOW logo is used consistently across access screen and shell', () => {
-  const accessScreen = read('apps/admin/src/features/screens/AdminAccessScreen.tsx');
+test('Dashboard does not emit fictitious production records or trends', () => {
+  const s = read('apps/admin/src/features/screens/AdminDashboardScreen.tsx');
+  assert.match(s, /isFixture \? previewCounts/);
+  assert.match(s, /query\.isSuccess/);
+  assert.match(s, /isLoading \? '…' : '—'/);
+  assert.match(s, /وضع المعاينة التطويرية/);
+  assert.match(s, /لا تتوفر سلسلة زمنية معتمدة/);
+  assert.doesNotMatch(s, /BIZ-028|OF-164|CMP-043|points="10,65/);
+});
+
+test('Roles remain read-only and never fabricate the effective member role', () => {
+  const s = read('apps/admin/src/features/screens/AdminRolesScreen.tsx');
+  assert.match(s, /role: currentRole \?\? null/);
+  assert.match(s, /isFixture\s*\? FIXTURE_ADMIN_MEMBERS/);
+  assert.match(s, /disabled=\{true\}/);
+  assert.match(s, /wow_admin_update_member_role/);
+  assert.match(s, /flex md:hidden gap-3/);
+  assert.doesNotMatch(s, /role: currentRole \?\? 'reviewer'/);
+});
+
+test('Both protected admin entry routes deny unauthorized rendering', () => {
+  for (const path of ['apps/admin/src/app/index.tsx', 'apps/admin/src/app/roles.tsx']) {
+    const s = read(path);
+    assert.match(s, /if \(status !== 'authorized'\)/);
+    assert.match(s, /<AdminAccessScreen/);
+    assert.match(s, /<AdminShell/);
+  }
+});
+
+test('Official WOW brand and accurate OAuth labels remain in use', () => {
+  const access = read('apps/admin/src/features/screens/AdminAccessScreen.tsx');
   const shell = read('apps/admin/src/features/shell/AdminShell.tsx');
-
-  // ADM-01 uses official WOW navy logo on yellow panel and primary logo on header
-  assert(accessScreen.includes("import { wowBrand } from '@wow/assets';"));
-  assert(accessScreen.includes('source={wowBrand.logoNavy}'));
-  assert(accessScreen.includes('source={isDark ? wowBrand.logoPrimaryDark : wowBrand.logoPrimary}'));
-
-  // AdminShell uses official WOW logo
-  assert(shell.includes("import { wowBrand } from '@wow/assets';"));
-  assert(shell.includes('source={isDark ? wowBrand.logoPrimaryDark : wowBrand.logoPrimary}'));
+  assert.match(access, /wowBrand\.logoNavy/);
+  assert.match(access, /wowBrand\.logoPrimary/);
+  assert.match(shell, /wowBrand\.logoPrimary/);
+  assert.match(access, /المتابعة باستخدام Facebook/);
+  assert.doesNotMatch(access, /SSO \/ Clerk/);
 });
 
-// 5. ADM-01: Compact Theme Control & Contrast
-test('ADMIN BATCH-01: ADM-01 uses CompactThemeControl and preserves high-contrast text', () => {
-  const accessScreen = read('apps/admin/src/features/screens/AdminAccessScreen.tsx');
-  const themeControl = read('apps/admin/src/features/theme/CompactThemeControl.tsx');
-
-  // Access screen uses compact control
-  assert(accessScreen.includes('<CompactThemeControl'));
-  assert(themeControl.includes('Sun, Moon, Laptop'));
-  assert(themeControl.includes("options: { id: ThemeMode; label: string; Icon: typeof Sun }[]"));
-
-  // Solid dark text on yellow card (#0F172D and #1E293B)
-  assert(accessScreen.includes('text-[#0F172D]'));
-  assert(accessScreen.includes('text-[#1E293B]'));
-});
-
-// 6. ADM-02: Compact Mobile Top Bar & Truthful Empty State
-test('ADMIN BATCH-01: ADM-02 Dashboard has truthful empty state and compact mobile header', () => {
-  const dashboardScreen = read('apps/admin/src/features/screens/AdminDashboardScreen.tsx');
-  const shell = read('apps/admin/src/features/shell/AdminShell.tsx');
-
-  // Shell top bar uses compact control and flex-shrink protection
-  assert(shell.includes('<CompactThemeControl />'));
-  assert(shell.includes('flex-shrink min-w-0'));
-
-  // Dashboard in empty preview mode zeroes trend stats and renders flat zero baseline
-  assert(dashboardScreen.includes("{isEmptyPreview ? '00' : '01'}"));
-  assert(dashboardScreen.includes("{isEmptyPreview ? '00' : '08'}"));
-  assert(dashboardScreen.includes('points="10,70 310,70"'));
-  assert(dashboardScreen.includes("isEmptyPreview ? '0%' : '45%'"));
-
-  // Development fixture mode displays clear disclaimer banner
-  assert(dashboardScreen.includes('وضع المعاينة التطويرية (Fixture Mode)'));
-});
-
-// 7. ADM-14: Responsive Mobile Cards & Contract Gap Security Guard
-test('ADMIN BATCH-01: ADM-14 Roles Screen replaces mobile table with cards and enforces disabled mutation', () => {
-  const rolesScreen = read('apps/admin/src/features/screens/AdminRolesScreen.tsx');
-
-  // Desktop table layout exists for >= md
-  assert(rolesScreen.includes('hidden md:flex w-full overflow-x-auto'));
-
-  // Mobile card layout exists for < md
-  assert(rolesScreen.includes('flex md:hidden gap-3'));
-  assert(rolesScreen.includes('محدد للمراجعة'));
-
-  // Fictitious accounts never exposed in production
-  assert(rolesScreen.includes('!isFixture'));
-  assert(rolesScreen.includes('id: \'CURRENT-SESSION\''));
-
-  // Role mutation button is disabled with explicit contract gap explanation
-  assert(rolesScreen.includes('title="تعديل الصلاحيات معطّل (عقد الخادم غير متوفر)"'));
-  assert(rolesScreen.includes('disabled={true}'));
-  assert(rolesScreen.includes('wow_admin_update_member_role'));
-
-  // Contract gap alert banner
-  assert(rolesScreen.includes('عقد الخادم غير متوفر: تعديل الأدوار معطّل برمجياً'));
-});
-
-// 8. Fail-Closed Route Protection
-test('ADMIN BATCH-01: Route guards fail-closed if status is not authorized', () => {
-  const adminIndex = read('apps/admin/src/app/index.tsx');
-  const rolesRoute = read('apps/admin/src/app/roles.tsx');
-
-  assert(adminIndex.includes("if (status !== 'authorized')"));
-  assert(adminIndex.includes('<AdminAccessScreen'));
-  assert(adminIndex.includes('<AdminShell'));
-
-  assert(rolesRoute.includes("if (status !== 'authorized')"));
-  assert(rolesRoute.includes('<AdminAccessScreen'));
-  assert(rolesRoute.includes('<AdminShell'));
+test('Actual screenshot capture fails on browser errors, hydration and overflow', () => {
+  const s = read('scripts/capture-admin-batch01-screenshots.cjs');
+  assert.match(s, /page\.on\('pageerror'/);
+  assert.match(s, /Hydration failed/);
+  assert.match(s, /scrollWidth/);
+  assert.match(s, /fs\.rmSync\(distDir/);
+  assert.doesNotMatch(s, /hideLogBox|dismiss.*overlay/i);
 });
