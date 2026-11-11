@@ -22,6 +22,7 @@ import {
   useBusinessOffers,
   useOfferVersionDetails,
   useOfferReviewNotes,
+  usePublicOffer,
   usePublicCategories,
   type OfferVersion,
 } from '@wow/api';
@@ -110,6 +111,10 @@ export function OfferDetailsScreen() {
     isSyntheticPreview ? null : offerId
   );
   const { data: serverBranches = [] } = useBusinessBranches(effectiveBusinessId);
+  // This is the same guest-accessible discovery contract used by customers.
+  // Local status alone cannot prove visibility (business/subscription/branch
+  // eligibility are checked by public discovery on the server).
+  const publicOfferQuery = usePublicOffer(isSyntheticPreview ? null : offerId);
   const { data: serverOffers = [] } = useBusinessOffers(isSyntheticPreview ? null : effectiveBusinessId);
   const { data: categories = [] } = usePublicCategories();
   const offer = serverOffers.find((item) => item.id === offerId) ?? null;
@@ -224,9 +229,13 @@ export function OfferDetailsScreen() {
     participatingBranches.some((branch) => branch.status === 'approved');
   const currentApprovedVersion = isSyntheticPreview ||
     (offer?.current_version_id != null && offer.current_version_id === activeVersion?.id);
-  const isVisibleToCustomers =
+  const isVisibleToCustomers = Boolean(
     activeVersion?.review_status === 'approved' &&
-    currentApprovedVersion && isOfferActive && validWindow && hasApprovedBranch;
+    currentApprovedVersion && isOfferActive && validWindow && hasApprovedBranch &&
+    (isSyntheticPreview || (
+      publicOfferQuery.isSuccess && publicOfferQuery.data?.id === offerId
+    ))
+  );
 
   const visibilityReason = useMemo(() => {
     const status = activeVersion?.review_status;
@@ -238,8 +247,21 @@ export function OfferDetailsScreen() {
     if (!isOfferActive) return 'العرض غير متاح حاليًا بحسب حالته الفعلية.';
     if (!validWindow) return 'المدة المحددة للعرض لم تبدأ بعد أو انتهت.';
     if (!hasApprovedBranch) return 'لا يوجد فرع مشارك معتمد لهذه النسخة.';
-    return 'النسخة المعتمدة مؤهلة للظهور بحسب بيانات التوافر الحالية.';
-  }, [activeVersion, currentApprovedVersion, isOfferActive, validWindow, hasApprovedBranch]);
+    if (!isSyntheticPreview && publicOfferQuery.isPending) {
+      return 'جارٍ التحقق من الظهور عبر واجهة العرض العامة.';
+    }
+    if (!isSyntheticPreview && publicOfferQuery.isError) {
+      return 'تعذر التحقق من الظهور الفعلي. لا يمكن تأكيد ظهوره الآن.';
+    }
+    if (!isSyntheticPreview && !publicOfferQuery.data) {
+      return 'النسخة لا تظهر في واجهة العملاء. تحقق من أهلية النشاط والاشتراك والفروع.';
+    }
+    return 'تؤكد واجهة العرض العامة أن هذه النسخة ظاهرة للعملاء.';
+  }, [
+    activeVersion, currentApprovedVersion, isOfferActive, validWindow,
+    hasApprovedBranch, isSyntheticPreview, publicOfferQuery.isPending,
+    publicOfferQuery.isError, publicOfferQuery.data,
+  ]);
 
   const handleToggleAvailability = async () => {
     if (!canToggleAvailability || !offerId) {
