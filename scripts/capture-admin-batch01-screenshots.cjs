@@ -121,7 +121,7 @@ async function run() {
 
   console.log('[3/5] Initializing Playwright browser...');
   const browser = await chromium.launch({
-    channel: 'msedge',
+    ...(process.env.WOW_PLAYWRIGHT_CHANNEL ? { channel: process.env.WOW_PLAYWRIGHT_CHANNEL } : {}),
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
@@ -267,9 +267,40 @@ async function run() {
       colorScheme: t.colorScheme,
     });
 
+    const failures = [];
+    page.on('pageerror', (error) => failures.push('Uncaught browser error: ' + error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error' && /hydration|uncaught|invariant violation/i.test(message.text())) {
+        failures.push('Browser console: ' + message.text());
+      }
+    });
+
     const targetUrl = `${baseUrl}${t.path}`;
     await page.goto(targetUrl, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1000);
+
+    const pageText = await page.locator('body').innerText();
+    const expectedHeading = t.path.startsWith('/roles')
+      ? 'المشرفون وأدوار الإدارة'
+      : t.path.includes('adm02')
+        ? 'نظرة واضحة على ما يحتاج إجراء'
+        : 'الدخول إلى منصة الإدارة';
+    if (!pageText.includes(expectedHeading)) {
+      failures.push('Expected screen was not rendered: ' + expectedHeading);
+    }
+    if (/Hydration failed|server rendered HTML didn't match|Uncaught Error/i.test(pageText)) {
+      failures.push('React Hydration failed or runtime error overlay is visible');
+    }
+    if (t.viewport.width <= 390) {
+      const overflow = await page.evaluate(() =>
+        document.documentElement.scrollWidth > window.innerWidth + 2
+      );
+      if (overflow) failures.push('Mobile horizontal viewport overflow (scrollWidth)');
+    }
+    if (failures.length) {
+      await page.close();
+      throw new Error(t.file + ': ' + failures.join(' | '));
+    }
 
     const outPath = path.join(outputDir, t.file);
     await page.screenshot({ path: outPath, fullPage: t.fullPage });
@@ -317,7 +348,7 @@ async function run() {
 - **Scope:** ADM-01 (Restricted Admin Access), ADM-02 (Operations Dashboard), ADM-14 (Admin Users, Roles & Permissions) built as ONE connected functional batch.
 - **Git Branch:** \`feat/admin-batch-01-access-shell-dashboard\` (tracking \`origin/feat/admin-batch-01-access-shell-dashboard\`).
 - **Base Commit:** \`f91176871ccdba3a65475c0aac44be098bc0530d\` (Merge Customer PR #50).
-- **Delivery Policy Status:** **STRICT LOCAL REVIEW ONLY**. No commit, no push, no PR, no merge.
+- **Delivery Policy Status:** The capture script does not commit, push, open PRs, or merge; check Git history for current delivery status.
 
 ## 2. Security & Authorization Corrections Applied
 1. **Strict __DEV__ Preview Isolation**:
