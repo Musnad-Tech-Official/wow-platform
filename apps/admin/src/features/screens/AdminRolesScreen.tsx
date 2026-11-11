@@ -133,7 +133,7 @@ export function AdminRolesScreen({
       {/* Page Header */}
       <View className="gap-1">
         <View className="flex-row items-center gap-2">
-          <AppText variant="caption" className="font-tajawal-bold text-[#FACC15]">
+          <AppText variant="caption" className="font-tajawal-bold text-[#A16207] dark:text-[#FACC15]">
             WOW / مركز العمليات
           </AppText>
         </View>
