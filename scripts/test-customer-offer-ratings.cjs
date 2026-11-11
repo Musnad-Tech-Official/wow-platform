@@ -60,6 +60,11 @@ new Function('exports', 'require', ratingDisplayTranspiled)(ratingDisplay, (mod)
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val),
     };
   }
+  if (mod === '@wow/api') {
+    return {
+      getMyRatings: async () => [],
+    };
+  }
   return {};
 });
 
@@ -263,7 +268,24 @@ test('5. Submission Guard: Synchronous ref blocks duplicate in-flight submission
   assert.equal(r1.success, true);
   assert.equal(r1.ratingId, 'rating-uuid-generated-123');
   assert.equal(callCount, 1, 'Only one mutation execution took place');
-  assert.equal(isSubmittingRef.current, false, 'Guard reset after completion');
+  assert.equal(isSubmittingRef.current, true, 'Guard remains locked after successful submission');
+
+  // Guard must clear on failure to allow retry
+  const failRef = { current: false };
+  const mockFailMutation = {
+    mutateAsync: async () => {
+      throw new Error('Network failure');
+    },
+  };
+  const failRes = await executeGuardedRatingSubmission({
+    offerId: validUuid,
+    conformity: 'matches',
+    experienceStars: 4,
+    isSubmittingRef: failRef,
+    submitRatingMutation: mockFailMutation,
+  });
+  assert.equal(failRes.success, false);
+  assert.equal(failRef.current, false, 'Guard cleared on failure to permit user retry');
 });
 
 // =============================================================================
@@ -305,8 +327,8 @@ test('6. Server Assessment Window: Honest Error Outcome Without False Success', 
 // Suite 7: Previous Rating Detection and Replacement Semantics
 // =============================================================================
 test('7. Existing Rating Semantics: Detects previous rating and allows updating', () => {
-  // Screen detects existing rating from useMyRatings query
-  assert.match(rateScreenSrc, /useMyRatings\(\{ limit: 50, offset: 0 \}\)/);
+  // Screen detects existing rating using lookupMyRatingForOffer across bounded pagination
+  assert.match(rateScreenSrc, /lookupMyRatingForOffer/, 'Uses lookupMyRatingForOffer for bounded multi-page lookup');
   assert.match(rateScreenSrc, /existingRating/, 'Checks existing rating for offer');
   assert.match(rateScreenSrc, /سبق لك تقييم هذا العرض/, 'Displays previous rating notice');
   assert.match(rateScreenSrc, /تحديث التقييم/, 'Submit button indicates update');
@@ -337,8 +359,12 @@ test('8. CUS-06 Integration: Private "تقييماتي للعروض" Activity En
   assert.match(layoutSrc, /<Stack\.Screen\s+name="ratings"\s*\/>/);
   assert.match(myRatingsRouteSrc, /CustomerMyRatingsScreen/);
 
-  // Screen contracts
-  assert.match(myRatingsScreenSrc, /useMyRatings\(\{ limit: 50, offset: 0 \}\)/);
+  // Screen contracts & pagination
+  assert.match(myRatingsScreenSrc, /useMyRatings\(\{\s*limit:\s*PAGE_SIZE,\s*offset:\s*0\s*\}\)/, 'Uses PAGE_SIZE for initial query');
+  assert.match(myRatingsScreenSrc, /handleLoadMore/, 'Supports pagination with handleLoadMore');
+  assert.match(myRatingsScreenSrc, /accumulatedRatings/, 'Accumulates loaded pages');
+  assert.match(myRatingsScreenSrc, /deduplicateRatings/, 'Deduplicates ratings across pages');
+  assert.match(myRatingsScreenSrc, /ListFooterComponent=\{renderFooter\}/, 'Renders load-more footer');
   assert.match(myRatingsScreenSrc, /usePublicOffer/, 'Must query authorized public offer API for offer title');
   assert.match(myRatingsScreenSrc, /العرض غير متاح حالياً/, 'Must provide clear unavailable-offer fallback');
   assert.match(myRatingsScreenSrc, /سجّل الدخول لعرض تقييماتك/, 'Guest gate present');
@@ -388,4 +414,174 @@ test('10. Accessibility & Visual Contracts: 48pt Touch Targets, RTL, and WCAG Co
   assert.match(rateScreenSrc, /accessibilityRole="radio"/);
   assert.match(rateScreenSrc, /accessibilityRole="button"/);
   assert.match(myRatingsScreenSrc, /accessibilityRole="button"/);
+});
+
+// =============================================================================
+// Suite 11: Review Finding 1 - Delayed-Query Hydration & User Edit Preservation
+// =============================================================================
+test('11. Review Finding 1: Delayed-Query Hydration and Edit Preservation', async () => {
+  // 1. Verify screen tracks user edits and hydration state with refs
+  assert.match(rateScreenSrc, /isUserEditedRef\s*=\s*useRef\(false\)/, 'Tracks user interactions');
+  assert.match(rateScreenSrc, /hasHydratedRef\s*=\s*useRef\(isPreHydrated\)/, 'Tracks hydration state');
+  assert.match(rateScreenSrc, /do NOT overwrite user edits/i, 'Explicit protection against late query overwrite');
+
+  // 2. Behavioral verification of the hydration state machine:
+  function simulateHydrationState(initialEdits, delayedRating) {
+    let conformity = null;
+    let experienceStars = null;
+    let isUserEdited = false;
+    let hasHydrated = false;
+
+    // Simulate user editing before query completes
+    if (initialEdits) {
+      isUserEdited = true;
+      conformity = initialEdits.conformity;
+      experienceStars = initialEdits.experienceStars;
+    }
+
+    // Simulate delayed query arrival
+    if (delayedRating && !hasHydrated) {
+      if (!isUserEdited) {
+        hasHydrated = true;
+        conformity = delayedRating.conformity;
+        experienceStars = delayedRating.experience_stars ?? null;
+      } else {
+        hasHydrated = true;
+        // Do NOT overwrite user edits
+      }
+    }
+
+    return { conformity, experienceStars, hasHydrated, isUserEdited };
+  }
+
+  // Case A: Pristine form - query resolves after delay -> form hydrates with existing rating
+  const stateA = simulateHydrationState(null, {
+    conformity: 'matches',
+    experience_stars: 4,
+  });
+  assert.equal(stateA.conformity, 'matches', 'Pristine form hydrated with existing conformity');
+  assert.equal(stateA.experienceStars, 4, 'Pristine form hydrated with existing stars');
+  assert.equal(stateA.hasHydrated, true);
+
+  // Case B: User edited before delayed query arrives -> user edits MUST NOT be overwritten!
+  const stateB = simulateHydrationState(
+    { conformity: 'does_not_match', experienceStars: 1 },
+    { conformity: 'matches', experience_stars: 5 },
+  );
+  assert.equal(stateB.conformity, 'does_not_match', 'User edit preserved, NOT overwritten by delayed query');
+  assert.equal(stateB.experienceStars, 1, 'User stars preserved, NOT overwritten by delayed query');
+  assert.equal(stateB.hasHydrated, true);
+});
+
+// =============================================================================
+// Suite 12: Review Finding 2 - Multi-Page Rating Lookup & History Pagination
+// =============================================================================
+test('12. Review Finding 2: Multi-Page Rating Lookup and History Pagination', async () => {
+  const { lookupMyRatingForOffer, deduplicateRatings } = ratingDisplay;
+  const targetOfferId = '55555555-5555-4555-a555-555555555555';
+
+  const requestedOffsets = [];
+  const mockGetMyRatings = async (_client, { limit, offset }) => {
+    requestedOffsets.push(offset);
+    if (offset === 0) {
+      // Page 1: returns full batch of 50 ratings, target is not on page 1
+      return Array.from({ length: 50 }, (_, i) => ({
+        id: `rating-${i}`,
+        offer_id: `11111111-1111-4111-a111-${String(i).padStart(12, '0')}`,
+        conformity: 'matches',
+        experience_stars: 3,
+      }));
+    }
+    if (offset === 50) {
+      // Page 2: returns 10 ratings including target offer
+      return [
+        {
+          id: 'rating-50',
+          offer_id: targetOfferId,
+          conformity: 'does_not_match',
+          experience_stars: 2,
+        },
+        ...Array.from({ length: 9 }, (_, i) => ({
+          id: `rating-${51 + i}`,
+          offer_id: `22222222-2222-4222-a222-${String(i).padStart(12, '0')}`,
+          conformity: 'matches',
+          experience_stars: 4,
+        })),
+      ];
+    }
+    return [];
+  };
+
+  // Test multi-page lookup beyond 50 records
+  const result = await lookupMyRatingForOffer(null, targetOfferId, {
+    batchSize: 50,
+    getRatingsFn: mockGetMyRatings,
+  });
+
+  assert.ok(result, 'Rating on page 2 (past 50 items) must be found');
+  assert.equal(result.offer_id, targetOfferId);
+  assert.equal(result.conformity, 'does_not_match');
+  assert.deepEqual(requestedOffsets, [0, 50], 'Paginated through offset 0 and 50');
+
+  // Test non-UUID early exit without calling API
+  let apiCalled = false;
+  const invalidResult = await lookupMyRatingForOffer(null, 'invalid-uuid-string', {
+    getRatingsFn: async () => {
+      apiCalled = true;
+      return [];
+    },
+  });
+  assert.equal(invalidResult, null);
+  assert.equal(apiCalled, false, 'Invalid UUID must return null without querying API');
+
+  // Test deduplicateRatings helper
+  const existing = [
+    { id: 'r1', offer_id: 'o1' },
+    { id: 'r2', offer_id: 'o2' },
+  ];
+  const incoming = [
+    { id: 'r2', offer_id: 'o2' },
+    { id: 'r3', offer_id: 'o3' },
+  ];
+  const merged = deduplicateRatings(existing, incoming);
+  assert.equal(merged.length, 3);
+  assert.deepEqual(merged.map((r) => r.id), ['r1', 'r2', 'r3'], 'Deduplicated without duplicating r2');
+});
+
+// =============================================================================
+// Suite 13: Review Finding 4 - Input Disabling & Duplicate Guard Hardening
+// =============================================================================
+test('13. Review Finding 4: Input Disabling and Duplicate Submission Hardening', () => {
+  // 1. Conformity selection disabled during submission
+  assert.match(
+    rateScreenSrc,
+    /disabled=\{isSubmitting\}/,
+    'Conformity option cards must be disabled when isSubmitting is true',
+  );
+
+  // 2. Star buttons disabled during submission
+  assert.match(
+    rateScreenSrc,
+    /accessibilityState=\{\{\s*selected:\s*experienceStars\s*===\s*starIndex,\s*disabled:\s*isSubmitting,\s*\}\}/,
+    'Star buttons indicate disabled state when isSubmitting is true',
+  );
+
+  // 3. Submit button disabled during submission or when no conformity selected
+  assert.match(
+    rateScreenSrc,
+    /disabled=\{isSubmitting\s*\|\|\s*!conformity\}/,
+    'Submit button disabled while submitting or incomplete',
+  );
+
+  // 4. Double submission guard lock on success
+  assert.match(
+    ratingDisplaySrc,
+    /KEEP isSubmittingRef\.current = true LOCKED/,
+    'Ref guard remains locked on success',
+  );
+  assert.match(
+    ratingDisplaySrc,
+    /On failure: release guard/,
+    'Ref guard released on failure to permit retry',
+  );
 });

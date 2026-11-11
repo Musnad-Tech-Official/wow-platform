@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -19,9 +19,10 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@wow/auth';
 import {
-  useMyRatings,
+  requireWowApiSession,
   usePublicOffer,
   useRateOffer,
+  useWowApiContext,
   type CustomerOfferRating,
   type OfferConformity,
 } from '@wow/api';
@@ -34,6 +35,7 @@ import {
   STAR_RATING_LABELS,
   executeGuardedRatingSubmission,
   formatRatingArabicDate,
+  lookupMyRatingForOffer,
 } from './rating-display';
 
 export interface CustomerRateOfferScreenProps {
@@ -77,14 +79,18 @@ export function CustomerRateOfferScreen({
   const offerQuery = usePublicOffer(isUuidValid && !mockOffer ? offerId : null);
   const offer = mockOffer ?? offerQuery.data;
 
-  // 3. Fetch existing ratings for the current user
-  const myRatingsQuery = useMyRatings({ limit: 50, offset: 0 });
-  const existingRatingFromQuery = useMemo(() => {
-    if (!myRatingsQuery.data) return null;
-    return myRatingsQuery.data.find((r) => r.offer_id === offerId) ?? null;
-  }, [myRatingsQuery.data, offerId]);
+  // 3. Existing Rating Lookup & Asynchronous Hydration
+  const apiContext = useWowApiContext();
 
-  const existingRating =
+  const isPreHydrated =
+    mockExistingRating !== undefined ||
+    previewMode === 'already_rated' ||
+    previewMode === 'could_not_verify';
+  const isUserEditedRef = useRef(false);
+  const hasHydratedRef = useRef(isPreHydrated);
+
+  // Pre-seed initial existing rating if provided or in preview mode
+  const [existingRating, setExistingRating] = useState<CustomerOfferRating | null>(
     previewMode === 'already_rated'
       ? (mockExistingRating ?? {
           id: 'rating-preview-existing',
@@ -96,7 +102,8 @@ export function CustomerRateOfferScreen({
           created_at: '2026-11-08T12:00:00Z',
           updated_at: '2026-11-08T12:00:00Z',
         })
-      : (mockExistingRating ?? existingRatingFromQuery);
+      : (mockExistingRating ?? null),
+  );
 
   // 4. Form state
   const initialConformity: OfferConformity | null =
@@ -126,6 +133,53 @@ export function CustomerRateOfferScreen({
   // Mutation
   const rateOfferMutation = useRateOffer();
 
+  // Review Finding 1 & 2: Asynchronous lookup of existing rating across pagination
+  // Hydrates the form ONLY if the user has not already edited/interacted with the form.
+  useEffect(() => {
+    if (
+      previewMode !== 'live' ||
+      !isSignedIn ||
+      !apiContext.userId ||
+      !isUuidValid ||
+      Boolean(mockOffer) ||
+      mockExistingRating !== undefined
+    ) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    async function fetchExistingRating() {
+      try {
+        const { client } = requireWowApiSession(apiContext);
+        const resolvedRating = await lookupMyRatingForOffer(client, offerId);
+        if (isCancelled) return;
+
+        setExistingRating(resolvedRating);
+
+        if (resolvedRating && !hasHydratedRef.current) {
+          if (!isUserEditedRef.current) {
+            // User has not touched the form: safely hydrate existing rating into form
+            hasHydratedRef.current = true;
+            setConformity(resolvedRating.conformity);
+            setExperienceStars(resolvedRating.experience_stars ?? null);
+          } else {
+            // User has already made edits: do NOT overwrite user edits!
+            hasHydratedRef.current = true;
+          }
+        }
+      } catch {
+        // Non-blocking lookup failure: allows user to proceed with fresh rating submission
+      }
+    }
+
+    void fetchExistingRating();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [apiContext, isSignedIn, isUuidValid, mockExistingRating, mockOffer, offerId, previewMode]);
+
   // Navigation handlers
   function handleBack() {
     if (router.canGoBack()) {
@@ -147,6 +201,8 @@ export function CustomerRateOfferScreen({
   }
 
   function handleSelectConformity(selected: OfferConformity) {
+    if (isSubmitting || isSubmittingRef.current) return;
+    isUserEditedRef.current = true;
     setConformity(selected);
     setSubmitError(null);
     // Strict business rule: could_not_verify MUST have null stars
@@ -156,13 +212,15 @@ export function CustomerRateOfferScreen({
   }
 
   function handleSelectStars(stars: number) {
-    if (conformity === 'could_not_verify') return;
+    if (isSubmitting || isSubmittingRef.current || conformity === 'could_not_verify') return;
+    isUserEditedRef.current = true;
     // Toggle off if already selected
     setExperienceStars(experienceStars === stars ? null : stars);
     setSubmitError(null);
   }
 
   async function handleSubmit() {
+    if (isSubmitting || isSubmittingRef.current) return;
     if (!conformity) {
       setSubmitError('يرجى اختيار مدى مطابقة العرض أولاً.');
       return;
@@ -765,8 +823,9 @@ export function CustomerRateOfferScreen({
                 return (
                   <Pressable
                     key={opt.value}
+                    disabled={isSubmitting}
                     accessibilityRole="radio"
-                    accessibilityState={{ selected: isSelected }}
+                    accessibilityState={{ selected: isSelected, disabled: isSubmitting }}
                     accessibilityLabel={opt.label}
                     accessibilityHint={opt.description}
                     onPress={() => handleSelectConformity(opt.value)}
@@ -897,9 +956,13 @@ export function CustomerRateOfferScreen({
                     return (
                       <Pressable
                         key={starIndex}
+                        disabled={isSubmitting}
                         accessibilityRole="button"
                         accessibilityLabel={`${starIndex} نجوم - ${STAR_RATING_LABELS[starIndex]}`}
-                        accessibilityState={{ selected: experienceStars === starIndex }}
+                        accessibilityState={{
+                          selected: experienceStars === starIndex,
+                          disabled: isSubmitting,
+                        }}
                         onPress={() => handleSelectStars(starIndex)}
                         style={({ pressed }) => ({
                           width: 48,
@@ -937,9 +1000,14 @@ export function CustomerRateOfferScreen({
                       {STAR_RATING_LABELS[experienceStars]} ({experienceStars} من 5)
                     </AppText>
                     <Pressable
+                      disabled={isSubmitting}
                       accessibilityRole="button"
                       accessibilityLabel="إلغاء تقييم النجوم"
-                      onPress={() => setExperienceStars(null)}
+                      onPress={() => {
+                        if (isSubmitting) return;
+                        isUserEditedRef.current = true;
+                        setExperienceStars(null);
+                      }}
                       style={{ paddingHorizontal: 6, paddingVertical: 2 }}
                     >
                       <AppText variant="caption" style={{ color: '#EF4444', fontWeight: '700' }}>

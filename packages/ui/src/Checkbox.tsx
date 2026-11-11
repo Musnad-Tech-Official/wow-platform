@@ -35,6 +35,7 @@ export function Checkbox({
   const checkProgress = useSharedValue(checked ? 1 : 0);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     checkProgress.value = withTiming(checked ? 1 : 0, {
       duration: 110,
       reduceMotion: ReduceMotion.System,

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,8 +10,11 @@ import { useRouter } from 'expo-router';
 import { ArrowRight, ChevronLeft, Lock, Star } from 'lucide-react-native';
 import { useAuth } from '@wow/auth';
 import {
+  getMyRatings,
+  requireWowApiSession,
   useMyRatings,
   usePublicOffer,
+  useWowApiContext,
   type CustomerOfferRating,
 } from '@wow/api';
 import { useTheme, useWowColors } from '@wow/theme';
@@ -22,6 +25,7 @@ import {
   FIXTURE_MY_RATINGS,
   FIXTURE_OFFERS_BY_ID,
   STAR_RATING_LABELS,
+  deduplicateRatings,
   formatRatingArabicDate,
   getConformityBadgeProps,
   getModerationStatusBadgeProps,
@@ -207,6 +211,8 @@ function CustomerRatingCardItem({ item, isFixtureMode }: CustomerRatingCardItemP
   );
 }
 
+const PAGE_SIZE = 50;
+
 export function CustomerMyRatingsScreen({
   previewMode = 'live',
 }: CustomerMyRatingsScreenProps = {}) {
@@ -225,14 +231,36 @@ export function CustomerMyRatingsScreen({
       ? true
       : Boolean(isSignedIn);
 
-  // 2. Fetch user's ratings
-  const ratingsQuery = useMyRatings({ limit: 50, offset: 0 });
+  const apiContext = useWowApiContext();
 
-  const ratings: CustomerOfferRating[] = useMemo(() => {
+  // Pagination state (Review Finding 2: suitable pagination beyond 50 records)
+  const [offset, setOffset] = useState<number>(0);
+  const [accumulatedRatings, setAccumulatedRatings] = useState<CustomerOfferRating[]>([]);
+  const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+  const [hasMorePages, setHasMorePages] = useState<boolean>(true);
+  const isFetchingMoreRef = useRef<boolean>(false);
+
+  // 2. Fetch user's ratings (initial page)
+  const ratingsQuery = useMyRatings({ limit: PAGE_SIZE, offset: 0 });
+
+  const initialServerRatings: CustomerOfferRating[] = useMemo(() => {
     if (previewMode === 'populated') return FIXTURE_MY_RATINGS;
     if (previewMode === 'empty') return [];
     return ratingsQuery.data ?? [];
   }, [previewMode, ratingsQuery.data]);
+
+  // Combined ratings list (initial page + accumulated pages)
+  const ratings: CustomerOfferRating[] = useMemo(() => {
+    if (offset === 0) {
+      return initialServerRatings;
+    }
+    return deduplicateRatings(initialServerRatings, accumulatedRatings);
+  }, [offset, initialServerRatings, accumulatedRatings]);
+
+  const canLoadMore =
+    hasMorePages &&
+    (previewMode !== 'live' ? false : offset > 0 || initialServerRatings.length === PAGE_SIZE);
 
   const isLoading =
     previewMode === 'loading'
@@ -243,6 +271,39 @@ export function CustomerMyRatingsScreen({
     previewMode === 'error'
       ? true
       : previewMode === 'live' && ratingsQuery.isError;
+
+  const handleLoadMore = useCallback(async () => {
+    if (isFetchingMoreRef.current || !hasMorePages || ratingsQuery.isLoading) return;
+    if (previewMode !== 'live' || !effectiveIsSignedIn || !apiContext.userId) return;
+
+    try {
+      const { client } = requireWowApiSession(apiContext);
+      isFetchingMoreRef.current = true;
+      setIsFetchingMore(true);
+      setLoadMoreError(false);
+
+      const nextOffset = offset + PAGE_SIZE;
+      const nextBatch = await getMyRatings(client, {
+        limit: PAGE_SIZE,
+        offset: nextOffset,
+      });
+
+      if (!nextBatch || nextBatch.length === 0) {
+        setHasMorePages(false);
+      } else {
+        setAccumulatedRatings((prev) => deduplicateRatings(prev, nextBatch));
+        setOffset(nextOffset);
+        if (nextBatch.length < PAGE_SIZE) {
+          setHasMorePages(false);
+        }
+      }
+    } catch {
+      setLoadMoreError(true);
+    } finally {
+      isFetchingMoreRef.current = false;
+      setIsFetchingMore(false);
+    }
+  }, [apiContext, effectiveIsSignedIn, hasMorePages, offset, previewMode, ratingsQuery.isLoading]);
 
   function handleBack() {
     if (router.canGoBack()) {
@@ -479,6 +540,66 @@ export function CustomerMyRatingsScreen({
   // ---------------------------------------------------------------------------
   // Populated List State
   // ---------------------------------------------------------------------------
+  const renderFooter = () => {
+    if (!canLoadMore) return null;
+
+    if (loadMoreError) {
+      return (
+        <Card
+          {...rtlWebProps}
+          style={{
+            marginTop: 12,
+            padding: 14,
+            borderRadius: 14,
+            borderWidth: 1,
+            borderColor: isDark ? '#7F1D1D' : '#FCA5A5',
+            backgroundColor: isDark ? '#450A0A' : '#FEF2F2',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <AppText
+            style={{
+              flex: 1,
+              fontSize: 13,
+              color: isDark ? '#FCA5A5' : '#991B1B',
+              textAlign: 'right',
+            }}
+          >
+            تعذر تحميل المزيد من التقييمات.
+          </AppText>
+          <AppButton
+            title="إعادة المحاولة"
+            variant="outline"
+            onPress={() => void handleLoadMore()}
+            style={{ height: 36, minHeight: 36, paddingHorizontal: 12 }}
+          />
+        </Card>
+      );
+    }
+
+    if (isFetchingMore) {
+      return (
+        <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primary} size="small" />
+        </View>
+      );
+    }
+
+    return (
+      <View style={{ marginTop: 12, alignItems: 'center' }}>
+        <AppButton
+          title="تحميل المزيد من التقييمات"
+          variant="outline"
+          onPress={() => void handleLoadMore()}
+          style={{ minHeight: 48, width: '100%', maxWidth: 300 }}
+        />
+      </View>
+    );
+  };
+
   return (
     <View {...rtlWebProps} style={{ flex: 1, backgroundColor: colors.background }}>
       {renderHeader()}
@@ -500,6 +621,9 @@ export function CustomerMyRatingsScreen({
             isFixtureMode={previewMode === 'populated'}
           />
         )}
+        ListFooterComponent={renderFooter}
+        onEndReached={() => void handleLoadMore()}
+        onEndReachedThreshold={0.3}
       />
     </View>
   );

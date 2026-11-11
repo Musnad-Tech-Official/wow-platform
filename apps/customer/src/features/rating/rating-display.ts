@@ -1,8 +1,9 @@
-import type {
-  CustomerOfferRating,
-  OfferConformity,
-  PublicOfferDetails,
-  RatingModerationStatus,
+import {
+  getMyRatings,
+  type CustomerOfferRating,
+  type OfferConformity,
+  type PublicOfferDetails,
+  type RatingModerationStatus,
 } from '@wow/api';
 import { isValidUuid } from '../offer/offer-display';
 
@@ -196,6 +197,71 @@ export function getModerationStatusBadgeProps(status: RatingModerationStatus): {
 }
 
 /**
+ * Deduplicates an array of customer offer ratings by rating ID, preserving original order.
+ */
+export function deduplicateRatings(
+  existing: CustomerOfferRating[],
+  incoming: CustomerOfferRating[],
+): CustomerOfferRating[] {
+  const seen = new Set(existing.map((r) => r.id));
+  const merged = [...existing];
+  for (const item of incoming) {
+    if (item && item.id && !seen.has(item.id)) {
+      seen.add(item.id);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+export interface LookupMyRatingOptions {
+  batchSize?: number;
+  maxOffset?: number;
+  getRatingsFn?: typeof getMyRatings;
+}
+
+/**
+ * Resolves an existing offer rating owned by the current customer using bounded pagination over getMyRatings.
+ * Validates UUID format and terminates early when records are exhausted or match is found.
+ * Never requests offset > 10000 (PostgreSQL SQL boundary).
+ */
+export async function lookupMyRatingForOffer(
+  client: Parameters<typeof getMyRatings>[0],
+  offerId: string,
+  options: LookupMyRatingOptions = {},
+): Promise<CustomerOfferRating | null> {
+  if (!isValidUuid(offerId)) return null;
+
+  const fetchRatings = options.getRatingsFn ?? getMyRatings;
+  const batchSize = Math.min(Math.max(options.batchSize ?? 50, 1), 100);
+  const maxOffset = Math.min(Math.max(options.maxOffset ?? 10000, 0), 10000);
+
+  let offset = 0;
+  while (offset <= maxOffset) {
+    const batch = await fetchRatings(client, { limit: batchSize, offset });
+    if (!Array.isArray(batch)) return null;
+
+    const match = batch.find(
+      (r) => r && r.offer_id && r.offer_id.toLowerCase() === offerId.toLowerCase(),
+    );
+    if (match) return match;
+
+    // Definitively exhausted all authorized user ratings: no more records exist on server
+    if (batch.length < batchSize) {
+      return null;
+    }
+
+    if (offset + batchSize > maxOffset) {
+      break;
+    }
+
+    offset += batchSize;
+  }
+
+  return null;
+}
+
+/**
  * Pure execution helper for submitting offer ratings with double-tap protection,
  * validation, and honest error mapping for server-enforced assessment windows.
  */
@@ -237,8 +303,13 @@ export async function executeGuardedRatingSubmission(options: {
       experienceStars: cleanStars,
     });
 
+    // Hardened guard: on success, KEEP isSubmittingRef.current = true LOCKED
+    // to permanently prevent duplicate submissions from this screen instance.
     return { success: true, ratingId };
   } catch (err: unknown) {
+    // On failure: release guard so the user can review the error and retry
+    isSubmittingRef.current = false;
+
     const rawMessage = err instanceof Error ? err.message : String(err);
 
     // Check for PostgreSQL 14-day assessment window error
@@ -265,8 +336,6 @@ export async function executeGuardedRatingSubmission(options: {
       success: false,
       errorMessage: 'تعذر إرسال التقييم في الوقت الحالي. يُرجى التحقق من اتصالك وإعادة المحاولة.',
     };
-  } finally {
-    isSubmittingRef.current = false;
   }
 }
 
