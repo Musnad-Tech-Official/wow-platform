@@ -21,6 +21,7 @@ import {
   useBusinessBranches,
   useBusinessOffers,
   useOfferVersionDetails,
+  useOfferReviewNotes,
   usePublicCategories,
   type OfferVersion,
 } from '@wow/api';
@@ -127,8 +128,9 @@ export function OfferDetailsScreen() {
   }, [isSyntheticPreview, searchParams.submitted, serverVersions]);
 
   const publishedVersion = useMemo(
-    () => versions.find((v) => v.review_status === 'approved') ?? null,
-    [versions]
+    () => versions.find((v) => v.id === offer?.current_version_id && v.review_status === 'approved') ??
+      versions.find((v) => v.review_status === 'approved') ?? null,
+    [versions, offer?.current_version_id]
   );
   const pendingVersion = useMemo(
     () => versions.find((v) => v.review_status === 'pending' || v.review_status === 'draft') ?? null,
@@ -144,6 +146,10 @@ export function OfferDetailsScreen() {
   const { data: activeVersionDetails } = useOfferVersionDetails(
     isSyntheticPreview ? null : activeVersion?.id
   );
+  const { data: reviewNotes = [] } = useOfferReviewNotes(
+    isSyntheticPreview ? null : activeVersion?.id
+  );
+  const latestReviewNote = reviewNotes[0]?.reason?.trim() || null;
   const branches = useMemo(() => isSyntheticPreview ? PREVIEW_BRANCHES_FIXTURE : serverBranches,
     [isSyntheticPreview, serverBranches]);
   const versionBranchIds = activeVersionDetails?.branches.map((branch) => branch.branch_id) ?? [];
@@ -558,7 +564,7 @@ export function OfferDetailsScreen() {
           }}
         >
           <AppText variant="caption" muted className="font-tajawal text-xs text-right">
-            لا توجد تفاصيل مراجعة أخرى مسموح بعرضها في هذا السيناريو.
+            {latestReviewNote || 'لم تسجّل الإدارة ملاحظات على هذا الإصدار بعد.'}
           </AppText>
         </View>
       </View>
