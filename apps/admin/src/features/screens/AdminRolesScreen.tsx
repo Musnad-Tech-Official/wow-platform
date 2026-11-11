@@ -20,7 +20,6 @@ import {
   type AdminRole,
   FIXTURE_ADMIN_MEMBERS,
   getRoleArabicLabel,
-  canManageRoles,
 } from '../auth/admin-access';
 
 interface AdminRolesScreenProps {
@@ -81,9 +80,6 @@ export function AdminRolesScreen({
     setProposedRole(role);
   };
 
-  // A verified role alone would not make a missing mutation RPC available.
-  const roleAuthorityVerified = canManageRoles(currentRole);
-
   return (
     <View className="gap-8">
       {/* Development Fixture Mode Advisory Banner */}
@@ -116,9 +112,7 @@ export function AdminRolesScreen({
         </View>
       )}
 
-      {/* Prominent Contract Gap Alert (active when highlighted or in gap review mode) */}
-      {/* The role mutation RPC is absent for EVERY role, including super_admin. */}
-      { /* The mutation RPC is unavailable to every caller. */ }
+      {/* This role mutation RPC is absent for every role, including super_admin. */}
       <View className="rounded-2xl p-4 bg-[#FFFBEB] dark:bg-[#451A03]/50 border-2 border-[#F59E0B] dark:border-[#D97706] flex-row items-center gap-3">
           <AlertTriangle size={22} color="#D97706" />
           <View className="flex-1">
@@ -128,6 +122,11 @@ export function AdminRolesScreen({
             <AppText className="text-xs font-tajawal text-[#92400E] dark:text-[#FCD34D] text-right leading-relaxed mt-1">
               دالة تحديث الأدوار (wow_admin_update_member_role) غير متوفرة في قاعدة البيانات الحالية. تم قفل إجراءات الحفظ لمنع أي تصعيد غير موثق أو كتابة وهمية على الخادم.
             </AppText>
+            {highlightGap && (
+              <AppText className="text-xs font-tajawal-bold text-[#92400E] dark:text-[#FCD34D] text-right">
+                حالة اختبار القيود: الإجراء معطّل ولا يُرسل أي طلب تعديل إلى الخادم.
+              </AppText>
+            )}
           </View>
         </View>
 
