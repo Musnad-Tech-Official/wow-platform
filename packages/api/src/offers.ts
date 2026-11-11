@@ -27,6 +27,7 @@ export interface OfferVersion {
   offer_id: string;
   version_no: number;
   category_id?: string | null;
+  is_clearance?: boolean;
   title: string | null;
   description: string | null;
   offer_kind: OfferKind | null;
@@ -66,6 +67,7 @@ export interface OfferDraftItem {
 /** Exact Migration 004 payload keys. Entire items/branches arrays are replaced on save. */
 export interface OfferDraftPayload {
   category_id?: string | null;
+  is_clearance?: boolean;
   title?: string | null;
   description?: string | null;
   offer_kind?: OfferKind | null;
@@ -202,7 +204,7 @@ export async function getBusinessOffers(
 }
 
 const OFFER_VERSION_SELECT_WITH_CATEGORY =
-  'id,business_id,offer_id,version_no,category_id,title,description,offer_kind,original_price,final_price,currency,benefit_details,mandatory_fees,terms,stock_or_condition_notice,starts_at,ends_at,review_status,submitted_at,approved_at,created_at,updated_at';
+  'id,business_id,offer_id,version_no,category_id,is_clearance,title,description,offer_kind,original_price,final_price,currency,benefit_details,mandatory_fees,terms,stock_or_condition_notice,starts_at,ends_at,review_status,submitted_at,approved_at,created_at,updated_at';
 
 export async function getOfferVersions(
   client: WowSupabaseClient,
