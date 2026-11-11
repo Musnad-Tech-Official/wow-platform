@@ -51,6 +51,7 @@ export {
 export {
   useBusinessOffers,
   useOfferEligibleCategories,
+  useOfferReviewNotes,
   useBusinessOfferVersions,
   useOfferVersions,
   useOfferVersionDetails,
