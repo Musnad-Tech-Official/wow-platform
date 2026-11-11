@@ -120,11 +120,19 @@ async function run() {
   console.log(`Server listening on ${baseUrl}`);
 
   console.log('[3/5] Initializing Playwright browser...');
-  const browser = await chromium.launch({
-    ...(process.env.WOW_PLAYWRIGHT_CHANNEL ? { channel: process.env.WOW_PLAYWRIGHT_CHANNEL } : {}),
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  // Prefer bundled Chromium (CI); on Windows without a Playwright browser
+  // installation, reuse the system Edge browser as the local capture fallback.
+  let browser;
+  try {
+    browser = await chromium.launch({
+      ...(process.env.WOW_PLAYWRIGHT_CHANNEL ? { channel: process.env.WOW_PLAYWRIGHT_CHANNEL } : {}),
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+  } catch (error) {
+    if (process.platform !== 'win32' || process.env.WOW_PLAYWRIGHT_CHANNEL) throw error;
+    browser = await chromium.launch({ channel: 'msedge', headless: true });
+  }
 
   const capturedFiles = [];
 
