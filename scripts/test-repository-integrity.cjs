@@ -54,6 +54,23 @@ test('workspace dependencies and declared package entry points actually exist', 
   assert(!exists('packages/types/package.json')&&!exists('packages/utils/package.json'));
   assert.doesNotMatch(lock,/packages\/(?:types|utils)\b|\@wow\/(?:types|utils)/);
 });
+
+test('lockfile registry tarball entries have verified integrity', () => {
+  const lock = read('pnpm-lock.yaml');
+  const resolutions = lock.match(/^\s+resolution: \{[^}\n]+\}$/gm) ?? [];
+  const explicitTarballs = resolutions.filter(line => /\btarball:/.test(line));
+  for (const resolution of explicitTarballs) {
+    assert.match(
+      resolution,
+      /\bintegrity: sha(?:256|384|512)-[A-Za-z0-9+/]+={0,2}/,
+      'Tarball entry must include a verifiable integrity checksum: ' + resolution
+    );
+  }
+  const picker = lock.match(/^  expo-document-picker@57\.0\.3:\n    resolution: \{([^}\n]+)\}/m);
+  assert(picker, 'Missing pinned expo-document-picker@57.0.3');
+  assert.match(picker[1], /integrity: sha512-[A-Za-z0-9+/]+={0,2}/);
+});
+
 test('CI has no secret-dependent tests and calls the actual verification suite', () => {
   const ci=read('.github/workflows/ci.yml');
   assert.match(ci,/pull_request:/);
