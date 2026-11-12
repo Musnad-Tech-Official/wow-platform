@@ -342,7 +342,7 @@ export function AdminShell({
                   مساحة الإدارة
                 </AppText>
                 <ChevronLeft size={14} color={colors.mutedForeground} className="hidden sm:flex" />
-                <AppText className="font-tajawal-bold text-xs sm:text-sm text-[#854D0E] dark:text-[#FACC15] truncate">
+                <AppText numberOfLines={1} ellipsizeMode="tail" className="font-tajawal-bold text-[11px] sm:text-sm text-[#854D0E] dark:text-[#FACC15] max-w-[125px] sm:max-w-none">
                   {pageTitle}
                 </AppText>
               </View>
