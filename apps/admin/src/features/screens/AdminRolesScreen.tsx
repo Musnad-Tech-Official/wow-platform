@@ -148,8 +148,8 @@ export function AdminRolesScreen({
       {/* Main Table Card: حسابات الإدارة ونطاقها */}
       <Card className="p-4 sm:p-6 border border-[#E2E8F0] dark:border-[#27272A] bg-surface gap-5">
         <View className="flex-row flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E2E8F0] dark:border-[#27272A]">
-          <View className="items-end">
-            <AppText className="text-xl font-tajawal-bold text-right">
+          <View className="items-end min-w-0 w-full sm:w-auto">
+            <AppText className="text-base sm:text-xl font-tajawal-bold text-right w-full">
               حسابات الإدارة ونطاقها
             </AppText>
             <AppText variant="caption" muted className="font-tajawal text-xs text-right">
