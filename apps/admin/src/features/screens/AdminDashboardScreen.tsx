@@ -225,7 +225,7 @@ export function AdminDashboardScreen({
               <View className="h-2 bg-[#E2E8F0] dark:bg-[#27272A] rounded-full overflow-hidden">
                 <View className="h-full rounded-full" style={{
                   backgroundColor: metric.color,
-                  width: total === 0 ? '0%' : ((metric.count ?? 0) * 100 / total) + '%',
+                  width: `${total === 0 ? 0 : ((metric.count ?? 0) * 100 / total)}%` as const,
                 }} />
               </View>
             </View>
