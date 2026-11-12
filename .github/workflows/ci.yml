@@ -187,3 +187,28 @@ jobs:
         run: pnpm --filter merchant exec expo export --platform android --output-dir "$RUNNER_TEMP/wow-merchant-android"
       - name: Export iOS bundle
         run: pnpm --filter merchant exec expo export --platform ios --output-dir "$RUNNER_TEMP/wow-merchant-ios"
+
+  lockfile-pnpm12:
+    name: Frozen lockfile install with pnpm 12
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pnpm 12
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+          run_install: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Verify and install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
