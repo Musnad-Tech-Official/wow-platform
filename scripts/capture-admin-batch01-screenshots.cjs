@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const repoRoot = path.resolve(__dirname, '..');
 const outputDir = path.join(repoRoot, 'artifacts', 'admin-batch01-review');
 const zipPath = path.join(repoRoot, 'ADMIN_BATCH01_VISUAL_REVIEW.zip');
-const distDir = path.join(repoRoot, 'apps', 'admin', 'dist', 'admin-web');
+const distDir = process.env.WOW_ADMIN_CAPTURE_EXPORT_DIR || path.join(repoRoot, 'apps', 'admin', 'dist', 'admin-web');
 
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -91,19 +91,16 @@ function computeSha256(buf) {
 }
 
 async function run() {
-  console.log('[1/5] Cleaning export directory and building clean development admin web bundle...');
-  if (fs.existsSync(distDir)) {
-    fs.rmSync(distDir, { recursive: true, force: true });
+  console.log('[1/5] Checking development export for visual capture...');
+  // CI builds the exact export in a previous verified step; never rebuild over it.
+  // Local captures still require a fresh successful build and a cleaned output folder.
+  if (process.env.WOW_ADMIN_CAPTURE_SKIP_EXPORT !== '1') {
+    if (fs.existsSync(distDir)) fs.rmSync(distDir, { recursive: true, force: true });
+    execSync('pnpm --filter admin exec expo export -p web --dev --output-dir dist/admin-web', {
+      cwd: repoRoot,
+      stdio: 'inherit',
+    });
   }
-
-  const nodePath = path.join(repoRoot, 'node_modules', '.pnpm', '@babel+traverse@7.29.10', 'node_modules');
-
-  // Strict requirement: Build must exit with code 0. Do NOT accept stale files on build failure!
-  execSync('pnpm --filter admin exec expo export -p web --dev --output-dir dist/admin-web', {
-    cwd: repoRoot,
-    env: { ...process.env, NODE_PATH: nodePath },
-    stdio: 'inherit',
-  });
 
   const indexHtml = path.join(distDir, 'index.html');
   const rolesHtml = path.join(distDir, 'roles.html');
@@ -338,6 +335,7 @@ async function run() {
     batch: 'ADMIN-BATCH-01',
     scope: ['ADM-01', 'ADM-02', 'ADM-14'],
     generatedAt: new Date().toISOString(),
+    sourceCommit: process.env.GITHUB_SHA || null,
     buildType: 'development-export (--dev) with strict __DEV__ isolation',
     itemCount: capturedFiles.length,
     files: capturedFiles,
@@ -396,14 +394,10 @@ async function run() {
 | **ADM-14 Mutate Admin Roles** | UI Action Guarded | No public update RPC exists in baseline migrations (\`wow_admin_update_member_role\`) | **Contract Gap Documented:** Direct role mutation disabled in UI to prevent self-escalation; reports gap truthfully without fake success. |
 
 ## 4. Verification and Test Results
-- **Admin Test Suite (\`scripts/test-admin-batch-01.cjs\`):** 8/8 PASSED (100%).
-- **TypeScript Workspace Check (\`pnpm --filter admin exec tsc --noEmit\`):** PASSED (0 errors).
-- **Monorepo Typecheck (\`pnpm typecheck\`):** PASSED across all workspaces (API, UI, Customer, Merchant, Admin).
-- **ESLint (\`pnpm lint\`):** PASSED (0 errors).
-- **Route Integrity (\`pnpm validate:routes\`):** PASSED (Customer, Merchant, Admin routes verified).
-- **Query Regression Suite (\`pnpm test:query\`):** 47/47 PASSED.
-- **Integration Regression Suite (\`pnpm test:integration\`):** 19/19 PASSED.
-- **Customer & Merchant Regressions:** 35/35 PASSED (Merchant Batch 01, Customer Auth Completion, Customer Offer Ratings).
+- Capture source commit: \`${process.env.GITHUB_SHA || 'local checkout (verify Git HEAD)'}\`.
+- Visual capture performs per-page heading, hydration, browser-exception and mobile-overflow checks.
+- Consult the actual GitHub Actions workflow logs for TypeScript, lint, API, integration and production guest checks. No test-count or production-auth claim is inferred from screenshots.
+- Real Clerk admin membership/role checks are NOT exercised by development fixtures.
 
 ## 5. Visual Capture Manifest (${capturedFiles.length} screenshots)
 ${capturedFiles
@@ -416,15 +410,19 @@ ${capturedFiles
 
   fs.writeFileSync(path.join(outputDir, 'REPORT.md'), reportMd, 'utf8');
 
-  // Create Zip Archive
-  console.log(`Creating review zip archive at ${zipPath}...`);
-  execSync(`powershell -Command "Compress-Archive -Path '${outputDir}/*' -DestinationPath '${zipPath}' -Force"`, {
-    stdio: 'inherit',
-  });
-
-  console.log(`\n=== VISUAL REVIEW PACKAGE CREATED SUCCESSFULLY ===`);
-  console.log(`ZIP Path: ${zipPath}`);
-  console.log(`Files count: ${capturedFiles.length + 2}`);
+  // GitHub Actions uploads the directory as a portable artifact; local Windows
+  // users can keep the existing ZIP handoff path.
+  if (process.env.WOW_ADMIN_CAPTURE_SKIP_ZIP !== '1') {
+    if (process.platform !== 'win32') {
+      throw new Error('Local ZIP creation uses Windows PowerShell; use WOW_ADMIN_CAPTURE_SKIP_ZIP=1 on CI/Linux.');
+    }
+    console.log(`Creating review zip archive at ${zipPath}...`);
+    execSync(`powershell -Command "Compress-Archive -Path '${outputDir}/*' -DestinationPath '${zipPath}' -Force"`, {
+      stdio: 'inherit',
+    });
+    console.log(`ZIP Path: ${zipPath}`);
+  }
+  console.log(`Visual review screenshots captured: ${capturedFiles.length}; files in review directory: ${capturedFiles.length + 2}`);
 }
 
 run().catch((err) => {
