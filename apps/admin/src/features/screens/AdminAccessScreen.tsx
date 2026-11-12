@@ -91,7 +91,7 @@ export function AdminAccessScreen({
               قرارات موثّقة.
             </AppText>
             <AppText className="text-base sm:text-lg font-tajawal-bold text-[#1E293B] leading-relaxed text-right">
-              إدارة دقيقة للأنشطة والعروض والخصومة.
+              إدارة دقيقة للأنشطة والعروض والشكاوى.
             </AppText>
           </View>
 
@@ -109,8 +109,8 @@ export function AdminAccessScreen({
         <View className="justify-between p-6 sm:p-10 lg:p-12 w-full lg:w-7/12">
           <View>
             {/* Top Logo & Restricted Badge */}
-            <View className="flex-row items-center justify-between mb-8 pb-4 border-b border-[#E2E8F0] dark:border-[#27272A]">
-              <View className="flex-row items-center gap-3 min-w-0 flex-shrink">
+            <View className="flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-8 pb-4 border-b border-[#E2E8F0] dark:border-[#27272A]">
+              <View className="flex-row items-center gap-3 min-w-0">
                 <Image
                   source={isDark ? wowBrand.logoPrimaryDark : wowBrand.logoPrimary}
                   contentFit="contain"
@@ -127,7 +127,7 @@ export function AdminAccessScreen({
                 </View>
               </View>
 
-              <View className="flex-row items-center gap-1.5 bg-[#FEF9C3] dark:bg-[#422E12] px-3 py-1 rounded-full border border-[#FDE047] dark:border-[#854D0E]">
+              <View className="flex-row items-center gap-1.5 self-start sm:self-auto max-w-full bg-[#FEF9C3] dark:bg-[#422E12] px-3 py-1 rounded-full border border-[#FDE047] dark:border-[#854D0E]">
                 <Lock size={12} color="#854D0E" />
                 <AppText className="text-xs font-tajawal-bold text-[#854D0E] dark:text-[#FDE047]">
                   وصول مقيّد • Authorized
