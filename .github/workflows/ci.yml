@@ -219,6 +219,19 @@ jobs:
         env:
           WOW_ADMIN_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-admin-dev
         run: node scripts/test-admin-browser-playwright.cjs
+      - name: Capture 16 verified Admin review screenshots
+        env:
+          WOW_ADMIN_CAPTURE_SKIP_EXPORT: '1'
+          WOW_ADMIN_CAPTURE_SKIP_ZIP: '1'
+          WOW_ADMIN_CAPTURE_EXPORT_DIR: ${{ runner.temp }}/wow-admin-dev
+        run: node scripts/capture-admin-batch01-screenshots.cjs
+      - name: Upload Admin visual-review screenshots and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-batch01-visual-review
+          path: artifacts/admin-batch01-review/
+          if-no-files-found: error
+          retention-days: 14
       - name: Export production Admin Expo Web
         run: pnpm --filter admin exec expo export -p web --output-dir "$RUNNER_TEMP/wow-admin-prod"
       - name: Verify production preview URLs cannot unlock Admin routes
