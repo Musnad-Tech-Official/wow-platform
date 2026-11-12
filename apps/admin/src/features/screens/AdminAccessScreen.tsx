@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   View,
+  ScrollView,
   Platform,
   ActivityIndicator,
 } from 'react-native';
@@ -62,9 +63,11 @@ export function AdminAccessScreen({
   };
 
   return (
-    <View
+    <ScrollView
       {...(Platform.OS === 'web' ? { dir: 'rtl' as const } : {})}
-      className="flex-1 bg-[#F6F7F6] dark:bg-[#101014] justify-center items-center p-4 sm:p-6 lg:p-10"
+      className="flex-1 bg-[#F6F7F6] dark:bg-[#101014]"
+      contentContainerClassName="flex-grow justify-center items-center p-4 sm:p-6 lg:p-10"
+      keyboardShouldPersistTaps="handled"
     >
       {/* Compact Theme Control in Top Corner */}
       <View className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20">
@@ -272,6 +275,6 @@ export function AdminAccessScreen({
           </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
