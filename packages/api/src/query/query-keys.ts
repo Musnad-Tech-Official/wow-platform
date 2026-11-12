@@ -30,6 +30,8 @@ export const wowQueryKeys = {
       ['offers', 'merchant', userId, 'versions', offerId] as const,
     version: (versionId: string | null, userId: string | null) =>
       ['offers', 'merchant', userId, 'version', versionId] as const,
+    evidence: (offerId: string | null, userId: string | null) =>
+      ['offers', 'merchant', userId, 'evidence', offerId] as const,
     adminRoot: (userId: string | null) => ['offers', 'admin', userId] as const,
     adminList: (limit: number, offset: number, userId: string | null) =>
       ['offers', 'admin', userId, 'pending', limit, offset] as const,

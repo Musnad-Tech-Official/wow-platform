@@ -8,6 +8,8 @@ import { AppText, BottomSheet, DataState, SearchField } from '@wow/ui';
 export interface CategorySelectSheetProps {
   visible: boolean;
   selectedCategoryId: string | null;
+  /** When provided, restrict options to the merchant's approved activities. */
+  allowedCategoryIds?: string[];
   onSelect: (category: PublicCategory) => void;
   onClose: () => void;
 }
@@ -26,6 +28,7 @@ function normalizeArabicText(text: string): string {
 export function CategorySelectSheet({
   visible,
   selectedCategoryId,
+  allowedCategoryIds,
   onSelect,
   onClose,
 }: CategorySelectSheetProps) {
@@ -33,11 +36,17 @@ export function CategorySelectSheet({
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
-    data: categories = [],
+    data: allCategories = [],
     isLoading,
     isError,
     refetch,
   } = usePublicCategories();
+
+  const categories = useMemo(() => {
+    if (!allowedCategoryIds) return allCategories;
+    const allowed = new Set(allowedCategoryIds);
+    return allCategories.filter((category) => allowed.has(category.id));
+  }, [allCategories, allowedCategoryIds]);
 
   // Create parent lookup map
   const categoryMap = useMemo(() => {
@@ -107,7 +116,7 @@ export function CategorySelectSheet({
             onAction={() => void refetch()}
           />
         ) : categories.length === 0 ? (
-          <DataState kind="empty" title="لا توجد فئات نشطة" description="لم نتمكن من العثور على أي فئات نشطة." />
+          <DataState kind="empty" title={allowedCategoryIds ? 'لا توجد فئات معتمدة لهذا النشاط' : 'لا توجد فئات نشطة'} description={allowedCategoryIds ? 'أكمل اعتماد أنشطة النشاط التجاري أو اطلب إضافة فئة معتمدة.' : 'لم نتمكن من العثور على أي فئات نشطة.'} />
         ) : filteredCategories.length === 0 ? (
           <DataState kind="empty" title="لم نعثر على فئة مطابقة. جرّب كلمة أخرى." />
         ) : (

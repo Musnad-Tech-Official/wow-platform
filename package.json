@@ -21,6 +21,8 @@
     "test:customer-auth-completion": "node scripts/test-customer-auth-completion.cjs",
     "test:customer-offer-ratings": "node scripts/test-customer-offer-ratings.cjs",
     "test:merchant-batch-01": "node scripts/test-merchant-batch-01.cjs",
+    "test:merchant-batch-02": "node scripts/test-merchant-batch-02.cjs",
+    "test:merchant-batch-02-playwright": "node scripts/test-merchant-batch-02-playwright.cjs",
     "validate:routes": "node scripts/validate-integration-routes.cjs"
   }
 }

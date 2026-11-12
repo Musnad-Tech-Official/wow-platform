@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Pressable, TextInput, Modal, ActivityIndicator } from 'react-native';
-import { Search, SlidersHorizontal, ArrowUpDown, Info, Tag } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Search, SlidersHorizontal, ArrowUpDown, Info, Tag, ExternalLink } from 'lucide-react-native';
 import { AppText, ToastBanner } from '@wow/ui';
 import { useWowColors, useTheme } from '@wow/theme';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
+import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { OffersHeroBanner } from './OffersHeroBanner';
 import { OfferStatusDistribution } from './OfferStatusDistribution';
 import { MerchantOfferCard, type MerchantOfferItem } from './MerchantOfferCard';
@@ -13,6 +15,7 @@ export function MerchantOffersScreen() {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const { activeBusinessId } = useActiveBusiness();
   const [selectedOffer, setSelectedOffer] = useState<MerchantOfferItem | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -60,7 +63,18 @@ export function MerchantOffersScreen() {
       }
     >
       {/* 1. Authoritative Offers Mascot Scene Hero Banner */}
-      <OffersHeroBanner onGuidePress={() => setShowGuide(true)} />
+      <OffersHeroBanner
+        onNewOfferPress={() => {
+          router.push({
+            pathname: '/offers/editor',
+            params: {
+              ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+              ...(isSyntheticPreview ? { preview: '1' } : {}),
+            },
+          });
+        }}
+        onGuidePress={() => setShowGuide(true)}
+      />
 
       <Modal visible={showGuide} transparent animationType="fade" onRequestClose={() => setShowGuide(false)}>
         <Pressable className="flex-1 bg-black/50 items-center justify-center p-5" onPress={() => setShowGuide(false)}>
@@ -233,10 +247,49 @@ export function MerchantOffersScreen() {
           key={offer.id}
           offer={offer}
           onPrimaryAction={(item) => {
-            if (item.status === 'visible' || item.status === 'paused') void toggleOfferAvailability(item);
-            else setSelectedOffer(item);
+            if (item.status === 'draft') {
+              router.push({
+                pathname: '/offers/editor',
+                params: {
+                  offerId: item.id,
+                  ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+                  ...(isSyntheticPreview ? { preview: '1' } : {}),
+                },
+              });
+            } else if (item.status === 'visible' || item.status === 'paused') {
+              void toggleOfferAvailability(item);
+            } else {
+              router.push({
+                pathname: '/offers/details',
+                params: {
+                  offerId: item.id,
+                  ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+                  ...(isSyntheticPreview ? { preview: '1' } : {}),
+                },
+              });
+            }
           }}
-          onViewDetails={setSelectedOffer}
+          onViewDetails={(item) => {
+            if (item.status === 'draft') {
+              router.push({
+                pathname: '/offers/editor',
+                params: {
+                  offerId: item.id,
+                  ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+                  ...(isSyntheticPreview ? { preview: '1' } : {}),
+                },
+              });
+            } else {
+              router.push({
+                pathname: '/offers/details',
+                params: {
+                  offerId: item.id,
+                  ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+                  ...(isSyntheticPreview ? { preview: '1' } : {}),
+                },
+              });
+            }
+          }}
           onMenuPress={setSelectedOffer}
         />
       ))}
@@ -268,10 +321,56 @@ export function MerchantOffersScreen() {
             <AppText variant="label">{selectedOffer?.finalPrice ?? '—'} {selectedOffer?.currency ?? ''}</AppText>
             <AppText variant="caption" muted>{selectedOffer?.metaText ?? ''}</AppText>
             <AppText variant="caption" muted>{selectedOffer?.footerNote ?? ''}</AppText>
+            {selectedOffer?.status === 'draft' ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  const id = selectedOffer.id;
+                  setSelectedOffer(null);
+                  router.push({
+                    pathname: '/offers/editor',
+                    params: {
+                      offerId: id,
+                      ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+                      ...(isSyntheticPreview ? { preview: '1' } : {}),
+                    },
+                  });
+                }}
+                className="min-h-12 items-center justify-center rounded-xl flex-row gap-2"
+                style={{ backgroundColor: '#FACC15' }}
+              >
+                <AppText style={{ color: '#0F172D', fontWeight: 'bold' }}>
+                  استكمال صياغة المسودة (MER-05)
+                </AppText>
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  const id = selectedOffer?.id;
+                  setSelectedOffer(null);
+                  router.push({
+                    pathname: '/offers/details',
+                    params: {
+                      offerId: id,
+                      ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+                      ...(isSyntheticPreview ? { preview: '1' } : {}),
+                    },
+                  });
+                }}
+                className="min-h-12 items-center justify-center rounded-xl flex-row gap-2"
+                style={{ backgroundColor: '#FACC15' }}
+              >
+                <ExternalLink size={16} color="#0F172D" />
+                <AppText style={{ color: '#0F172D', fontWeight: 'bold' }}>
+                  عرض صفحة حالة وتفاصيل العرض (MER-06)
+                </AppText>
+              </Pressable>
+            )}
             {selectedOffer && (selectedOffer.status === 'visible' || selectedOffer.status === 'paused') && (
               <Pressable accessibilityRole="button" onPress={() => { void toggleOfferAvailability(selectedOffer); setSelectedOffer(null); }}
-                className="min-h-12 items-center justify-center rounded-xl" style={{ backgroundColor: '#FACC15' }}>
-                <AppText style={{ color: '#0F172D' }}>{selectedOffer.status === 'visible' ? 'إيقاف العرض مؤقتًا' : 'استئناف العرض'}</AppText>
+                className="min-h-12 items-center justify-center rounded-xl border" style={{ borderColor: colors.border }}>
+                <AppText style={{ color: colors.foreground }}>{selectedOffer.status === 'visible' ? 'إيقاف العرض مؤقتًا' : 'استئناف العرض'}</AppText>
               </Pressable>
             )}
             <Pressable accessibilityRole="button" onPress={() => setSelectedOffer(null)} className="min-h-12 items-center justify-center rounded-xl border"

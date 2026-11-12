@@ -543,6 +543,90 @@
         900,
         850
       ]
+    },
+    {
+      "id": "offer-definition-thinking",
+      "sourceBundle": "merchant",
+      "sourcePath": "MER-05-01_WOW_OFFICIAL_THINKING.webp",
+      "targetPath": "assets/illustrations/merchant/MER-05-01_WOW_OFFICIAL_THINKING.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 89924,
+      "sha256": "7a86985a53e377523086a1f16c515a1bceeab0619cde2b4a90dc30056216c3c8",
+      "dimensions": [
+        670,
+        650
+      ]
+    },
+    {
+      "id": "offer-pricing-guide",
+      "sourceBundle": "merchant",
+      "sourcePath": "MER-05-02_WOW_OFFICIAL_GUIDE.webp",
+      "targetPath": "assets/illustrations/merchant/MER-05-02_WOW_OFFICIAL_GUIDE.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 102446,
+      "sha256": "eb51be40103abc1e4a4d584d640b02a5767591808402e4318f422e0ea6b35217",
+      "dimensions": [
+        670,
+        646
+      ]
+    },
+    {
+      "id": "offer-branches-calendar",
+      "sourceBundle": "merchant",
+      "sourcePath": "MER-05-03_WOW_OFFICIAL_BRANCHES_CALENDAR.png",
+      "targetPath": "assets/illustrations/merchant/MER-05-03_WOW_OFFICIAL_BRANCHES_CALENDAR.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 351233,
+      "sha256": "87aa45da7f5f91d328a3df070fd121f399dd00b40906293458d5a1da4e2fe50d",
+      "dimensions": [
+        1180,
+        820
+      ]
+    },
+    {
+      "id": "offer-evidence-privacy",
+      "sourceBundle": "merchant",
+      "sourcePath": "MER-05-04_WOW_OFFICIAL_PRIVACY.webp",
+      "targetPath": "assets/illustrations/merchant/MER-05-04_WOW_OFFICIAL_PRIVACY.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 74586,
+      "sha256": "aed80c33140d2556d558f35669d9457f923ca26c7dfd882e7ebe7ac72e348ba9",
+      "dimensions": [
+        670,
+        640
+      ]
+    },
+    {
+      "id": "offer-review-base",
+      "sourceBundle": "merchant",
+      "sourcePath": "MER-05-05_WOW_OFFICIAL_BASE.webp",
+      "targetPath": "assets/illustrations/merchant/MER-05-05_WOW_OFFICIAL_BASE.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 65980,
+      "sha256": "bcd890373a0c4247e18900e77986742fdb2f316e4ad3883f39a71ef7c3a53363",
+      "dimensions": [
+        662,
+        670
+      ]
+    },
+    {
+      "id": "offer-details-review",
+      "sourceBundle": "merchant",
+      "sourcePath": "MER-06_WOW_OFFICIAL_REVIEW.webp",
+      "targetPath": "assets/illustrations/merchant/MER-06_WOW_OFFICIAL_REVIEW.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 211568,
+      "sha256": "d9ad07c073c5eaca5a9e4d72f077f7f82ddb152757bb65b18c3132026aea66fb",
+      "dimensions": [
+        670,
+        659
+      ]
     }
   ]
 }

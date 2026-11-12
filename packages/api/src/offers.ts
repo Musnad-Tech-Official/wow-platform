@@ -26,6 +26,9 @@ export interface OfferVersion {
   business_id: string;
   offer_id: string;
   version_no: number;
+  category_id?: string | null;
+  is_clearance?: boolean;
+  merchant_available_requested?: boolean;
   title: string | null;
   description: string | null;
   offer_kind: OfferKind | null;
@@ -64,6 +67,9 @@ export interface OfferDraftItem {
 
 /** Exact Migration 004 payload keys. Entire items/branches arrays are replaced on save. */
 export interface OfferDraftPayload {
+  category_id?: string | null;
+  is_clearance?: boolean;
+  merchant_available_requested?: boolean;
   title?: string | null;
   description?: string | null;
   offer_kind?: OfferKind | null;
@@ -137,6 +143,19 @@ export interface SetOfferAvailabilityInput {
   paused: boolean;
 }
 
+export interface OfferEvidenceDocument {
+  storageKey: string;
+  name: string;
+  size: number;
+  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png';
+  isPrimaryRequirement?: boolean;
+}
+
+export interface SaveOfferEvidenceInput {
+  offerId: string;
+  documents: OfferEvidenceDocument[];
+}
+
 export interface AdminPendingOffer {
   version_id: string;
   offer_id: string;
@@ -171,6 +190,43 @@ function requireJsonArray<T>(data: unknown, rpc: string): T[] {
   return data as T[];
 }
 
+export interface OfferReviewNote {
+  decision: OfferReviewDecision;
+  reason: string | null;
+  createdAt: string;
+}
+
+export async function getOfferReviewNotes(
+  client: WowSupabaseClient,
+  versionId: string,
+  signal?: AbortSignal,
+): Promise<OfferReviewNote[]> {
+  let request = client.rpc('wow_get_offer_review_notes', { p_version_id: versionId });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (error) throw error;
+  return requireJsonArray<OfferReviewNote>(data, 'wow_get_offer_review_notes');
+}
+
+export interface OfferEligibleCategory {
+  id: string;
+  name_ar: string;
+  name_en: string | null;
+  parent_id: string | null;
+}
+
+export async function getOfferEligibleCategories(
+  client: WowSupabaseClient,
+  businessId: string,
+  signal?: AbortSignal,
+): Promise<OfferEligibleCategory[]> {
+  let request = client.rpc('wow_get_offer_eligible_categories', { p_business_id: businessId });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (error) throw error;
+  return requireJsonArray<OfferEligibleCategory>(data, 'wow_get_offer_eligible_categories');
+}
+
 export async function getBusinessOffers(
   client: WowSupabaseClient,
   businessId: string,
@@ -186,13 +242,16 @@ export async function getBusinessOffers(
   return (data ?? []) as Offer[];
 }
 
+const OFFER_VERSION_SELECT_WITH_CATEGORY =
+  'id,business_id,offer_id,version_no,category_id,is_clearance,merchant_available_requested,title,description,offer_kind,original_price,final_price,currency,benefit_details,mandatory_fees,terms,stock_or_condition_notice,starts_at,ends_at,review_status,submitted_at,approved_at,created_at,updated_at';
+
 export async function getOfferVersions(
   client: WowSupabaseClient,
   offerId: string,
   signal?: AbortSignal,
 ): Promise<OfferVersion[]> {
   let request = client.from('offer_versions')
-    .select('id,business_id,offer_id,version_no,title,description,offer_kind,original_price,final_price,currency,benefit_details,mandatory_fees,terms,stock_or_condition_notice,starts_at,ends_at,review_status,submitted_at,approved_at,created_at,updated_at')
+    .select(OFFER_VERSION_SELECT_WITH_CATEGORY)
     .eq('offer_id', offerId)
     .order('version_no', { ascending: false });
   if (signal) request = request.abortSignal(signal);
@@ -208,7 +267,7 @@ export async function getOfferVersionDetails(
   signal?: AbortSignal,
 ): Promise<OfferVersionDetails | null> {
   let versionRequest = client.from('offer_versions')
-    .select('id,business_id,offer_id,version_no,title,description,offer_kind,original_price,final_price,currency,benefit_details,mandatory_fees,terms,stock_or_condition_notice,starts_at,ends_at,review_status,submitted_at,approved_at,created_at,updated_at')
+    .select(OFFER_VERSION_SELECT_WITH_CATEGORY)
     .eq('id', versionId);
   if (signal) versionRequest = versionRequest.abortSignal(signal);
   const { data: version, error: versionError } = await versionRequest.maybeSingle<OfferVersion>();
@@ -273,6 +332,31 @@ export async function saveOfferDraft(
   });
   if (error) throw error;
   return checkedUuid(data, 'wow_save_offer_draft');
+}
+
+export async function getOfferEvidenceDraft(
+  client: WowSupabaseClient,
+  offerId: string,
+  signal?: AbortSignal,
+): Promise<OfferEvidenceDocument[]> {
+  let request = client.rpc('wow_get_offer_evidence_draft', { p_offer_id: offerId });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (error) throw error;
+  return requireJsonArray<OfferEvidenceDocument>(data ?? [], 'wow_get_offer_evidence_draft');
+}
+
+export async function saveOfferEvidenceDraft(
+  client: WowSupabaseClient,
+  input: SaveOfferEvidenceInput,
+): Promise<boolean> {
+  const { data, error } = await client.rpc('wow_save_offer_evidence_draft', {
+    p_offer_id: input.offerId,
+    p_documents: input.documents,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error('Offer evidence was not confirmed as saved.');
+  return true;
 }
 
 export async function submitOffer(client: WowSupabaseClient, offerId: string): Promise<string> {

@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import { View, Pressable, Platform } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { File as ExpoFile } from 'expo-file-system';
 import { Paperclip, FileText, Trash2, RefreshCw } from 'lucide-react-native';
 import { useTheme, useWowColors } from '@wow/theme';
 import { AppText } from '@wow/ui';
@@ -97,9 +99,51 @@ export function EvidencePicker({
       };
 
       input.click();
-    } else {
-      // In synthetic preview or native environments without web DOM input
-      setInternalError(null);
+    } else if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      // Native system document chooser. copyToCacheDirectory allows immediate
+      // access to the bytes via Expo FileSystem before Storage upload.
+      void (async () => {
+        try {
+          const selection = await DocumentPicker.getDocumentAsync({
+            type: ['application/pdf', 'image/jpeg', 'image/png'],
+            multiple: false,
+            copyToCacheDirectory: true,
+          });
+          if (selection.canceled || !selection.assets?.length) return;
+          const asset = selection.assets[0];
+          if (!asset.size || asset.size < 1) {
+            setInternalError('الملف المختار فارغ. يرجى اختيار ملف صالح.');
+            return;
+          }
+          if (asset.size > MAX_FILE_SIZE) {
+            setInternalError('حجم الملف يتجاوز الحد الأقصى المسموح به (10 ميجابايت).');
+            return;
+          }
+          const ext = asset.name.split('.').pop()?.toLowerCase();
+          const mime: SelectedEvidenceFile['mimeType'] | null =
+            ext === 'pdf' ? 'application/pdf'
+            : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+            : ext === 'png' ? 'image/png' : null;
+          if (!mime || (asset.mimeType && asset.mimeType !== mime)) {
+            setInternalError('نوع الملف غير مدعوم أو لا يطابق امتداده. اختر PDF أو JPG أو PNG.');
+            return;
+          }
+          const bytes = await new ExpoFile(asset.uri).arrayBuffer();
+          if (bytes.byteLength !== asset.size) {
+            setInternalError('لم تكتمل قراءة الملف. يرجى إعادة المحاولة.');
+            return;
+          }
+          onChange({
+            name: asset.name,
+            size: asset.size,
+            mimeType: mime,
+            bytes,
+            isUploaded: false,
+          });
+        } catch {
+          setInternalError('تعذر فتح الملف أو قراءته من الجهاز. يرجى إعادة المحاولة.');
+        }
+      })();
     }
   }, [disabled, onChange]);
 
@@ -136,7 +180,7 @@ export function EvidencePicker({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="إضافة مستند إثبات: اختر ملفاً للمعاينة بصيغة PDF أو JPG أو PNG حتى 10 ميجابايت"
-            accessibilityHint="اضغط لاختيار ملف إثبات صفة التمثيل من جهازك"
+            accessibilityHint="اضغط لاختيار مستند إثبات خاص من جهازك"
             disabled={disabled}
             onPress={handlePickFile}
             className="min-h-16 w-full flex-row items-center justify-between gap-3 active:opacity-75"

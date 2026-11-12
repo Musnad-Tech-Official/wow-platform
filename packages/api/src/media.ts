@@ -17,6 +17,7 @@ export type WowMediaUploadScope =
   | { kind: 'business'; businessId: string }
   | { kind: 'offer'; businessId: string; versionId: string }
   | { kind: 'verification'; businessId: string }
+  | { kind: 'offerEvidence'; businessId: string }
   | { kind: 'complaint'; complaintId: string };
 
 export interface UploadWowMediaInput {
@@ -107,6 +108,10 @@ export function createWowMediaPath(
       requireUuid(scope.businessId, 'business');
       return { bucket: wowStorageBuckets.verification,
         key: `business-verifications/${scope.businessId}/${userId}/${filenameHex}.${extension}` };
+    case 'offerEvidence':
+      requireUuid(scope.businessId, 'business');
+      return { bucket: wowStorageBuckets.verification,
+        key: `offer-verifications/${scope.businessId}/${userId}/${filenameHex}.${extension}` };
     case 'complaint':
       requireUuid(scope.complaintId, 'complaint');
       return { bucket: wowStorageBuckets.complaint,
@@ -122,7 +127,7 @@ export async function uploadWowMedia(
   if (!(bytes instanceof ArrayBuffer)) {
     throw new Error('Use an ArrayBuffer for Expo/React Native Storage uploads.');
   }
-  const documentBucket = scope.kind === 'verification' || scope.kind === 'complaint';
+  const documentBucket = scope.kind === 'verification' || scope.kind === 'offerEvidence' || scope.kind === 'complaint';
   if (!documentBucket && contentType === 'application/pdf') {
     throw new Error('Business and offer media accept images only.');
   }
