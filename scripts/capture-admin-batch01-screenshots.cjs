@@ -264,6 +264,55 @@ async function run() {
     },
   ];
 
+  // Supplementary viewport captures show the lower content of nested
+  // React Native ScrollViews, which Playwright fullPage does not expand.
+  targets.push(
+    {
+      file: '17_adm02_dashboard_desktop_lower.png',
+      path: '/?preview=adm02',
+      viewport: { width: 1440, height: 1024 },
+      colorScheme: 'light',
+      fullPage: false,
+      scrollToBottom: true,
+      description: 'ADM-02 desktop — lower internal scroll content',
+    },
+    {
+      file: '18_adm14_roles_desktop_lower.png',
+      path: '/roles?preview=adm14',
+      viewport: { width: 1440, height: 1024 },
+      colorScheme: 'light',
+      fullPage: false,
+      scrollToBottom: true,
+      description: 'ADM-14 desktop — lower internal scroll content',
+    },
+    {
+      file: '19_adm02_dashboard_mobile_lower.png',
+      path: '/?preview=adm02',
+      viewport: { width: 390, height: 844 },
+      colorScheme: 'light',
+      fullPage: false,
+      scrollToBottom: true,
+      description: 'ADM-02 mobile — lower internal scroll content',
+    },
+    {
+      file: '20_adm14_roles_mobile_lower.png',
+      path: '/roles?preview=adm14',
+      viewport: { width: 390, height: 844 },
+      colorScheme: 'light',
+      fullPage: false,
+      scrollToBottom: true,
+      description: 'ADM-14 mobile — lower internal scroll content',
+    },
+    {
+      file: '21_adm01_access_mobile_full.png',
+      path: '/?preview=adm01',
+      viewport: { width: 390, height: 844 },
+      colorScheme: 'light',
+      fullPage: true,
+      description: 'ADM-01 full mobile document, scrollable if required',
+    },
+  );
+
   console.log(`[4/5] Capturing ${targets.length} actual screen states...`);
 
   for (const t of targets) {
@@ -305,6 +354,21 @@ async function run() {
     if (failures.length) {
       await page.close();
       throw new Error(t.file + ': ' + failures.join(' | '));
+    }
+
+    if (t.scrollToBottom) {
+      const scrolled = await page.evaluate(() => {
+        const all = [document.scrollingElement, ...document.querySelectorAll('*')]
+          .filter(Boolean)
+          .filter((node) => node.clientHeight > 100 && node.scrollHeight > node.clientHeight + 80)
+          .sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight));
+        if (!all.length) return false;
+        const target = all[0];
+        target.scrollTop = target.scrollHeight;
+        return target.scrollTop > 0;
+      });
+      if (!scrolled) throw new Error(t.file + ': no scrollable region found for lower-content review');
+      await page.waitForTimeout(350);
     }
 
     const outPath = path.join(outputDir, t.file);
