@@ -39,14 +39,16 @@ export function MerchantSubscriptionScreen() {
   const submitPaymentMutation = useSubmitSubscriptionPayment();
 
   // Synthetic preview fallbacks
-  const currentSub = billing?.subscriptions?.[0];
+  const currentSub = billing?.subscriptions?.find((sub) => sub.status === 'active')
+    ?? billing?.subscriptions?.find((sub) => sub.status === 'pending')
+    ?? billing?.subscriptions?.[0];
   const hasTrial = billing?.subscriptions?.some((s) => s.kind === 'trial');
   const isTrialActive = isSyntheticPreview ? true : (currentSub?.kind === 'trial' && currentSub?.status === 'active');
   const isPaidActive = currentSub?.kind === 'paid' && currentSub?.status === 'active';
   const isPendingVerification = billing?.payments?.some((p) => p.status === 'submitted');
 
   // Status computation
-  let statusChip = 'تجربة';
+  let statusChip = isSyntheticPreview || isTrialActive ? 'تجربة' : 'غير مفعل';
   if (isPendingVerification) statusChip = 'بانتظار تأكيد';
   else if (isPaidActive) statusChip = 'فعالة';
   else if (currentSub?.status === 'expired') statusChip = 'منتهية';
@@ -225,7 +227,7 @@ export function MerchantSubscriptionScreen() {
             style={{ backgroundColor: colors.surface, borderColor: colors.border }}
           >
             {/* Row 1: Plan Code & Info Badge */}
-            <View className="flex-row items-center justify-between pb-3 border-b border-border">
+            <View className="flex-row items-center justify-between gap-3 pb-3 border-b border-border">
               <View
                 className="rounded-lg px-2.5 py-1"
                 style={{ backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }}
@@ -235,12 +237,14 @@ export function MerchantSubscriptionScreen() {
                 </AppText>
               </View>
 
-              <View className="items-end">
-                <AppText variant="label" className="font-tajawal-bold text-sm">
-                  أساسي / متقدم
+              <View className="items-end flex-1 min-w-0">
+                <AppText variant="label" className="font-tajawal-bold text-sm text-right">
+                  {currentSub?.plan_snapshot?.code ? 'الباقة: ' + currentSub.plan_snapshot.code : 'تفاصيل الخطط'}
                 </AppText>
-                <AppText variant="caption" muted className="text-xs mt-0.5">
-                  حدود الباقات وأسعارها الدقيقة تنتظر سياسة تجارية معتمدة.
+                <AppText variant="caption" muted className="text-xs mt-0.5 text-right">
+                  {currentSub?.plan_snapshot?.price != null
+                    ? 'السعر المعتمد: ' + String(currentSub.plan_snapshot.price)
+                    : 'تُعرض الأسعار المعتمدة عند توفرها من النظام.'}
                 </AppText>
               </View>
             </View>
@@ -251,7 +255,10 @@ export function MerchantSubscriptionScreen() {
                 بداية ونهاية الاشتراك
               </AppText>
               <AppText variant="caption" muted className="text-xs mt-0.5">
-                تظهر التواريخ الفعلية عند تزويدها من النظام.
+                {currentSub?.starts_at && currentSub?.ends_at
+                  ? new Date(currentSub.starts_at).toLocaleDateString('ar')
+                    + ' — ' + new Date(currentSub.ends_at).toLocaleDateString('ar')
+                  : 'لا تتوفر تواريخ اشتراك مؤكدة بعد.'}
               </AppText>
             </View>
           </View>
