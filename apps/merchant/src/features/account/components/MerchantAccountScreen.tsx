@@ -73,6 +73,8 @@ export function MerchantAccountScreen() {
   const [submittingRev, setSubmittingRev] = useState(false);
   const [revSuccessMsg, setRevSuccessMsg] = useState<string | null>(null);
   const [revErrorMsg, setRevErrorMsg] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   const navParams = {
     ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
@@ -80,10 +82,19 @@ export function MerchantAccountScreen() {
   };
 
   const handleSignOut = async () => {
+    if (signingOut) return;
+    setSignOutError(null);
+    if (isSyntheticPreview) {
+      setSignOutError('لا توجد جلسة فعلية لتسجيل الخروج في وضع المعاينة.');
+      return;
+    }
+    setSigningOut(true);
     try {
       await signOut();
     } catch {
-      // Ignore or let auth state update
+      setSignOutError('تعذر تسجيل الخروج. تحقق من الاتصال وحاول مجددًا.');
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -431,11 +442,15 @@ export function MerchantAccountScreen() {
         </View>
 
         {/* 5. Sign Out Button */}
-        <View className="pt-2">
+        <View className="pt-2 gap-2">
+          {signOutError ? (
+            <AppText variant="caption" tone="danger" className="text-xs text-right">{signOutError}</AppText>
+          ) : null}
           <AppButton
-            title="تسجيل الخروج"
+            title={signingOut ? 'جارٍ تسجيل الخروج...' : 'تسجيل الخروج'}
             variant="outline"
             size="lg"
+            disabled={signingOut}
             onPress={handleSignOut}
           />
         </View>
