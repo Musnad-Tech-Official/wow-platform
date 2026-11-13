@@ -422,6 +422,7 @@ export function MerchantBranchEditorScreen() {
   const {
     activeBusinessId,
     isSyntheticPreview,
+    isOwner,
   } = useActiveBusiness();
 
   const { data: branches = [], isLoading: branchesLoading, error: branchesError, refetch: refetchBranches } = useBusinessBranches(activeBusinessId);
@@ -460,7 +461,13 @@ export function MerchantBranchEditorScreen() {
       subtitle="بيانات موقع الفرع التشغيلي وعنوانه المعتمد"
       showBusinessSelector={false}
     >
-      {unavailable ? (
+      {!isOwner ? (
+        <View className="rounded-2xl border border-border p-5 gap-3">
+          <AppText variant="heading" className="text-right">تعديل الفروع متاح لمالك النشاط فقط</AppText>
+          <AppText muted className="text-right">يمكنك مراجعة الفروع المصرح لك بها دون تغيير بياناتها.</AppText>
+          <AppButton title="العودة إلى الفروع" variant="outline" onPress={handleBack} />
+        </View>
+      ) : unavailable ? (
         <View className="rounded-2xl border border-border p-5 gap-3">
           <AppText variant="heading" className="text-right">
             {branchesLoading ? 'جارٍ تحميل بيانات الفرع...' : branchesError ? 'تعذر تحميل الفرع' : 'الفرع غير متاح'}
