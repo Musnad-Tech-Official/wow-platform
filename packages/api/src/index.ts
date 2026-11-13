@@ -83,6 +83,7 @@ export {
   useAdminComplaints,
   useAdminComplaint,
   useAdminUpdateComplaint,
+  useAdminRequestMerchantResponse,
 } from './query/hooks/use-customer-interactions';
 export {
   useSubscriptionPlans,
