@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput } from 'react-native';
+import { View, TextInput, Modal } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { MapPin, AlertCircle, CheckCircle2 } from 'lucide-react-native';
@@ -45,13 +45,24 @@ function BranchEditorForm({
   const [city, setCity] = useState(initialBranch?.city || (isSyntheticPreview ? 'تعز' : ''));
   const [addressLine, setAddressLine] = useState(initialBranch?.address_line || '');
   const [district, setDistrict] = useState(initialBranch?.district || '');
-  const [contactNote, setContactNote] = useState('');
   const [lat, setLat] = useState(initialBranch?.latitude != null ? String(initialBranch.latitude) : '');
   const [lon, setLon] = useState(initialBranch?.longitude != null ? String(initialBranch.longitude) : '');
 
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const dirty = name !== (initialBranch?.name || '')
+    || city !== (initialBranch?.city || (isSyntheticPreview ? 'تعز' : ''))
+    || addressLine !== (initialBranch?.address_line || '')
+    || district !== (initialBranch?.district || '')
+    || lat !== (initialBranch?.latitude != null ? String(initialBranch.latitude) : '')
+    || lon !== (initialBranch?.longitude != null ? String(initialBranch.longitude) : '');
+  const handleCancel = () => {
+    if (saving) return;
+    if (dirty) setConfirmCancelOpen(true);
+    else onBack();
+  };
 
   const handleSave = async () => {
     if (saving) return;
@@ -260,24 +271,6 @@ function BranchEditorForm({
           />
         </View>
 
-        {/* Operational Contact */}
-        <View className="gap-1.5">
-          <AppText variant="label" className="font-tajawal-bold text-xs text-right">
-            وسيلة تواصل تشغيلية (إن لزم)
-          </AppText>
-          <TextInput
-            value={contactNote}
-            onChangeText={setContactNote}
-            placeholder="لا تُعرض دون موافقة"
-            placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
-            className="w-full rounded-xl p-3 border text-right text-sm"
-            style={{
-              backgroundColor: isDark ? '#18181B' : '#F8FAFC',
-              borderColor: colors.border,
-              color: colors.foreground,
-            }}
-          />
-        </View>
       </View>
 
       {/* Section 2: Location Reference */}
@@ -389,10 +382,28 @@ function BranchEditorForm({
             variant="secondary"
             size="lg"
             disabled={saving}
-            onPress={onBack}
+            onPress={handleCancel}
           />
         </View>
       </View>
+      <Modal transparent animationType="fade" visible={confirmCancelOpen}
+        onRequestClose={() => setConfirmCancelOpen(false)}>
+        <View className="flex-1 justify-center bg-black/50 p-5">
+          <View className="rounded-2xl border p-5 gap-4"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+            <AppText variant="heading" className="text-right">
+              هل تريد إلغاء التغييرات غير المحفوظة؟
+            </AppText>
+            <AppText muted className="text-right">
+              لن تُرسل التعديلات إلى الخادم عند مغادرة هذا النموذج.
+            </AppText>
+            <AppButton title="متابعة التحرير" variant="outline"
+              onPress={() => setConfirmCancelOpen(false)} />
+            <AppButton title="مغادرة دون حفظ" variant="secondary"
+              onPress={() => { setConfirmCancelOpen(false); onBack(); }} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -462,7 +473,7 @@ export function MerchantBranchEditorScreen() {
           <AppButton title="العودة إلى الفروع" variant="outline" onPress={handleBack} />
         </View>
       ) : <BranchEditorForm
-        key={currentBranch?.id || 'new-branch'}
+        key={(activeBusinessId || 'no-business') + ':' + (currentBranch?.id || 'new-branch')}
         initialBranch={currentBranch}
         isEditMode={isEditMode}
         branchId={branchId}
