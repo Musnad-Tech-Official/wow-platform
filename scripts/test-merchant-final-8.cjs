@@ -411,3 +411,18 @@ test('FINAL-8 BUSINESS SWITCH: keyed screens discard profile/media and payment d
   assert(!billing.includes('لا يعالج التطبيق دفعات حقيقية في هذه المعاينة'),
     'Production payment explanation must not describe preview-only behavior');
 });
+
+test('FINAL-8 COMPLAINT PAGINATION: every authorized case remains reachable beyond first 50', () => {
+  const source = read('apps/merchant/src/features/complaints/components/MerchantComplaintsScreen.tsx');
+  for (const token of [
+    'pageSize = 50',
+    'pageIndex * pageSize',
+    'limit: pageSize + 1, offset',
+    'serverComplaints.slice(0, pageSize)',
+    'hasNextPage',
+    "pageIndex + 1",
+    "setPageIndex((prev) => prev + 1)",
+    "setPageIndex((prev) => Math.max(prev - 1, 0))",
+    "key={activeBusinessId ?? 'no-business'}",
+  ]) assert(source.includes(token), 'Missing complaint pagination guard: ' + token);
+});
