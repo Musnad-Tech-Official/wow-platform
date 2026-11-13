@@ -14,6 +14,7 @@ const exportDir = process.env.WOW_MERCHANT_WEB_EXPORT_DIR || path.resolve(__dirn
 const screenshotDir = path.resolve(__dirname, '../rendered_screenshots');
 const scrollDiagnosticDir = path.resolve(__dirname, '../rendered_screenshots_scroll');
 const darkDiagnosticDir = path.resolve(__dirname, '../rendered_screenshots_dark');
+const previous13ScreensDir = path.resolve(__dirname, '../rendered_screenshots_previous13');
 
 let staticServer = null;
 let origin = rootUrl ? new URL(rootUrl).origin : null;
@@ -43,6 +44,9 @@ before(async () => {
   }
   if (!fs.existsSync(darkDiagnosticDir)) {
     fs.mkdirSync(darkDiagnosticDir, { recursive: true });
+  }
+  if (!fs.existsSync(previous13ScreensDir)) {
+    fs.mkdirSync(previous13ScreensDir, { recursive: true });
   }
 
   if (!rootUrl) {
@@ -254,6 +258,77 @@ for (const screen of final8Screens) {
   });
 }
 
+
+// These are the thirteen merchant screens implemented before the final-eight batch.
+// This test is an actual Expo Web runtime check, NOT proof of authenticated E2E.
+// MER-01-01 (sign-in) is checked through the guest suites. MER-01-02 (recovery)
+// remains a separate product completeness gate until safely implemented.
+const previous13Screens = [
+  ['MER-02-01', '/business/onboarding'],
+  ['MER-02-02', '/business/onboarding/representative'],
+  ['MER-02-03', '/business/onboarding/branches'],
+  ['MER-02-04', '/business/onboarding/review'],
+  ['MER-02-05', '/business/onboarding/status'],
+  ['MER-03', '/'],
+  ['MER-04', '/offers'],
+  ['MER-05-01', '/offers/editor'],
+  ['MER-05-02', '/offers/editor/pricing'],
+  ['MER-05-03', '/offers/editor/branches'],
+  ['MER-05-04', '/offers/editor/evidence'],
+  ['MER-05-05', '/offers/editor/review'],
+  ['MER-06', '/offers/details'],
+];
+
+for (const [screenId, pathname] of previous13Screens) {
+  test(`PLAYWRIGHT LEGACY: ${screenId} renders in light and dark without guest bypass or runtime errors`, async () => {
+    for (const scheme of ['light', 'dark']) {
+      const context = await browser.newContext({
+        viewport: { width: 390, height: 844 },
+        colorScheme: scheme,
+      });
+      const page = await context.newPage();
+      const runtimeErrors = [];
+      const mutationRequests = [];
+      page.on('pageerror', (error) => runtimeErrors.push(error.message));
+      page.on('request', (request) => {
+        const url = request.url(), method = request.method();
+        if ((/\\/rest\\/v1\\//.test(url) && ['PATCH', 'PUT', 'DELETE'].includes(method)) ||
+            (method === 'POST' && /\\/rest\\/v1\\/rpc\\/wow_(?:create|update|delete|save|submit|set|approve|reject)/.test(url))) {
+          mutationRequests.push(method + ' ' + new URL(url).pathname);
+        }
+      });
+      try {
+        await page.goto(new URL(pathname + '?preview=1', origin).href, {
+          waitUntil: 'networkidle', timeout: 30_000,
+        });
+        await page.waitForTimeout(200);
+        const textLength = await page.locator('body').evaluate((body) =>
+          (body.innerText || body.textContent || '').trim().length
+        );
+        assert(textLength > 20,
+          `${screenId}: a usable screen did not render in ${scheme} mode`);
+        assert.equal(await page.getByText('تسجيل الدخول مطلوب').count(), 0,
+          `${screenId}: a development preview unexpectedly shows guest gate`);
+        const fileName = screenId + '_' + scheme.toUpperCase() + '_PHONE.png';
+        const destination = path.join(previous13ScreensDir, fileName);
+        await page.screenshot({ path: destination, fullPage: false });
+        assert(fs.existsSync(destination) && fs.statSync(destination).size > 10000,
+          `${screenId}: screenshot missing in ${scheme} mode`);
+        const sizes = await page.evaluate(() => ({
+          document: document.documentElement.scrollWidth,
+          viewport: window.innerWidth,
+        }));
+        assert(sizes.document <= sizes.viewport + 3,
+          `${screenId}: horizontal overflow in ${scheme}: ${JSON.stringify(sizes)}`);
+        assert.deepEqual(runtimeErrors, [], `${screenId}: React errors in ${scheme}`);
+        assert.deepEqual(mutationRequests, [],
+          `${screenId}: a development preview must not modify cloud records`);
+      } finally {
+        await context.close();
+      }
+    }
+  });
+}
 
 test('PLAYWRIGHT INTERACTION: complaint filters show only selected status', async () => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
