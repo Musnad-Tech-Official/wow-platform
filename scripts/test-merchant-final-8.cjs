@@ -300,3 +300,40 @@ test('FINAL-8: Feature screens enforce approved UX/UI rules and RTL layout', () 
     }
   }
 });
+
+
+// FINAL-8 SECURITY REGRESSION: these are static contract guards, not live RLS tests.
+test('FINAL-8 SECURITY REGRESSION: merchant complaint details fail closed', () => {
+  const src = read('apps/merchant/src/features/complaints/components/MerchantComplaintDetailsScreen.tsx');
+  assert(src.includes('const detail: MerchantComplaintDetail | null = isSyntheticPreview'));
+  assert(!src.includes('isSyntheticPreview || !serverDetail'), 'Real lookup must not fall back to a fake complaint');
+  assert(src.includes('if (!detail)'), 'Missing, unauthorized, or failed lookup needs an explicit state');
+  assert(src.includes('responseRequested'), 'Owner response requires an explicit request');
+  assert(src.includes('requestedUpdate?.message'), 'Administration request must come from case data');
+});
+
+test('FINAL-8 SECURITY REGRESSION: complaint SQL protects identity and admin notes', () => {
+  const sql = read('supabase/migrations/20261112180000_merchant_final_8_revisions_complaints.sql');
+  assert(sql.includes('wow_admin_request_merchant_response'), 'Missing audited admin request RPC');
+  assert(sql.includes("req.visibility='proprietor_safe'"), 'Reply demand must be proprietor-visible');
+  assert(sql.includes("u.visibility='proprietor_safe'"), 'Admin-only notes must not appear in owner projection');
+  assert(!sql.includes("'description', CASE WHEN v_is_owner THEN c.description"),
+    'Raw customer complaint text may contain identifying information');
+  assert(sql.includes('No unanswered administrative request for proprietor'),
+    'Proprietor must not submit unsolicited or duplicate official responses');
+});
+
+test('FINAL-8 REGRESSION: live IDs, active staff, and eligible branch delegation', () => {
+  const cases = read('apps/merchant/src/features/complaints/components/MerchantComplaintsScreen.tsx');
+  assert(!cases.includes('String(idx + 1)'), 'Never invent sequential case IDs from pagination');
+  assert(cases.includes('statusFilter'), 'Missing complaint status filter');
+  const team = read('apps/merchant/src/features/team/components/MerchantTeamScreen.tsx');
+  assert(team.includes('statusTab') && team.includes("member.status === statusTab"),
+    'Active and revoked staff must be separated');
+  assert(!team.includes("idx === 0 ? 'موظف المبيعات' : 'موظف سابق'"),
+    'Never fabricate names for real users');
+  const editor = read('apps/merchant/src/features/team/components/MerchantTeamEditorScreen.tsx');
+  assert(editor.includes("branch.status === 'approved'"), 'Only eligible branches can be delegated');
+  assert(editor.includes('isEditMode ? "تعديل صلاحيات الموظف" : "إضافة موظف مفوض"'),
+    'Editor title must respect the actual mode');
+});
