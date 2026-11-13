@@ -7,6 +7,9 @@ export interface Business {
   owner_user_id: string;
   status: string;
   description?: string | null;
+  contact_phone?: string | null;
+  logo_url?: string | null;
+  cover_url?: string | null;
   requested_category_id?: string | null;
 }
 
@@ -54,6 +57,18 @@ export interface SaveBusinessRepresentativeDraftInput {
   evidenceFileName?: string | null;
   evidenceFileSize?: number | null;
   evidenceContentType?: string | null;
+}
+
+/** Owner + delegated merchant navigation scope, securely projected by SQL.
+ *  This is not a replacement for owner-only onboarding queries.
+ */
+export async function listAccessibleMerchantBusinesses(client: WowSupabaseClient): Promise<Business[]> {
+  const { data, error } = await client.rpc('wow_merchant_list_accessible_businesses');
+  if (error) throw error;
+  if (!Array.isArray(data)) {
+    throw new Error('wow_merchant_list_accessible_businesses did not return an array.');
+  }
+  return data as Business[];
 }
 
 /** Existing business listing query; preserves baseline schema projection without requiring new migrations. */

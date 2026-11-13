@@ -55,7 +55,7 @@ export interface CustomerComplaint {
   updates: CustomerComplaintUpdate[];
 }
 
-/** Business-owner projection intentionally excludes complainant and evidence details. */
+/** Owner/monitor-safe projection; no complainant identity, raw description, or private evidence. */
 export interface MerchantComplaintSummary {
   id: string;
   offer_id: string;
@@ -65,6 +65,9 @@ export interface MerchantComplaintSummary {
   status: ComplaintStatus;
   created_at: string;
   response_count: number;
+  offer_title?: string;
+  branch_name?: string;
+  action_required?: boolean;
 }
 
 export interface AdminRatingSummary extends CustomerOfferRating {
@@ -127,6 +130,34 @@ export interface MerchantComplaintListOptions extends Pagination {
 export interface MerchantComplaintResponseInput {
   complaintId: string;
   message: string;
+  evidenceKeys?: string[];
+}
+
+export interface MerchantComplaintUpdate {
+  id: string;
+  kind: string;
+  message: string;
+  visibility: string;
+  created_at: string;
+  private_evidence_keys?: string[];
+}
+
+export interface MerchantComplaintDetail {
+  id: string;
+  offer_id: string;
+  offer_title: string;
+  offer_version_id: string;
+  branch_id: string | null;
+  branch_name: string;
+  complaint_type: ComplaintType;
+  description: string;
+  incident_at: string | null;
+  status: ComplaintStatus;
+  public_outcome: string | null;
+  created_at: string;
+  closed_at: string | null;
+  is_owner: boolean;
+  updates: MerchantComplaintUpdate[];
 }
 
 export interface AdminRatingsListOptions extends Pagination {
@@ -141,6 +172,11 @@ export interface AdminModerateRatingInput {
 
 export interface AdminComplaintsListOptions extends Pagination {
   status?: ComplaintStatus | null;
+}
+
+export interface AdminRequestMerchantResponseInput {
+  complaintId: string;
+  message: string;
 }
 
 export interface AdminUpdateComplaintInput {
@@ -359,12 +395,29 @@ export async function merchantRespondComplaint(
   client: WowSupabaseClient,
   input: MerchantComplaintResponseInput,
 ): Promise<string> {
-  const { data, error } = await client.rpc('wow_merchant_respond_complaint', {
+  const params: Record<string, unknown> = {
     p_complaint_id: input.complaintId,
     p_message: input.message,
-  });
+  };
+  if (input.evidenceKeys && input.evidenceKeys.length > 0) {
+    params.p_evidence_keys = input.evidenceKeys;
+  }
+  const { data, error } = await client.rpc('wow_merchant_respond_complaint', params);
   if (error) throw error;
   return requireUuid(data, 'wow_merchant_respond_complaint');
+}
+
+export async function getMerchantComplaint(
+  client: WowSupabaseClient,
+  complaintId: string,
+): Promise<MerchantComplaintDetail | null> {
+  if (!uuid(complaintId)) return null;
+  const { data, error } = await client.rpc('wow_merchant_get_complaint', {
+    p_complaint_id: complaintId,
+  });
+  if (error) throw error;
+  if (!data || typeof data !== 'object') return null;
+  return data as unknown as MerchantComplaintDetail;
 }
 
 export async function listAdminRatings(
@@ -417,6 +470,19 @@ export async function getAdminComplaint(
     throw new Error('wow_admin_get_complaint did not return a JSON object.');
   }
   return data as unknown as AdminComplaintDetail;
+}
+
+/** Administrator only: creates a proprietor-visible information request. */
+export async function adminRequestMerchantResponse(
+  client: WowSupabaseClient,
+  input: AdminRequestMerchantResponseInput,
+): Promise<string> {
+  const { data, error } = await client.rpc('wow_admin_request_merchant_response', {
+    p_complaint_id: input.complaintId,
+    p_message: input.message,
+  });
+  if (error) throw error;
+  return requireUuid(data, 'wow_admin_request_merchant_response');
 }
 
 export async function adminUpdateComplaint(

@@ -627,6 +627,230 @@
         670,
         659
       ]
+    },
+    {
+      "id": "mer-12-account-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "wow_characters/WOW_MER-12_MASCOT.webp",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-12_MASCOT.webp",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 83740,
+      "sha256": "a7a6a6b7da297ce8d9b7513308810966feebec0e45dce39d30ea41c1b39a6c85",
+      "dimensions": [
+        670,
+        659
+      ]
+    },
+    {
+      "id": "mer-07-branches-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "wow_characters/WOW_MER-07_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-07_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 853035,
+      "sha256": "0f614f8752ab34bfeff15721deac5343a737944b8a259ebc4bfc8c37b6562b27",
+      "dimensions": [
+        1254,
+        1254
+      ]
+    },
+    {
+      "id": "mer-07-01-branch-editor-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "wow_characters/WOW_MER-07-01_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-07-01_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 905412,
+      "sha256": "8d516582a25ce996debefe0bc741466f099b793d522cac6857b767f0611bb4ff",
+      "dimensions": [
+        1269,
+        1240
+      ]
+    },
+    {
+      "id": "mer-10-subscription-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "wow_characters/WOW_MER-10_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-10_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 874149,
+      "sha256": "4d1482dfd4bf7e69469563aeb549e6710de2b1e2b60ccc348a580a08efce2737",
+      "dimensions": [
+        1312,
+        1199
+      ]
+    },
+    {
+      "id": "mer-11-team-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "wow_characters/WOW_MER-11_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-11_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 983329,
+      "sha256": "92536a20f9149a171a62afbb41beacc46b58f5b838c8ac6327e24fc4a307f55e",
+      "dimensions": [
+        1307,
+        1203
+      ]
+    },
+    {
+      "id": "mer-11-01-team-editor-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "wow_characters/WOW_MER-11-01_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-11-01_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 1087572,
+      "sha256": "705847197e17b068221aea24e5060027fe33a2fdb3b2eb1fc9c0f2f8439b9b04",
+      "dimensions": [
+        1254,
+        1254
+      ]
+    },
+    {
+      "id": "mer-08-complaints-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "wow_characters/WOW_MER-08_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-08_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 867879,
+      "sha256": "d0698759820fdd03a81bd30683599666a53a8a1ae13a06011834ad8689ac3b40",
+      "dimensions": [
+        1292,
+        1218
+      ]
+    },
+    {
+      "id": "mer-09-complaint-details-mascot",
+      "sourceBundle": "merchant",
+      "sourcePath": "wow_characters/WOW_MER-09_MASCOT.png",
+      "targetPath": "assets/illustrations/merchant/WOW_MER-09_MASCOT.png",
+      "category": "illustrations.merchant",
+      "role": "approved-runtime",
+      "bytes": 305511,
+      "sha256": "326261c6697f30772e7288cecbfc81071492e3522a8335dc387700b56ed8e953",
+      "dimensions": [
+        512,
+        512
+      ]
+    },
+    {
+      "id": "mer-12-reference-screen",
+      "sourceBundle": "merchant",
+      "sourcePath": "original_screens/MER-12_ORIGINAL.png",
+      "targetPath": "assets/reference/MER-12_ORIGINAL.png",
+      "category": "reference.merchant",
+      "role": "diagnostic-reference",
+      "bytes": 71805,
+      "sha256": "79dcc8109dc6e80a487b55243b85c3a87b2386e6db8e7374b765680b59cf04b3",
+      "dimensions": [
+        377,
+        1500
+      ]
+    },
+    {
+      "id": "mer-07-reference-screen",
+      "sourceBundle": "merchant",
+      "sourcePath": "original_screens/MER-07_ORIGINAL.png",
+      "targetPath": "assets/reference/MER-07_ORIGINAL.png",
+      "category": "reference.merchant",
+      "role": "diagnostic-reference",
+      "bytes": 34962,
+      "sha256": "a694b82c4dda91eff1736ef5a24af09d461a1d5cfaf49b0c0ff8520539dcc58f",
+      "dimensions": [
+        377,
+        677
+      ]
+    },
+    {
+      "id": "mer-07-01-reference-screen",
+      "sourceBundle": "merchant",
+      "sourcePath": "original_screens/MER-07-01_ORIGINAL.png",
+      "targetPath": "assets/reference/MER-07-01_ORIGINAL.png",
+      "category": "reference.merchant",
+      "role": "diagnostic-reference",
+      "bytes": 73174,
+      "sha256": "e64cea67c0cd131aa30543bcbb12072ba92a2c1b81e9cb8a423b79ff40813fd5",
+      "dimensions": [
+        377,
+        1151
+      ]
+    },
+    {
+      "id": "mer-10-reference-screen",
+      "sourceBundle": "merchant",
+      "sourcePath": "original_screens/MER-10_ORIGINAL.png",
+      "targetPath": "assets/reference/MER-10_ORIGINAL.png",
+      "category": "reference.merchant",
+      "role": "diagnostic-reference",
+      "bytes": 80134,
+      "sha256": "f9c72469556e7a7be56cba0c697e527af3ab7c7e904b3cf16df007465bbf25f0",
+      "dimensions": [
+        377,
+        1142
+      ]
+    },
+    {
+      "id": "mer-11-reference-screen",
+      "sourceBundle": "merchant",
+      "sourcePath": "original_screens/MER-11_ORIGINAL.png",
+      "targetPath": "assets/reference/MER-11_ORIGINAL.png",
+      "category": "reference.merchant",
+      "role": "diagnostic-reference",
+      "bytes": 45711,
+      "sha256": "d60869e2bf319823ed4168fc64656e7e979e029d17354ea9dcb2ca3fb0d7baac",
+      "dimensions": [
+        377,
+        819
+      ]
+    },
+    {
+      "id": "mer-11-01-reference-screen",
+      "sourceBundle": "merchant",
+      "sourcePath": "original_screens/MER-11-01_ORIGINAL.png",
+      "targetPath": "assets/reference/MER-11-01_ORIGINAL.png",
+      "category": "reference.merchant",
+      "role": "diagnostic-reference",
+      "bytes": 75719,
+      "sha256": "42295e5c99cec5965e65cc13a3a0b8662e62a3d712bc4e4ba499ff25f2adebd7",
+      "dimensions": [
+        377,
+        1245
+      ]
+    },
+    {
+      "id": "mer-08-reference-screen",
+      "sourceBundle": "merchant",
+      "sourcePath": "original_screens/MER-08_ORIGINAL.png",
+      "targetPath": "assets/reference/MER-08_ORIGINAL.png",
+      "category": "reference.merchant",
+      "role": "diagnostic-reference",
+      "bytes": 46887,
+      "sha256": "8bdab7cc34c7c5d784f3864438b3b7527cd76106350ac82a280cb775e38d4ed8",
+      "dimensions": [
+        377,
+        865
+      ]
+    },
+    {
+      "id": "mer-09-reference-screen",
+      "sourceBundle": "merchant",
+      "sourcePath": "original_screens/MER-09_ORIGINAL.png",
+      "targetPath": "assets/reference/MER-09_ORIGINAL.png",
+      "category": "reference.merchant",
+      "role": "diagnostic-reference",
+      "bytes": 53758,
+      "sha256": "51452e4cbe023dcee45eca038bd6b89d7982dbb5d6fe429dee30b9d2bfe3c6ef",
+      "dimensions": [
+        377,
+        1077
+      ]
     }
   ]
 }

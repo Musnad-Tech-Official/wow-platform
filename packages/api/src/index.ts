@@ -24,6 +24,7 @@ export { useWowSupabaseClient, type WowSupabaseOptions } from './query/use-wow-s
 export { useCurrentUser } from './query/hooks/use-current-user';
 export {
   useMyBusinesses,
+  useAccessibleMerchantBusinesses,
   useBusiness,
   useBusinessDraftDetails,
   useBusinessRepresentativeDraft,
@@ -76,12 +77,14 @@ export {
   useMyComplaint,
   useSubmitComplaint,
   useBusinessComplaints,
+  useMerchantComplaint,
   useMerchantRespondComplaint,
   useAdminRatings,
   useAdminModerateRating,
   useAdminComplaints,
   useAdminComplaint,
   useAdminUpdateComplaint,
+  useAdminRequestMerchantResponse,
 } from './query/hooks/use-customer-interactions';
 export {
   useSubscriptionPlans,
@@ -105,6 +108,7 @@ export {
 } from './query/hooks/use-discovery';
 export {
   usePublicOfferMedia,
+  useBusinessMediaSignedUrl,
   useUploadWowMedia,
   useAttachOfferMedia,
   useAttachComplaintEvidence,

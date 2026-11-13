@@ -6,6 +6,7 @@ import {
   getBusinessDraftDetails,
   getBusinessRepresentativeDraft,
   getMyBusinesses,
+  listAccessibleMerchantBusinesses,
   saveBusinessRepresentativeDraft,
   updateBusinessDraft,
   type BusinessDraftDetails,
@@ -17,6 +18,19 @@ import {
 } from '../../businesses';
 import { requireWowApiSession, useWowApiContext } from '../WowQueryProvider';
 import { wowQueryKeys } from '../query-keys';
+
+/** Merchant app scope includes owners and authorized staff; onboarding stays owner-only. */
+export function useAccessibleMerchantBusinesses() {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: wowQueryKeys.businesses.accessible(context.userId),
+    enabled: !!context.userId,
+    queryFn: () => listAccessibleMerchantBusinesses(requireWowApiSession(context).client),
+    staleTime: 0,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
 
 export function useMyBusinesses() {
   const context = useWowApiContext();

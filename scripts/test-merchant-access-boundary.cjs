@@ -102,3 +102,28 @@ test('merchant integration diagnostics read the existing branch table', () => {
   assert.match(integration, /from\('business_branches'\)/);
   assert.doesNotMatch(integration, /from\('branches'\)/);
 });
+
+test('MER-01-02 recovery is externally verified and cannot regrant revoked merchant access', () => {
+  const route = src('apps/merchant/src/app/auth/recovery.tsx');
+  const gate = src('apps/merchant/src/features/navigation/MerchantRouteGate.tsx');
+  assert.match(gate, /router\.push\('\/auth\/recovery'\)/);
+  assert.match(route, /accounts\.google\.com\/signin\/recovery/);
+  assert.match(route, /facebook\.com\/login\/identify/);
+  assert.match(route, /استعادة حساب Google/);
+  assert.match(route, /استعادة حساب Facebook/);
+  assert.match(route, /لا تعيد ملكية نشاط أو تفويضًا ملغى/);
+  assert.doesNotMatch(route, /setEmployeeAccess|submitProfileRevision|createBusiness|service_role/);
+  assert.doesNotMatch(route, /<TextInput|<input|password|oneTimePassword/);
+  assert.doesNotMatch(route, /<MerchantRouteGate>/);
+});
+
+test('MERCHANT NESTED AUTH: preview scope is propagated to nested offer-editor layouts safely', () => {
+  const gate = src('apps/merchant/src/features/navigation/MerchantRouteGate.tsx');
+  const editorLayout = src('apps/merchant/src/app/offers/editor/_layout.tsx');
+  assert.match(editorLayout, /<MerchantRouteGate>/);
+  assert.match(gate, /useGlobalSearchParams/);
+  assert.doesNotMatch(gate, /useLocalSearchParams/);
+  assert.match(gate, /__DEV__\s*===\s*true/);
+  const pure = src('apps/merchant/src/features/navigation/merchant-route-access.ts');
+  assert.match(pure, /isDevelopment && preview === '1'/);
+});

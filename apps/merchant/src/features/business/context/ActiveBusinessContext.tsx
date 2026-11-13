@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, type PropsWithChildren } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { useMyBusinesses, type Business } from '@wow/api';
+import { useAccessibleMerchantBusinesses, type Business } from '@wow/api';
 import { useAuth } from '@wow/auth';
 
 export interface ActiveBusinessContextValue {
@@ -10,6 +10,9 @@ export interface ActiveBusinessContextValue {
   setActiveBusinessId: (id: string | null) => void;
   isLoading: boolean;
   isSyntheticPreview: boolean;
+  isOwner: boolean;
+  businessesError: boolean;
+  refetchBusinesses: () => void;
 }
 
 const ActiveBusinessContext = createContext<ActiveBusinessContextValue | null>(null);
@@ -44,7 +47,10 @@ export function ActiveBusinessProvider({
     (searchParams.preview === '1' ||
       (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 
-  const { data: serverBusinesses = [], isLoading: isServerLoading } = useMyBusinesses();
+  const {
+    data: serverBusinesses = [], isLoading: isServerLoading,
+    error: serverBusinessesError, refetch: refetchAccessibleBusinesses,
+  } = useAccessibleMerchantBusinesses();
 
   const businesses = useMemo(() => {
     if (isSyntheticPreview) {
@@ -75,6 +81,12 @@ export function ActiveBusinessProvider({
     return businesses.find((b) => b.id === effectiveBusinessId) ?? null;
   }, [effectiveBusinessId, businesses]);
 
+  const isOwner = useMemo(() => {
+    if (isSyntheticPreview) return true;
+    if (!activeBusiness || !userId) return false;
+    return activeBusiness.owner_user_id === userId;
+  }, [isSyntheticPreview, activeBusiness, userId]);
+
   const value = useMemo<ActiveBusinessContextValue>(
     () => ({
       activeBusinessId: effectiveBusinessId,
@@ -83,8 +95,11 @@ export function ActiveBusinessProvider({
       setActiveBusinessId: setSelectedBusinessId,
       isLoading: !isSyntheticPreview && isServerLoading && Boolean(isSignedIn && userId),
       isSyntheticPreview,
+      isOwner,
+      businessesError: !isSyntheticPreview && !!serverBusinessesError,
+      refetchBusinesses: () => { void refetchAccessibleBusinesses(); },
     }),
-    [effectiveBusinessId, activeBusiness, businesses, isSyntheticPreview, isServerLoading, isSignedIn, userId]
+    [effectiveBusinessId, activeBusiness, businesses, isSyntheticPreview, isServerLoading, isSignedIn, userId, isOwner, serverBusinessesError, refetchAccessibleBusinesses]
   );
 
   return <ActiveBusinessContext.Provider value={value}>{children}</ActiveBusinessContext.Provider>;

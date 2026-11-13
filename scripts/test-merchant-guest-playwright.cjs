@@ -152,3 +152,22 @@ for (const [pathname, expected, name] of previewScreens) {
     }
   });
 }
+
+test('MER-01-02 account recovery is reachable from unauthenticated merchant sign-in', async () => {
+  const context = await (await browser()).newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const runtimeErrors = [];
+  page.on('pageerror', error => runtimeErrors.push(error.message));
+  try {
+    await page.goto(origin + '/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await page.getByRole('button', { name: 'استعادة الوصول إلى الحساب' }).waitFor({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'استعادة الوصول إلى الحساب' }).click();
+    await page.getByText('استعادة الوصول إلى حساب التاجر').waitFor({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'استعادة حساب Google' }).waitFor();
+    await page.getByRole('button', { name: 'استعادة حساب Facebook' }).waitFor();
+    await page.getByText(/لا تعيد ملكية نشاط أو تفويضًا ملغى/).waitFor();
+    assert.deepEqual(runtimeErrors, [], 'Recovery page must have no runtime errors');
+  } finally {
+    await context.close();
+  }
+});

@@ -24,6 +24,8 @@ export interface BusinessProfilePatch {
   name?: string;
   description?: string | null;
   contact_phone?: string | null;
+  logo_url?: string | null;
+  cover_url?: string | null;
 }
 
 export interface BranchProfilePatch {

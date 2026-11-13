@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   adminModerateRating,
   adminUpdateComplaint,
+  adminRequestMerchantResponse,
   getAdminComplaint,
   getBusinessComplaints,
+  getMerchantComplaint,
   getMyComplaintById,
   getMyComplaints,
   getMyRatings,
@@ -21,6 +23,7 @@ import {
   type AdminModerateRatingInput,
   type AdminRatingsListOptions,
   type AdminUpdateComplaintInput,
+  type AdminRequestMerchantResponseInput,
   type MerchantComplaintListOptions,
   type MerchantComplaintResponseInput,
   type Pagination,
@@ -183,10 +186,27 @@ export function useMerchantRespondComplaint() {
   return useMutation({
     mutationFn: (input: MerchantComplaintResponseInput) =>
       merchantRespondComplaint(requireWowApiSession(context).client, input),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: wowQueryKeys.interactions.merchantComplaintsRoot(context.userId),
-      });
+    onSuccess: async (_data, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: wowQueryKeys.interactions.merchantComplaintsRoot(context.userId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: wowQueryKeys.interactions.merchantComplaint(context.userId, input.complaintId),
+        }),
+      ]);
+    },
+  });
+}
+
+export function useMerchantComplaint(complaintId?: string | null) {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: wowQueryKeys.interactions.merchantComplaint(context.userId, complaintId ?? null),
+    enabled: !!context.userId && !!complaintId,
+    queryFn: () => {
+      if (!complaintId) throw new Error('A complaint ID is required.');
+      return getMerchantComplaint(requireWowApiSession(context).client, complaintId);
     },
   });
 }
@@ -233,6 +253,25 @@ export function useAdminComplaint(complaintId?: string | null) {
     queryFn: () => {
       if (!complaintId) throw new Error('A complaint ID is required.');
       return getAdminComplaint(requireWowApiSession(context).client, complaintId);
+    },
+  });
+}
+
+export function useAdminRequestMerchantResponse() {
+  const context = useWowApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AdminRequestMerchantResponseInput) =>
+      adminRequestMerchantResponse(requireWowApiSession(context).client, input),
+    onSuccess: async (_id, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: wowQueryKeys.interactions.adminComplaintsRoot(context.userId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: wowQueryKeys.interactions.adminComplaint(context.userId, input.complaintId),
+        }),
+      ]);
     },
   });
 }
