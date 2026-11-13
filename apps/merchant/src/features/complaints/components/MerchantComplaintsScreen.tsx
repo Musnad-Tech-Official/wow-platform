@@ -134,6 +134,7 @@ function MerchantComplaintsContent() {
 
   const formatStatusBadge = (statusLabel: string) => {
     switch (statusLabel) {
+      case 'مطلوب رد':
       case 'طلب رد':
       case 'بانتظار متابعة':
         return { bg: isDark ? '#451A03' : '#FEF3C7', text: '#D97706' };
