@@ -173,6 +173,8 @@ export function MerchantBranchesScreen() {
                   key={branch.id}
                   accessibilityRole="button"
                   accessibilityLabel={`فرع: ${branch.name}`}
+                  accessibilityState={{ disabled: !isOwner }}
+                  disabled={!isOwner}
                   onPress={() => handleEditBranch(branch.id)}
                   className={`flex-row items-center justify-between p-4 active:opacity-75 ${
                     !isLast ? 'border-b border-border' : ''
@@ -199,7 +201,7 @@ export function MerchantBranchesScreen() {
                         {branch.name}
                       </AppText>
                       <AppText variant="caption" muted className="text-xs text-right mt-0.5">
-                        {branch.address_line ? `${branch.address_line} • ` : ''}{branch.city || 'تعز'}
+                        {branch.address_line ? `${branch.address_line} • ` : ''}{branch.city || 'مدينة غير محددة'}
                       </AppText>
                     </View>
 
