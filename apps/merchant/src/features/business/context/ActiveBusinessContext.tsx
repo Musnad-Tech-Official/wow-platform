@@ -11,6 +11,8 @@ export interface ActiveBusinessContextValue {
   isLoading: boolean;
   isSyntheticPreview: boolean;
   isOwner: boolean;
+  businessesError: boolean;
+  refetchBusinesses: () => void;
 }
 
 const ActiveBusinessContext = createContext<ActiveBusinessContextValue | null>(null);
@@ -45,7 +47,10 @@ export function ActiveBusinessProvider({
     (searchParams.preview === '1' ||
       (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 
-  const { data: serverBusinesses = [], isLoading: isServerLoading } = useAccessibleMerchantBusinesses();
+  const {
+    data: serverBusinesses = [], isLoading: isServerLoading,
+    error: serverBusinessesError, refetch: refetchAccessibleBusinesses,
+  } = useAccessibleMerchantBusinesses();
 
   const businesses = useMemo(() => {
     if (isSyntheticPreview) {
@@ -91,8 +96,10 @@ export function ActiveBusinessProvider({
       isLoading: !isSyntheticPreview && isServerLoading && Boolean(isSignedIn && userId),
       isSyntheticPreview,
       isOwner,
+      businessesError: !isSyntheticPreview && !!serverBusinessesError,
+      refetchBusinesses: () => { void refetchAccessibleBusinesses(); },
     }),
-    [effectiveBusinessId, activeBusiness, businesses, isSyntheticPreview, isServerLoading, isSignedIn, userId, isOwner]
+    [effectiveBusinessId, activeBusiness, businesses, isSyntheticPreview, isServerLoading, isSignedIn, userId, isOwner, serverBusinessesError, refetchAccessibleBusinesses]
   );
 
   return <ActiveBusinessContext.Provider value={value}>{children}</ActiveBusinessContext.Provider>;
