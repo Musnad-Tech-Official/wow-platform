@@ -448,7 +448,7 @@ CREATE OR REPLACE FUNCTION wow_private.admin_request_merchant_response_internal(
 ) RETURNS uuid
   LANGUAGE plpgsql SECURITY DEFINER
   SET search_path TO ''
-AS $
+AS $wowfunc$
 DECLARE
   v_actor TEXT;
   v_business UUID;
@@ -500,15 +500,15 @@ BEGIN
   ) RETURNING id INTO v_update;
   RETURN v_update;
 END;
-$;
+$wowfunc$;
 
 CREATE OR REPLACE FUNCTION public.wow_admin_request_merchant_response(
   p_complaint_id uuid, p_message text
 ) RETURNS uuid
   LANGUAGE sql SET search_path TO ''
-AS $
+AS $wowfunc$
   SELECT wow_private.admin_request_merchant_response_internal(p_complaint_id,p_message);
-$;
+$wowfunc$;
 
 REVOKE ALL ON FUNCTION public.wow_admin_request_merchant_response(uuid,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.wow_admin_request_merchant_response(uuid,text) TO authenticated, service_role;
@@ -521,11 +521,11 @@ CREATE OR REPLACE FUNCTION wow_private.merchant_respond_complaint_internal(
   p_complaint_id uuid, p_message text
 ) RETURNS uuid
   LANGUAGE sql SECURITY DEFINER SET search_path TO ''
-AS $
+AS $wowfunc$
   SELECT wow_private.merchant_respond_complaint_internal(
     p_complaint_id,p_message,'[]'::jsonb
   );
-$;
+$wowfunc$;
 REVOKE ALL ON FUNCTION wow_private.merchant_respond_complaint_internal(uuid,text,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION wow_private.merchant_respond_complaint_internal(uuid,text,jsonb) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION wow_private.merchant_get_complaint_internal(uuid) FROM PUBLIC;
@@ -539,7 +539,7 @@ CREATE OR REPLACE FUNCTION wow_private.merchant_complaints_internal(
 ) RETURNS jsonb
   LANGUAGE plpgsql STABLE SECURITY DEFINER
   SET search_path TO ''
-AS $
+AS $wowfunc$
 DECLARE
   v_actor text;
   v_owner boolean;
@@ -596,6 +596,6 @@ BEGIN
   ) x;
   RETURN v_result;
 END;
-$;
+$wowfunc$;
 
 COMMIT;
