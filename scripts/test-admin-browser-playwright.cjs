@@ -49,6 +49,11 @@ const tests = [
   ['/roles?preview=adm14-gap', production ? 'الدخول إلى منصة الإدارة' : 'حالة اختبار القيود', 1440],
   ['/?preview=adm02', production ? 'الدخول إلى منصة الإدارة' : 'نظرة واضحة على ما يحتاج إجراء', 390],
   ['/roles?preview=adm14', production ? 'الدخول إلى منصة الإدارة' : 'المشرفون وأدوار الإدارة', 390],
+  // W06 pages are never unlocked by guest links, including dev-only preview fixtures.
+  ['/verifications?preview=adm02', 'الدخول إلى منصة الإدارة', 1440],
+  ['/profile-revisions?preview=adm14', 'الدخول إلى منصة الإدارة', 1440],
+  ['/payments?preview=adm02', 'الدخول إلى منصة الإدارة', 390],
+  ['/verification/00000000-0000-0000-0000-000000000000?preview=adm14', 'الدخول إلى منصة الإدارة', 1440],
 ];
 
 async function main() {
