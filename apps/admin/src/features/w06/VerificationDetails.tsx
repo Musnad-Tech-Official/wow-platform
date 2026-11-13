@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowRight, FileText, ShieldCheck, AlertTriangle } from 'lucide-react-native';
+import { FileText, ShieldCheck } from 'lucide-react-native';
 import { useAdminBusinessVerification, useAdminDecideBusinessVerification } from '@wow/api';
 import { useWowColors } from '@wow/theme';
 import { AppButton, AppText, Badge, Card } from '@wow/ui';
@@ -83,7 +83,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
             <View className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {fields.map(([label, value]) => (
                 <View key={label as string} className="rounded-xl p-3.5 border border-border bg-background gap-1">
-                  <AppText variant="caption" muted className="text-xs text-right">{label}</AppText>
+                  <AppText variant="caption" muted className="text-xs text-right">{String(label)}</AppText>
                   <AppText className="font-tajawal-bold text-sm text-right" selectable numberOfLines={2}>{asString(value)}</AppText>
                 </View>
               ))}
