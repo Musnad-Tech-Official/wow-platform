@@ -247,6 +247,24 @@ BEGIN
     RAISE EXCEPTION 'Closed complaint cannot receive proprietor responses'
       USING ERRCODE='22023';
   END IF;
+  -- A proprietor may respond only to an unanswered, explicitly proprietor-visible
+  -- request for information. The complaint row is locked above to serialize replies.
+  IF v_status <> 'waiting' OR NOT EXISTS (
+    SELECT 1 FROM public.complaint_updates req
+    WHERE req.complaint_id=p_complaint_id
+      AND req.kind='request_info'
+      AND req.visibility='proprietor_safe'
+      AND NOT EXISTS (
+        SELECT 1 FROM public.complaint_updates done
+        WHERE done.complaint_id=req.complaint_id
+          AND done.kind='merchant_response'
+          AND done.author_user_id=v_user
+          AND done.created_at >= req.created_at
+      )
+  ) THEN
+    RAISE EXCEPTION 'No unanswered administrative request for proprietor'
+      USING ERRCODE='22023';
+  END IF;
   IF p_message IS NULL OR char_length(btrim(p_message)) NOT BETWEEN 5 AND 3000 THEN
     RAISE EXCEPTION 'Response must contain 5–3000 characters' USING ERRCODE='22023';
   END IF;
@@ -367,7 +385,9 @@ BEGIN
     'branch_id', c.branch_id,
     'branch_name', COALESCE(br.name, ''),
     'complaint_type', c.complaint_type,
-    'description', CASE WHEN v_is_owner THEN c.description ELSE 'حالة مرتبطة بفرع مسند إليك' END,
+    -- Customer-authored free text may contain contact details or identifying
+    -- material, so never expose it through the merchant-safe projection.
+    'description', 'تُعرض الوقائع المسموح بها من خلال طلب الإدارة فقط.',
     'incident_at', c.incident_at,
     'status', c.status,
     'public_outcome', c.public_outcome,
@@ -382,12 +402,18 @@ BEGIN
           'message', u.message,
           'visibility', u.visibility,
           'created_at', u.created_at,
-          'private_evidence_keys', u.private_evidence_keys
+          'private_evidence_keys', CASE
+            WHEN u.kind='merchant_response' AND u.author_user_id=v_user
+              THEN u.private_evidence_keys
+            ELSE '[]'::jsonb END
         ) ORDER BY u.created_at, u.id)
         FROM public.complaint_updates u
         WHERE u.complaint_id = c.id
-          AND u.visibility IN ('admin_only', 'proprietor_safe', 'customer_safe')
-          AND u.kind IN ('merchant_response', 'request_info', 'decision', 'status')
+          AND (
+            (u.visibility='proprietor_safe' AND u.kind IN ('request_info', 'decision', 'status'))
+            OR (u.visibility='admin_only' AND u.kind='merchant_response'
+                AND u.author_user_id=v_user)
+          )
       ), '[]'::jsonb)
     ELSE '[]'::jsonb END
   ) INTO v_result
