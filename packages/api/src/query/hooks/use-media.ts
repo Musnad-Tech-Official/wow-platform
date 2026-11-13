@@ -69,3 +69,26 @@ export function useAttachComplaintEvidence() {
     },
   });
 }
+
+/**
+ * Signed owner-view URL for an approved business image in the private bucket.
+ * Media records store object keys, never long-lived signed URLs.
+ */
+export function useBusinessMediaSignedUrl(storageKey?: string | null) {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: ['media', 'business', 'signed-preview', context.userId, storageKey ?? null],
+    enabled: !!context.userId && !!storageKey,
+    staleTime: 25_000,
+    refetchInterval: 45_000,
+    queryFn: async () => {
+      if (!storageKey) throw new Error('Business image storage key is required.');
+      const { client } = requireWowApiSession(context);
+      const { data, error } = await client.storage.from('wow-business-media')
+        .createSignedUrl(storageKey, 60);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('Business image URL not available.');
+      return data.signedUrl;
+    },
+  });
+}
