@@ -81,11 +81,10 @@ export function MerchantComplaintsScreen() {
       // The backend does not supply sequential case numbers; never invent them.
       const code = 'حالة ' + c.id.slice(0, 8).toUpperCase();
       let statusLabel = 'قيد المراجعة';
-      let actionReq = false;
+      const actionReq = c.action_required === true;
 
       if (c.status === 'waiting') {
-        statusLabel = 'بانتظار متابعة';
-        // 'waiting' alone is not proof of an outstanding owner-visible request.
+        statusLabel = actionReq ? 'مطلوب رد' : 'بانتظار متابعة';
       } else if (c.status === 'investigating') {
         statusLabel = 'تُراجع';
       } else if (c.status === 'closed') {
@@ -95,8 +94,8 @@ export function MerchantComplaintsScreen() {
       return {
         id: c.id,
         code,
-        offerTitle: 'عرض ' + c.offer_id.slice(0, 8).toUpperCase(),
-        branchName: c.branch_id ? 'فرع ' + c.branch_id.slice(0, 8).toUpperCase() : 'الفرع غير محدد',
+        offerTitle: c.offer_title?.trim() || 'عرض ' + c.offer_id.slice(0, 8).toUpperCase(),
+        branchName: c.branch_name?.trim() || (c.branch_id ? 'فرع ' + c.branch_id.slice(0, 8).toUpperCase() : 'الفرع غير محدد'),
         status: c.status === 'new' ? 'investigating' : c.status,
         statusLabel,
         actionRequired: actionReq,
@@ -163,7 +162,7 @@ export function MerchantComplaintsScreen() {
               حالات معروضة
             </AppText>
             <AppText variant="caption" muted className="text-right">
-              {cases.filter((item) => item.status === 'waiting').length} بانتظار متابعة
+              {cases.filter((item) => item.actionRequired).length} تتطلب رد المالك
             </AppText>
           </View>
         </View>
