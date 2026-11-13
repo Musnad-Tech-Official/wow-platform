@@ -46,3 +46,10 @@ The list APIs were verified to exist in the connected `wow-platform` Supabase pr
 - `WOW quality gates` on the W06 branch runs workspace TypeScript, lint, existing UI/Query/integration regression suites, plus browser guest-route and production-preview checks.
 - Because the SQL is not deployed, currently no successful real admin write-path end-to-end result is claimed.
 - No PR/merge to `main` until backend security and visual acceptance.
+
+
+## 2026-11-14 status update — primary DB transactional verification
+
+The owner authorized isolated, transaction-rolled-back tests on the pre-launch primary database instead of provisioning Staging now. These tests **did not** permanently deploy W06 RPCs. The active-employee conflict was reproduced against the original decision function and blocked by the proposed correction. Permission checks were executed within the same transaction; all temporary DDL and data were rolled back. A targeted schema rollback file was tested and preserved at `docs/sql/w06-admin-review-security-targeted-rollback.sql`.
+
+**Release gate remains closed:** the connected Supabase organization is on Free and has no automatic daily database backups. No complete restorable external dump has been verified. See `docs/w06-database-backup-release-gate.md` before creating a tracked migration, deploying permanently, running real Clerk-authenticated end-to-end tests, or merging this branch. The earlier recommendation to use isolated staging is superseded for transient tests only, not for the backup requirement.
