@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Pressable, Modal, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -53,13 +53,16 @@ export function MerchantSubscriptionScreen() {
   );
   const isTrialActive = isSyntheticPreview ? true : (currentSub?.kind === 'trial' && currentSub?.status === 'active');
   const isPaidActive = currentSub?.kind === 'paid' && currentSub?.status === 'active';
-  const isPendingVerification = billing?.payments?.some((p) => p.status === 'submitted');
+  const isPendingVerification = !!pendingPaid && !!billing?.payments?.some(
+    (p) => p.subscription_id === pendingPaid.id && p.status === 'submitted'
+  );
 
   // Status computation
-  let statusChip = isSyntheticPreview || isTrialActive ? 'تجربة' : 'غير مفعل';
-  if (isPendingVerification) statusChip = 'بانتظار تأكيد';
-  else if (isPaidActive) statusChip = 'فعالة';
-  else if (currentSub?.status === 'expired') statusChip = 'منتهية';
+  let statusChip = isTrialActive ? 'تجربة نشطة' : 'غير مفعّل';
+  if (isPendingVerification) statusChip = 'دفعة قيد التحقق';
+  else if (isPaidActive) statusChip = 'اشتراك فعّال';
+  else if (pendingPaid) statusChip = 'طلب مدفوع معلّق';
+  else if (currentSub?.status === 'expired') statusChip = 'منتهٍ';
 
   // Request / Payment Modal State
   const [requestModalOpen, setRequestModalOpen] = useState(false);
@@ -81,6 +84,32 @@ export function MerchantSubscriptionScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // A manual payment reference must never carry over to another business.
+  useEffect(() => {
+    setRequestModalOpen(false);
+    setSelectedPlan('BASIC');
+    setPaymentRef('');
+    setActionSuccess(null);
+    setActionError(null);
+  }, [activeBusinessId]);
+
+  const paymentStatusLabel = isSyntheticPreview
+    ? 'معاينة فقط'
+    : billingLoading ? 'جارٍ تحميل الحالة'
+    : billingError || !billing ? 'تعذر تأكيد حالة الدفع'
+    : isPendingVerification ? 'بانتظار مراجعة الدفعة'
+    : pendingPaid ? 'طلب اشتراك معلّق'
+    : billing.payments?.some((p) => p.status === 'verified') ? 'دفعة مؤكدة'
+    : billing.payments?.some((p) => p.status === 'rejected') ? 'مرجع دفع مرفوض'
+    : 'لا توجد دفعات معلّقة';
+  const paymentStatusDescription = isSyntheticPreview
+    ? 'البيانات توضيحية في المعاينة، ولا تُنفذ معاملات مالية.'
+    : isPendingVerification
+      ? 'استُلم المرجع المقدم وتنتظر الدفعة تحقق الإدارة المستقل؛ لا يُفعّل الاشتراك المدفوع تلقائيًا.'
+      : pendingPaid
+        ? 'يوجد طلب اشتراك قيد المراجعة. يمكن تقديم مرجع تحويل للمطابقة مع الإدارة.'
+        : 'تُسجّل مراجع التحويل للمراجعة الإدارية فقط، وإرسالها ليس إثباتًا للتحصيل أو موافقة على الاشتراك.';
 
   const navParams = {
     ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
@@ -239,33 +268,13 @@ export function MerchantSubscriptionScreen() {
               التجربة صالحة لمدة 30 يوماً لكل نشاط حقيقي مؤهل.
             </AppText>
 
-            {/* Status Chips Row */}
-            <View className="flex-row items-center gap-2 pt-1 flex-wrap justify-end">
-              {['تجربة', 'منتهية', 'فعالة', 'بانتظار تأكيد'].map((chip) => {
-                const isSelected = chip === statusChip;
-                return (
-                  <View
-                    key={chip}
-                    className="px-3 py-1.5 rounded-xl border"
-                    style={{
-                      backgroundColor: isSelected
-                        ? '#FACC15'
-                        : isDark
-                        ? '#18181B'
-                        : '#FAFAFA',
-                      borderColor: isSelected ? '#EAB308' : colors.border,
-                    }}
-                  >
-                    <AppText
-                      variant="caption"
-                      className="font-tajawal-bold text-xs"
-                      style={{ color: isSelected ? '#0F172D' : colors.foreground }}
-                    >
-                      {chip}
-                    </AppText>
-                  </View>
-                );
-              })}
+            {/* Current confirmed status, not multiple decorative statuses. */}
+            <View className="flex-row justify-end pt-1">
+              <View className="px-3 py-1.5 rounded-xl border"
+                style={{ backgroundColor: '#FACC15', borderColor: '#EAB308' }}>
+                <AppText variant="caption" className="font-tajawal-bold text-xs"
+                  style={{ color: '#0F172D' }}>{statusChip}</AppText>
+              </View>
             </View>
 
             {/* Eligibility Note Card */}
@@ -344,7 +353,7 @@ export function MerchantSubscriptionScreen() {
                 style={{ backgroundColor: isDark ? '#451A03' : '#FEF3C7' }}
               >
                 <AppText variant="caption" className="font-tajawal-bold text-xs" style={{ color: '#D97706' }}>
-                  بانتظار إثبات إداري
+                  {paymentStatusLabel}
                 </AppText>
               </View>
 
@@ -354,7 +363,7 @@ export function MerchantSubscriptionScreen() {
             </View>
 
             <AppText variant="caption" muted className="text-xs text-right leading-relaxed">
-              لا يعالج التطبيق دفعات حقيقية في هذه المعاينة، ولا يفعّل الاشتراك تلقائياً.
+              {paymentStatusDescription}
             </AppText>
           </View>
         </View>
@@ -366,7 +375,7 @@ export function MerchantSubscriptionScreen() {
               title="طلب تفعيل / تجديد"
               variant="primary"
               size="lg"
-              disabled={!isOwner}
+              disabled={!isOwner || (!isSyntheticPreview && (billingLoading || !!billingError || !billing))}
               onPress={handleOpenAction}
             />
           </View>
