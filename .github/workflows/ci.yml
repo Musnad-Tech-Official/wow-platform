@@ -96,6 +96,7 @@ jobs:
             rendered_screenshots/*.png
             rendered_screenshots_scroll/*.png
             rendered_screenshots_dark/*.png
+            rendered_screenshots_previous13/*.png
             WOW_MERCHANT_FINAL_8_RENDERED_SCREENSHOTS.zip
           if-no-files-found: warn
           retention-days: 7
