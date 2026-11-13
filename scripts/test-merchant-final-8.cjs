@@ -387,26 +387,25 @@ test('FINAL-8 BILLING: no fabricated real plan options or duplicate pending requ
   assert(src.includes('paymentAlreadySubmitted'));
 });
 
-test('FINAL-8 BUSINESS SWITCH: no cross-business profile, media or payment draft leakage', () => {
+test('FINAL-8 BUSINESS SWITCH: keyed screens discard profile/media and payment drafts', () => {
   const account = read('apps/merchant/src/features/account/components/MerchantAccountScreen.tsx');
   const billing = read('apps/merchant/src/features/subscription/components/MerchantSubscriptionScreen.tsx');
-  for (const guard of [
-    'setEditModalOpen(false)',
-    'setDraftDesc(\'\')',
-    'setDraftPhone(\'\')',
-    'setDraftLogo(null)',
-    'setDraftCover(null)',
-    '}, [activeBusinessId]);',
-  ]) assert(account.includes(guard), 'Account draft cross-business guard missing: ' + guard);
-  for (const guard of [
-    'setRequestModalOpen(false)',
-    'setPaymentRef(\'\')',
-    '}, [activeBusinessId]);',
-    'paymentStatusLabel',
-    'paymentStatusDescription',
-    '{paymentStatusLabel}',
-    '{paymentStatusDescription}',
-  ]) assert(billing.includes(guard), 'Billing business scope/state guard missing: ' + guard);
+  for (const [src, component] of [[account, 'MerchantAccountScreen'], [billing, 'MerchantSubscriptionScreen']]) {
+    assert(src.includes(`function ${component}Content()`),
+      component + ' should isolate business-scoped local state in a keyed child');
+    assert(src.includes(`<${component}Content key={activeBusinessId ?? 'no-business'} />`),
+      component + ' does not remount when activeBusinessId changes');
+    assert(!src.includes('useEffect(() => {'),
+      component + ' must not synchronously reset drafts in a React effect');
+  }
+  for (const guard of ['setDraftDesc(activeBusiness?.description', 'setDraftPhone(activeBusiness?.contact_phone',
+    'setDraftLogo(null)', 'setDraftCover(null)']) {
+    assert(account.includes(guard), 'Account draft initialization/reset guard missing: ' + guard);
+  }
+  for (const guard of ['useState(\'\')', 'paymentStatusLabel', 'paymentStatusDescription',
+    '{paymentStatusLabel}', '{paymentStatusDescription}']) {
+    assert(billing.includes(guard), 'Billing state or status guard missing: ' + guard);
+  }
   assert(!billing.includes('بانتظار إثبات إداري'),
     'Billing must not use a static waiting-payment status');
   assert(!billing.includes('لا يعالج التطبيق دفعات حقيقية في هذه المعاينة'),
