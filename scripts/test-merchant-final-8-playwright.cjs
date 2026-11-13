@@ -292,8 +292,8 @@ for (const [screenId, pathname] of previous13Screens) {
       page.on('pageerror', (error) => runtimeErrors.push(error.message));
       page.on('request', (request) => {
         const url = request.url(), method = request.method();
-        if ((/\\/rest\\/v1\\//.test(url) && ['PATCH', 'PUT', 'DELETE'].includes(method)) ||
-            (method === 'POST' && /\\/rest\\/v1\\/rpc\\/wow_(?:create|update|delete|save|submit|set|approve|reject)/.test(url))) {
+        if ((/\/rest\/v1\//.test(url) && ['PATCH', 'PUT', 'DELETE'].includes(method)) ||
+            (method === 'POST' && /\/rest\/v1\/rpc\/wow_(?:create|update|delete|save|submit|set|approve|reject)/.test(url))) {
           mutationRequests.push(method + ' ' + new URL(url).pathname);
         }
       });
