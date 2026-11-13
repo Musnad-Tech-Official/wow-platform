@@ -33,7 +33,7 @@ export function MerchantSubscriptionScreen() {
     isSyntheticPreview,
   } = useActiveBusiness();
 
-  const { data: billing, isLoading: billingLoading, error: billingError } = useBusinessBilling(activeBusinessId);
+  const { data: billing, isLoading: billingLoading, error: billingError } = useBusinessBilling(isOwner ? activeBusinessId : null);
   const { data: availablePlans = [], isLoading: plansLoading, error: plansError } = useSubscriptionPlans();
 
   const activateTrialMutation = useActivateBusinessTrial();
@@ -158,6 +158,22 @@ export function MerchantSubscriptionScreen() {
       setSubmitting(false);
     }
   };
+
+  if (!isOwner && !isSyntheticPreview) {
+    return (
+      <MerchantScaffold currentTab="more" title="الاشتراكات والاستحقاقات خاصة بمالك النشاط">
+        <View className="rounded-2xl border border-border p-5 gap-3">
+          <AppText variant="heading" className="text-right">هذه الصفحة للمالك فقط</AppText>
+          <AppText muted className="text-right">
+            لا يسمح التفويض التشغيلي بإدارة الاشتراكات أو تفويض الموظفين.
+          </AppText>
+          <AppButton title="العودة إلى حساب النشاط" variant="outline"
+            onPress={() => router.replace({ pathname: '/business/account',
+              params: activeBusinessId ? { businessId: activeBusinessId } : {} })} />
+        </View>
+      </MerchantScaffold>
+    );
+  }
 
   return (
     <MerchantScaffold
