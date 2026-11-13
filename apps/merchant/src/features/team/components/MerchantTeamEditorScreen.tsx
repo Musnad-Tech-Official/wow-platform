@@ -481,7 +481,7 @@ export function MerchantTeamEditorScreen() {
     isOwner,
   } = useActiveBusiness();
 
-  const { data: team = [], isLoading: teamLoading, error: teamError, refetch: refetchTeam } = useBusinessTeam(activeBusinessId);
+  const { data: team = [], isLoading: teamLoading, error: teamError, refetch: refetchTeam } = useBusinessTeam(isOwner ? activeBusinessId : null);
   const { data: branches = [] } = useBusinessBranches(activeBusinessId);
 
   // Find target member if editing
