@@ -22,6 +22,7 @@
     "test:customer-offer-ratings": "node scripts/test-customer-offer-ratings.cjs",
     "test:merchant-batch-01": "node scripts/test-merchant-batch-01.cjs",
     "test:admin-batch-01": "node --experimental-strip-types scripts/test-admin-batch-01.cjs",
+    "test:admin-batch-02": "node --experimental-strip-types scripts/test-admin-batch-02.cjs",
     "validate:routes": "node scripts/validate-integration-routes.cjs"
   }
 }
