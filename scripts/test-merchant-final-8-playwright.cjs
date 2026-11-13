@@ -253,6 +253,40 @@ test('PLAYWRIGHT RESPONSIVE: subscription card does not expand document horizont
   }
 });
 
+test('PLAYWRIGHT INTERACTION: branch cancellation protects unsaved edits', async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
+  const page = await context.newPage();
+  try {
+    await page.goto(new URL('/business/branches/editor?preview=1&mode=new', origin).href,
+      { waitUntil: 'networkidle' });
+    await page.getByPlaceholder('الفرع الرئيسي أو اسم الفرع').fill('فرع معاينة غير محفوظ');
+    await page.getByRole('button', { name: 'إلغاء', exact: true }).click();
+    await page.getByText('هل تريد إلغاء التغييرات غير المحفوظة؟').waitFor();
+    await page.getByRole('button', { name: 'متابعة التحرير' }).click();
+    await page.getByPlaceholder('الفرع الرئيسي أو اسم الفرع')
+      .waitFor({ state: 'visible' });
+  } finally {
+    await context.close();
+  }
+});
+
+test('PLAYWRIGHT INTERACTION: staff permissions cancellation protects unsaved edits', async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
+  const page = await context.newPage();
+  try {
+    await page.goto(new URL('/business/team/editor?preview=1&mode=new', origin).href,
+      { waitUntil: 'networkidle' });
+    await page.getByPlaceholder('معرّف المستخدم المسجل (user_...)').fill('user_preview_example');
+    await page.getByRole('button', { name: 'إلغاء', exact: true }).click();
+    await page.getByText('إلغاء تعديل الصلاحيات؟').waitFor();
+    await page.getByRole('button', { name: 'متابعة التحرير' }).click();
+    await page.getByPlaceholder('معرّف المستخدم المسجل (user_...)')
+      .waitFor({ state: 'visible' });
+  } finally {
+    await context.close();
+  }
+});
+
 test('PLAYWRIGHT: Package all 8 screenshots into WOW_MERCHANT_FINAL_8_RENDERED_SCREENSHOTS.zip', () => {
   const zipPath = path.resolve(__dirname, '../WOW_MERCHANT_FINAL_8_RENDERED_SCREENSHOTS.zip');
   if (fs.existsSync(zipPath)) {
