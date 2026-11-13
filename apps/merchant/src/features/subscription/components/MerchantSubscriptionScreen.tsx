@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Pressable, Modal, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -23,6 +23,11 @@ import { useActiveBusiness } from '../../business/context/ActiveBusinessContext'
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
 
 export function MerchantSubscriptionScreen() {
+  const { activeBusinessId } = useActiveBusiness();
+  return <MerchantSubscriptionScreenContent key={activeBusinessId ?? 'no-business'} />;
+}
+
+function MerchantSubscriptionScreenContent() {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -86,14 +91,6 @@ export function MerchantSubscriptionScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   // A manual payment reference must never carry over to another business.
-  useEffect(() => {
-    setRequestModalOpen(false);
-    setSelectedPlan('BASIC');
-    setPaymentRef('');
-    setActionSuccess(null);
-    setActionError(null);
-  }, [activeBusinessId]);
-
   const paymentStatusLabel = isSyntheticPreview
     ? 'معاينة فقط'
     : billingLoading ? 'جارٍ تحميل الحالة'
