@@ -221,7 +221,7 @@ $function$;
 CREATE OR REPLACE FUNCTION "wow_private"."merchant_respond_complaint_internal"(
   "p_complaint_id" "uuid",
   "p_message" "text",
-  "p_evidence_keys" "jsonb" DEFAULT '[]'::"jsonb"
+  "p_evidence_keys" "jsonb"
 ) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -314,7 +314,7 @@ $$;
 CREATE OR REPLACE FUNCTION "public"."wow_merchant_respond_complaint"(
   "p_complaint_id" "uuid",
   "p_message" "text",
-  "p_evidence_keys" "jsonb" DEFAULT '[]'::"jsonb"
+  "p_evidence_keys" "jsonb"
 ) RETURNS "uuid"
     LANGUAGE "sql"
     SET "search_path" TO ''
