@@ -225,7 +225,7 @@ CREATE OR REPLACE FUNCTION "wow_private"."merchant_respond_complaint_internal"(
 ) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
-    AS $$
+    AS $merchant_reply$
 DECLARE
   v_user TEXT;
   v_business UUID;
@@ -311,7 +311,7 @@ BEGIN
   UPDATE public.complaints SET status='investigating' WHERE id=p_complaint_id;
   RETURN v_update;
 END;
-$;
+$merchant_reply$;
 
 CREATE OR REPLACE FUNCTION "public"."wow_merchant_respond_complaint"(
   "p_complaint_id" "uuid",
