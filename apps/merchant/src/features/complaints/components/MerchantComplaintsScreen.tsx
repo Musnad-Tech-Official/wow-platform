@@ -61,11 +61,12 @@ export function MerchantComplaintsScreen() {
     isSyntheticPreview,
   } = useActiveBusiness();
 
-  const { data: serverComplaints = [], isLoading } = useBusinessComplaints(
+  const { data: serverComplaints = [], isLoading, error: complaintsError } = useBusinessComplaints(
     activeBusinessId ? { businessId: activeBusinessId } : null
   );
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'waiting' | 'investigating' | 'closed'>('all');
 
   const navParams = {
     ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
@@ -76,14 +77,15 @@ export function MerchantComplaintsScreen() {
   const cases: SyntheticMerchantCase[] = useMemo(() => {
     if (isSyntheticPreview) return PREVIEW_CASES;
 
-    return serverComplaints.map((c, idx) => {
-      const code = `CASE-${String(idx + 1).padStart(3, '0')}`;
+    return serverComplaints.map((c) => {
+      // The backend does not supply sequential case numbers; never invent them.
+      const code = 'حالة ' + c.id.slice(0, 8).toUpperCase();
       let statusLabel = 'قيد المراجعة';
       let actionReq = false;
 
       if (c.status === 'waiting') {
-        statusLabel = 'طلب رد';
-        actionReq = true;
+        statusLabel = 'بانتظار متابعة';
+        // 'waiting' alone is not proof of an outstanding owner-visible request.
       } else if (c.status === 'investigating') {
         statusLabel = 'تُراجع';
       } else if (c.status === 'closed') {
@@ -93,8 +95,8 @@ export function MerchantComplaintsScreen() {
       return {
         id: c.id,
         code,
-        offerTitle: 'عرض تجاري مرتبط',
-        branchName: 'الفرع المعتمد',
+        offerTitle: 'عرض ' + c.offer_id.slice(0, 8).toUpperCase(),
+        branchName: c.branch_id ? 'فرع ' + c.branch_id.slice(0, 8).toUpperCase() : 'الفرع غير محدد',
         status: c.status === 'new' ? 'investigating' : c.status,
         statusLabel,
         actionRequired: actionReq,
@@ -105,14 +107,13 @@ export function MerchantComplaintsScreen() {
   // Filter cases
   const filteredCases = useMemo(() => {
     return cases.filter((item) => {
-      return (
-        searchQuery.trim() === '' ||
-        item.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.offerTitle.includes(searchQuery) ||
-        item.branchName.includes(searchQuery)
-      );
+      const matchesSearch = searchQuery.trim() === ''
+        || item.code.toLowerCase().includes(searchQuery.trim().toLowerCase())
+        || item.offerTitle.includes(searchQuery.trim())
+        || item.branchName.includes(searchQuery.trim());
+      return matchesSearch && (statusFilter === 'all' || item.status === statusFilter);
     });
-  }, [cases, searchQuery]);
+  }, [cases, searchQuery, statusFilter]);
 
   const handleOpenDetails = (caseId: string) => {
     router.push({
@@ -124,6 +125,7 @@ export function MerchantComplaintsScreen() {
   const formatStatusBadge = (statusLabel: string) => {
     switch (statusLabel) {
       case 'طلب رد':
+      case 'بانتظار متابعة':
         return { bg: isDark ? '#451A03' : '#FEF3C7', text: '#D97706' };
       case 'تُراجع':
         return { bg: isDark ? '#1E293B' : '#E0E7FF', text: '#4F46E5' };
@@ -158,10 +160,10 @@ export function MerchantComplaintsScreen() {
 
           <View className="items-end">
             <AppText variant="heading" className="font-tajawal-bold text-xl text-right">
-              شكاوى النشاط
+              حالات معروضة
             </AppText>
             <AppText variant="caption" muted className="text-right">
-              حالات ضمن صلاحيات النشاط والفروع المسندة.
+              {cases.filter((item) => item.status === 'waiting').length} بانتظار متابعة
             </AppText>
           </View>
         </View>
@@ -196,6 +198,31 @@ export function MerchantComplaintsScreen() {
           <Search size={18} color={isDark ? '#A1A1AA' : '#64748B'} />
         </View>
 
+        {/* Status filtering is based on the recorded status, not an inferred owner-reply demand. */}
+        <View className="flex-row flex-wrap gap-2">
+          {([
+            ['all', 'الكل'],
+            ['waiting', 'بانتظار'],
+            ['investigating', 'قيد المراجعة'],
+            ['closed', 'مغلقة'],
+          ] as const).map(([value, label]) => (
+            <Pressable key={value} accessibilityRole="tab"
+              accessibilityState={{ selected: statusFilter === value }}
+              onPress={() => setStatusFilter(value)}
+              className="rounded-full border px-3 py-2"
+              style={{ borderColor: statusFilter === value ? '#EAB308' : colors.border,
+                backgroundColor: statusFilter === value ? (isDark ? '#422006' : '#FEF9C3') : colors.surface }}>
+              <AppText variant="caption" className="font-tajawal-bold">{label}</AppText>
+            </Pressable>
+          ))}
+        </View>
+
+        {complaintsError && !isSyntheticPreview ? (
+          <View className="rounded-xl border border-border p-3">
+            <AppText muted className="text-right">تعذر تحميل قائمة الشكاوى. تحقق من الاتصال ثم أعد المحاولة.</AppText>
+          </View>
+        ) : null}
+
         {/* Loading State */}
         {isLoading && !isSyntheticPreview ? (
           <View className="py-12 items-center justify-center gap-2">
@@ -205,7 +232,7 @@ export function MerchantComplaintsScreen() {
         ) : null}
 
         {/* Empty State with Mascot */}
-        {!isLoading && filteredCases.length === 0 ? (
+        {!isLoading && !complaintsError && filteredCases.length === 0 ? (
           <View
             className="rounded-2xl border p-6 items-center justify-center gap-3.5 text-center"
             style={{ backgroundColor: colors.surface, borderColor: colors.border }}
@@ -217,10 +244,10 @@ export function MerchantComplaintsScreen() {
               contentFit="contain"
             />
             <AppText variant="heading" className="font-tajawal-bold text-base text-center">
-              لا توجد شكاوى مسجلة
+              {cases.length === 0 ? 'لا توجد شكاوى مسجلة' : 'لا توجد نتائج مطابقة'}
             </AppText>
             <AppText variant="body" muted className="text-xs text-center max-w-xs leading-relaxed">
-              لم تسجل أي شكاوى نشطة أو سابقة على عروض نشاطك التجاري في هذه الفترة.
+              {cases.length === 0 ? 'لا توجد شكاوى مصرح بعرضها لهذا النشاط في الصفحة الحالية.' : 'غيّر البحث أو عامل التصفية لعرض الحالات الأخرى.'}
             </AppText>
           </View>
         ) : null}
