@@ -13,10 +13,12 @@ import { AppButton, AppText } from '@wow/ui';
 import {
   useMerchantComplaint,
   useMerchantRespondComplaint,
+  useUploadWowMedia,
   type MerchantComplaintDetail,
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
+import { EvidencePicker, type SelectedEvidenceFile } from '../../business/components/EvidencePicker';
 
 export function MerchantComplaintDetailsScreen() {
   const colors = useWowColors();
@@ -39,6 +41,7 @@ export function MerchantComplaintDetailsScreen() {
 
   const { data: serverDetail, isLoading: isDetailLoading, error: detailError, refetch: refetchDetail } = useMerchantComplaint(complaintId);
   const respondMutation = useMerchantRespondComplaint();
+  const uploadEvidenceMutation = useUploadWowMedia();
 
   // Synthetic fallback detail matching reference MER-09
   const detail: MerchantComplaintDetail | null = isSyntheticPreview
@@ -74,6 +77,8 @@ export function MerchantComplaintDetailsScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [evidenceFiles, setEvidenceFiles] = useState<(SelectedEvidenceFile | null)[]>([null, null, null]);
+  const [submissionPhase, setSubmissionPhase] = useState<'idle' | 'uploading' | 'sending'>('idle');
 
   const navParams = {
     ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
@@ -113,6 +118,10 @@ export function MerchantComplaintDetailsScreen() {
     setConfirmModalOpen(true);
   };
 
+  const changeEvidence = (index: number, file: SelectedEvidenceFile | null) => {
+    setEvidenceFiles((previous) => previous.map((existing, i) => i === index ? file : existing));
+  };
+
   const handleSendResponse = async () => {
     if (!complaintId || !canRespond || submitting) return;
     setSubmitting(true);
@@ -129,19 +138,46 @@ export function MerchantComplaintDetailsScreen() {
         return;
       }
 
+      const uploadedKeys: string[] = [];
+      for (const [index, file] of evidenceFiles.entries()) {
+        if (!file) continue;
+        if (file.isUploaded && file.storageKey) {
+          uploadedKeys.push(file.storageKey);
+          continue;
+        }
+        if (!file.bytes) {
+          throw new Error('المستند غير جاهز للرفع. أعد اختيار الملف.');
+        }
+        setSubmissionPhase('uploading');
+        const uploaded = await uploadEvidenceMutation.mutateAsync({
+          scope: { kind: 'complaint', complaintId },
+          bytes: file.bytes,
+          contentType: file.mimeType,
+        });
+        uploadedKeys.push(uploaded.key);
+        setEvidenceFiles((previous) => previous.map((existing, i) =>
+          i === index && existing ? { ...existing, isUploaded: true, storageKey: uploaded.key } : existing
+        ));
+      }
+      setSubmissionPhase('sending');
       await respondMutation.mutateAsync({
         complaintId,
         message: responseMessage.trim(),
+        ...(uploadedKeys.length ? { evidenceKeys: uploadedKeys } : {}),
       });
 
       setSendSuccess('تم تسجيل الرد وإشعار فريق المراجعة الإدارية.');
       setTimeout(() => {
         setConfirmModalOpen(false);
         setResponseMessage('');
+        setEvidenceFiles([null, null, null]);
       }, 1500);
     } catch (err: unknown) {
-      setSendError(err instanceof Error ? err.message : 'تعذر إرسال الرد إلى الإدارة.');
+      setSendError((err instanceof Error ? err.message : 'تعذر إرسال الرد إلى الإدارة.')
+        + ' تحقق من سجل الحالة قبل إعادة الإرسال إذا انقطع الاتصال.');
+      void refetchDetail();
     } finally {
+      setSubmissionPhase('idle');
       setSubmitting(false);
     }
   };
@@ -330,6 +366,22 @@ export function MerchantComplaintDetailsScreen() {
               </AppText>
             </View>
 
+            {canRespond ? (
+              <View className="gap-2.5">
+                <AppText variant="label" className="font-tajawal-bold text-sm text-right">
+                  مستندات داعمة للإدارة (اختياري، حتى 3 ملفات)
+                </AppText>
+                {evidenceFiles.map((file, index) => (
+                  <EvidencePicker
+                    key={index}
+                    value={file}
+                    onChange={(next) => changeEvidence(index, next)}
+                    disabled={submitting || !canRespond}
+                  />
+                ))}
+              </View>
+            ) : null}
+
             {sendError ? (
               <View className="p-3 rounded-xl bg-rose-500/10 flex-row items-center gap-2">
                 <AlertCircle size={16} color="#E11D48" />
@@ -397,13 +449,13 @@ export function MerchantComplaintDetailsScreen() {
             </View>
 
             <AppText variant="caption" muted className="text-xs text-center leading-relaxed">
-              المستلم: إدارة منصة واو فقط. لن يتم نشر الرد أو مشاركته مع العميل.
+              المستلم: إدارة منصة واو فقط. المرفقات: {evidenceFiles.filter(Boolean).length} مستندات خاصة. لن يتم نشر الرد أو مشاركته مع العميل.
             </AppText>
 
             <View className="flex-row items-center gap-2.5 pt-2">
               <View className="flex-1">
                 <AppButton
-                  title={submitting ? 'جارٍ الإرسال...' : 'إرسال رسمي'}
+                  title={submitting ? (submissionPhase === 'uploading' ? 'جارٍ رفع المستندات...' : 'جارٍ الإرسال...') : 'إرسال رسمي'}
                   variant="primary"
                   size="md"
                   disabled={submitting}
