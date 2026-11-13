@@ -29,11 +29,24 @@ const server = http.createServer((req, res) => {
   let url;
   try { url = new URL(req.url, 'http://127.0.0.1'); }
   catch { res.writeHead(400); res.end(); return; }
-  const route = url.pathname === '/' ? '/index.html' :
-    url.pathname === '/roles' ? '/roles.html' : url.pathname;
-  const pathname = path.resolve(rootPath, '.' + decodeURIComponent(route));
-  if (!pathname.startsWith(rootPath + path.sep)) {
+  let route;
+  try { route = decodeURIComponent(url.pathname); }
+  catch { res.writeHead(400); res.end('Invalid path'); return; }
+  const rawPath = path.resolve(rootPath, '.' + (route === '/' ? '/index.html' : route));
+  if (!rawPath.startsWith(rootPath + path.sep)) {
     res.writeHead(403); res.end(); return;
+  }
+  let pathname = rawPath;
+  if (!path.extname(pathname)) {
+    if (fs.existsSync(pathname + '.html')) {
+      pathname += '.html';
+    } else if (fs.existsSync(path.join(pathname, 'index.html'))) {
+      pathname = path.join(pathname, 'index.html');
+    } else if (/^\\/verification\\/[0-9a-f-]{36}$/i.test(route)) {
+      // Expo static HTML cannot preregister an arbitrary verification UUID;
+      // the actual client router still enforces the protected route guard.
+      pathname = path.join(rootPath, 'index.html');
+    }
   }
   if (!fs.existsSync(pathname) || !fs.statSync(pathname).isFile()) {
     res.writeHead(404); res.end('Not found'); return;
