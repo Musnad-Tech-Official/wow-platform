@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { MessageSquare, Search } from 'lucide-react-native';
 import { wowIllustrations } from '@wow/assets';
 import { useWowColors, useTheme } from '@wow/theme';
-import { AppText } from '@wow/ui';
+import { AppButton, AppText } from '@wow/ui';
 import { useBusinessComplaints } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
@@ -52,6 +52,11 @@ const PREVIEW_CASES: SyntheticMerchantCase[] = [
 ];
 
 export function MerchantComplaintsScreen() {
+  const { activeBusinessId } = useActiveBusiness();
+  return <MerchantComplaintsContent key={activeBusinessId ?? 'no-business'} />;
+}
+
+function MerchantComplaintsContent() {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -61,9 +66,15 @@ export function MerchantComplaintsScreen() {
     isSyntheticPreview,
   } = useActiveBusiness();
 
+  const pageSize = 50;
+  const [pageIndex, setPageIndex] = useState(0);
+  const offset = pageIndex * pageSize;
+  // Fetch one extra item so next-page availability is confirmed by the server.
   const { data: serverComplaints = [], isLoading, error: complaintsError } = useBusinessComplaints(
-    activeBusinessId ? { businessId: activeBusinessId } : null
+    activeBusinessId ? { businessId: activeBusinessId, limit: pageSize + 1, offset } : null
   );
+  const hasNextPage = !isSyntheticPreview && serverComplaints.length > pageSize
+    && offset + pageSize <= 10000;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'waiting' | 'investigating' | 'closed'>('all');
@@ -77,7 +88,7 @@ export function MerchantComplaintsScreen() {
   const cases: SyntheticMerchantCase[] = useMemo(() => {
     if (isSyntheticPreview) return PREVIEW_CASES;
 
-    return serverComplaints.map((c) => {
+    return serverComplaints.slice(0, pageSize).map((c) => {
       // The backend does not supply sequential case numbers; never invent them.
       const code = 'حالة ' + c.id.slice(0, 8).toUpperCase();
       let statusLabel = 'قيد المراجعة';
@@ -100,7 +111,7 @@ export function MerchantComplaintsScreen() {
         statusLabel,
         actionRequired: actionReq,
       };
-    });
+    }).sort((a, b) => Number(b.actionRequired) - Number(a.actionRequired));
   }, [isSyntheticPreview, serverComplaints]);
 
   // Filter cases
@@ -246,7 +257,7 @@ export function MerchantComplaintsScreen() {
               {cases.length === 0 ? 'لا توجد شكاوى مسجلة' : 'لا توجد نتائج مطابقة'}
             </AppText>
             <AppText variant="body" muted className="text-xs text-center max-w-xs leading-relaxed">
-              {cases.length === 0 ? 'لا توجد شكاوى مصرح بعرضها لهذا النشاط في الصفحة الحالية.' : 'غيّر البحث أو عامل التصفية لعرض الحالات الأخرى.'}
+              {cases.length === 0 ? 'لا توجد شكاوى مصرح بعرضها في هذه الصفحة.' : 'غيّر البحث أو عامل التصفية، أو انتقل إلى صفحة أخرى.'}
             </AppText>
           </View>
         ) : null}
@@ -309,6 +320,36 @@ export function MerchantComplaintsScreen() {
                 );
               })}
             </View>
+          </View>
+        ) : null}
+
+        {!isSyntheticPreview ? (
+          <View className="gap-2">
+            <AppText variant="caption" muted className="text-xs text-right">
+              البحث والتصفية ينطبقان على الصفحة الحالية، وليس جميع الشكاوى المحفوظة.
+            </AppText>
+            {(pageIndex > 0 || hasNextPage) ? (
+              <View className="flex-row items-center justify-between gap-3">
+                <AppButton title="السابق" variant="outline" size="sm"
+                  disabled={isLoading || pageIndex === 0}
+                  onPress={() => {
+                    setPageIndex((prev) => Math.max(prev - 1, 0));
+                    setSearchQuery('');
+                    setStatusFilter('all');
+                  }} />
+                <AppText variant="label" className="font-tajawal-bold text-xs">
+                  الصفحة {pageIndex + 1}
+                </AppText>
+                <AppButton title="التالي" variant="outline" size="sm"
+                  disabled={isLoading || !hasNextPage}
+                  onPress={() => {
+                    if (!hasNextPage) return;
+                    setPageIndex((prev) => prev + 1);
+                    setSearchQuery('');
+                    setStatusFilter('all');
+                  }} />
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>
