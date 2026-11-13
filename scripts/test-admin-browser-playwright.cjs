@@ -42,7 +42,7 @@ const server = http.createServer((req, res) => {
       pathname += '.html';
     } else if (fs.existsSync(path.join(pathname, 'index.html'))) {
       pathname = path.join(pathname, 'index.html');
-    } else if (/^\\/verification\\/[0-9a-f-]{36}$/i.test(route)) {
+    } else if (new RegExp('^/verification/[0-9a-f-]{36}$', 'i').test(route)) {
       // Expo static HTML cannot preregister an arbitrary verification UUID;
       // the actual client router still enforces the protected route guard.
       pathname = path.join(rootPath, 'index.html');
