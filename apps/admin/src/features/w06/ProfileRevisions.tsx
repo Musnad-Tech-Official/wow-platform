@@ -54,7 +54,8 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
   };
 
   async function submit() {
-    if (!canDecide || !selected || !decision || !validReason || !confirming) return;
+    // The queue only exposes candidate patches, not the current published baseline.
+    if (!canDecide || !selected || !decision || decision === 'approved' || !validReason || !confirming) return;
     try {
       await mutation.mutateAsync({ revisionId: selected.id, decision, reason: note || null });
       setSelectedId(null);
@@ -147,9 +148,10 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
                   detail="لا تُعتمد التعديلات التي تتطلب فحص بيانات أو وسائط غير معروضة هنا." />
               )}
               <W06AuthorityNotice role={role} action="اعتماد التعديل" />
+              <W06Message kind="info" title="اعتماد تعديلات الملف معطّل" detail="تستلزم الموافقة عقد قراءة موثوقاً لمقارنة الملف المنشور بالتعديل المرشح؛ لا يكفي عرض حقول التغيير منفردةً." />
               <View className="flex-row flex-wrap gap-2">
                 <AppButton title="اعتماد التعديل" size="sm" variant="primary"
-                  disabled={!canDecide || unrecognizedFields.length > 0}
+                  disabled={true}
                   onPress={() => { setDecision('approved'); setConfirming(false); }} />
                 <AppButton title="رفض التعديل" size="sm" variant="danger"
                   disabled={!canDecide}
@@ -176,7 +178,7 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
                     <View className="gap-2">
                       <AppText className="font-tajawal-bold text-sm text-right">تأكيد قرار {decision === 'approved' ? 'الاعتماد' : 'الرفض'} النهائي؟</AppText>
                       <AppButton title="تأكيد وإرسال القرار" loading={mutation.isPending}
-                        disabled={!canDecide || !validReason || (decision === 'approved' && unrecognizedFields.length > 0)}
+                        disabled={!canDecide || !validReason || decision === 'approved' || unrecognizedFields.length > 0}
                         onPress={() => void submit()} />
                       <AppButton title="إلغاء" variant="outline" disabled={mutation.isPending} onPress={() => setConfirming(false)} />
                     </View>
