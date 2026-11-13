@@ -171,6 +171,11 @@ export interface AdminComplaintsListOptions extends Pagination {
   status?: ComplaintStatus | null;
 }
 
+export interface AdminRequestMerchantResponseInput {
+  complaintId: string;
+  message: string;
+}
+
 export interface AdminUpdateComplaintInput {
   complaintId: string;
   status: Exclude<ComplaintStatus, 'new'>;
@@ -462,6 +467,19 @@ export async function getAdminComplaint(
     throw new Error('wow_admin_get_complaint did not return a JSON object.');
   }
   return data as unknown as AdminComplaintDetail;
+}
+
+/** Administrator only: creates a proprietor-visible information request. */
+export async function adminRequestMerchantResponse(
+  client: WowSupabaseClient,
+  input: AdminRequestMerchantResponseInput,
+): Promise<string> {
+  const { data, error } = await client.rpc('wow_admin_request_merchant_response', {
+    p_complaint_id: input.complaintId,
+    p_message: input.message,
+  });
+  if (error) throw error;
+  return requireUuid(data, 'wow_admin_request_merchant_response');
 }
 
 export async function adminUpdateComplaint(
