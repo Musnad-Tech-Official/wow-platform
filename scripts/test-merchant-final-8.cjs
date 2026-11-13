@@ -216,7 +216,7 @@ test('FINAL-8: Bottom navigation has active paths for businesses, complaints, an
 // 4. Migration SQL & Security Isolation
 // ============================================================================
 test('FINAL-8: Migration SQL covers profile revision media and merchant complaint RPCs with security definer', () => {
-  const migrationPath = 'supabase/migrations/20261112180000_merchant_final_8_revisions_complaints.sql';
+  const migrationPath = 'supabase/migrations/20261113192750_merchant_final_8_revisions_complaints.sql';
   assert(existsSync(resolve(repoRoot, migrationPath)), `Migration missing: ${migrationPath}`);
   const sql = read(migrationPath);
 
@@ -313,7 +313,7 @@ test('FINAL-8 SECURITY REGRESSION: merchant complaint details fail closed', () =
 });
 
 test('FINAL-8 SECURITY REGRESSION: complaint SQL protects identity and admin notes', () => {
-  const sql = read('supabase/migrations/20261112180000_merchant_final_8_revisions_complaints.sql');
+  const sql = read('supabase/migrations/20261113192750_merchant_final_8_revisions_complaints.sql');
   assert(sql.includes('wow_admin_request_merchant_response'), 'Missing audited admin request RPC');
   assert(sql.includes("req.visibility='proprietor_safe'"), 'Reply demand must be proprietor-visible');
   assert(sql.includes("u.visibility='proprietor_safe'"), 'Admin-only notes must not appear in owner projection');
