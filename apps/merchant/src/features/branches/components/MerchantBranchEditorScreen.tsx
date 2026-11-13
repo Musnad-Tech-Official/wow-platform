@@ -10,6 +10,7 @@ import {
   useBusinessBranches,
   useCreateBranch,
   useUpdateBranchDraft,
+  useSubmitProfileRevision,
   type Branch,
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
@@ -38,9 +39,10 @@ function BranchEditorForm({
 
   const createBranchMutation = useCreateBranch();
   const updateBranchMutation = useUpdateBranchDraft();
+  const submitProfileRevision = useSubmitProfileRevision();
 
   const [name, setName] = useState(initialBranch?.name || '');
-  const [city, setCity] = useState(initialBranch?.city || 'تعز');
+  const [city, setCity] = useState(initialBranch?.city || (isSyntheticPreview ? 'تعز' : ''));
   const [addressLine, setAddressLine] = useState(initialBranch?.address_line || '');
   const [district, setDistrict] = useState(initialBranch?.district || '');
   const [contactNote, setContactNote] = useState('');
@@ -52,12 +54,35 @@ function BranchEditorForm({
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   const handleSave = async () => {
+    if (saving) return;
     if (!name.trim()) {
       setFormError('يرجى إدخال اسم الفرع.');
       return;
     }
-    if (!addressLine.trim()) {
-      setFormError('يرجى إدخال عنوان التشغيل.');
+    if (name.trim().length < 2 || name.trim().length > 120) {
+      setFormError('اسم الفرع يجب أن يكون بين حرفين و120 حرفًا.');
+      return;
+    }
+    if (city.trim().length < 2 || city.trim().length > 120) {
+      setFormError('يرجى إدخال اسم مدينة صحيح.');
+      return;
+    }
+    if (addressLine.trim().length < 5 || addressLine.trim().length > 500) {
+      setFormError('العنوان يجب أن يكون بين 5 و500 حرف.');
+      return;
+    }
+    if (lat.trim().length !== 0 || lon.trim().length !== 0) {
+      const latitude = Number(lat.trim());
+      const longitude = Number(lon.trim());
+      if (!lat.trim() || !lon.trim() ||
+          !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+          latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        setFormError('أدخل إحداثيي الموقع معًا ضمن الحدود الصحيحة، أو اتركهما فارغين.');
+        return;
+      }
+    }
+    if (isEditMode && (!branchId || !initialBranch)) {
+      setFormError('الفرع غير متاح أو خارج نطاق النشاط الحالي.');
       return;
     }
     if (!businessId) {
@@ -76,23 +101,28 @@ function BranchEditorForm({
         return;
       }
 
-      const parsedLat = lat.trim() ? parseFloat(lat.trim()) : null;
-      const parsedLon = lon.trim() ? parseFloat(lon.trim()) : null;
+      const parsedLat = lat.trim() ? Number(lat.trim()) : null;
+      const parsedLon = lon.trim() ? Number(lon.trim()) : null;
 
-      if (isEditMode && branchId) {
-        await updateBranchMutation.mutateAsync({
-          businessId,
-          branchId,
-          patch: {
-            name: name.trim(),
-            city: city.trim(),
-            address_line: addressLine.trim(),
-            district: district.trim() || null,
-            latitude: parsedLat,
-            longitude: parsedLon,
-          },
-        });
-        setFormSuccess('تم حفظ التعديلات بنجاح.');
+      if (isEditMode && branchId && initialBranch) {
+        const patch = {
+          name: name.trim(),
+          city: city.trim(),
+          address_line: addressLine.trim(),
+          district: district.trim() || null,
+          latitude: parsedLat,
+          longitude: parsedLon,
+        };
+        if (initialBranch.status === 'approved') {
+          await submitProfileRevision.mutateAsync({ businessId, branchId, patch });
+          setFormSuccess('أُرسل مقترح تعديل الفرع إلى الإدارة؛ البيانات المنشورة لم تتغير.');
+        } else if (initialBranch.status === 'draft') {
+          const saved = await updateBranchMutation.mutateAsync({ businessId, branchId, patch });
+          if (saved !== true) throw new Error('لم تؤكد قاعدة البيانات حفظ مسودة الفرع.');
+          setFormSuccess('تم حفظ مسودة الفرع.');
+        } else {
+          throw new Error('الفرع في مرحلة مراجعة أو حالة لا تسمح بالتعديل.');
+        }
       } else {
         await createBranchMutation.mutateAsync({
           businessId,
