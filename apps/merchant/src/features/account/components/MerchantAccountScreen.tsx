@@ -51,8 +51,8 @@ export function MerchantAccountScreen() {
 
   // Scoped queries
   const { data: branches = [] } = useBusinessBranches(activeBusinessId);
-  const { data: billing } = useBusinessBilling(activeBusinessId);
-  const { data: team = [] } = useBusinessTeam(activeBusinessId);
+  const { data: billing } = useBusinessBilling(isOwner ? activeBusinessId : null);
+  const { data: team = [] } = useBusinessTeam(isOwner ? activeBusinessId : null);
   const { data: revisions = [] } = useMyProfileRevisions(activeBusinessId);
   const submitRevisionMutation = useSubmitProfileRevision();
   const mediaUploadMutation = useUploadWowMedia();
@@ -368,6 +368,8 @@ export function MerchantAccountScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="الاشتراكات والاستحقاقات"
+            accessibilityState={{ disabled: !isOwner }}
+            disabled={!isOwner}
             onPress={() => router.push({ pathname: '/business/subscription', params: navParams })}
             className="flex-row items-center justify-between p-4 rounded-2xl border active:opacity-75"
             style={{ backgroundColor: colors.surface, borderColor: colors.border }}
@@ -380,7 +382,7 @@ export function MerchantAccountScreen() {
                   الاشتراكات والاستحقاقات
                 </AppText>
                 <AppText variant="caption" muted className="text-xs">
-                  {effectiveBillingStatus}
+                  {isOwner ? effectiveBillingStatus : 'للمالك فقط'}
                 </AppText>
               </View>
 
@@ -397,6 +399,8 @@ export function MerchantAccountScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="الموظفون والصلاحيات"
+            accessibilityState={{ disabled: !isOwner }}
+            disabled={!isOwner}
             onPress={() => router.push({ pathname: '/business/team', params: navParams })}
             className="flex-row items-center justify-between p-4 rounded-2xl border active:opacity-75"
             style={{ backgroundColor: colors.surface, borderColor: colors.border }}
@@ -409,7 +413,7 @@ export function MerchantAccountScreen() {
                   الموظفون والصلاحيات
                 </AppText>
                 <AppText variant="caption" muted className="text-xs">
-                  {effectiveTeamCount > 0 ? `${effectiveTeamCount} أعضاء مصرحون` : 'إدارة التفويض بحسب الفرع'}
+                  {isOwner ? (effectiveTeamCount > 0 ? `${effectiveTeamCount} أعضاء مصرحون` : 'إدارة التفويض بحسب الفرع') : 'للمالك فقط'}
                 </AppText>
               </View>
 
