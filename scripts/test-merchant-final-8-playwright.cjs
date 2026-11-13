@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const rootUrl = process.env.WOW_MERCHANT_WEB_URL;
 const exportDir = process.env.WOW_MERCHANT_WEB_EXPORT_DIR || path.resolve(__dirname, '../apps/merchant/dist');
 const screenshotDir = path.resolve(__dirname, '../rendered_screenshots');
-const fullPageScreenshotDir = path.resolve(__dirname, '../rendered_screenshots_full');
+const scrollDiagnosticDir = path.resolve(__dirname, '../rendered_screenshots_scroll');
 
 let staticServer = null;
 let origin = rootUrl ? new URL(rootUrl).origin : null;
@@ -37,8 +37,8 @@ before(async () => {
   if (!fs.existsSync(screenshotDir)) {
     fs.mkdirSync(screenshotDir, { recursive: true });
   }
-  if (!fs.existsSync(fullPageScreenshotDir)) {
-    fs.mkdirSync(fullPageScreenshotDir, { recursive: true });
+  if (!fs.existsSync(scrollDiagnosticDir)) {
+    fs.mkdirSync(scrollDiagnosticDir, { recursive: true });
   }
 
   if (!rootUrl) {
@@ -173,11 +173,41 @@ for (const screen of final8Screens) {
 
       const screenshotPath = path.join(screenshotDir, screen.screenshot);
       await page.screenshot({ path: screenshotPath, fullPage: false });
-      // Full-page diagnostic is separate from the required eight phone screenshots.
-      await page.screenshot({
-        path: path.join(fullPageScreenshotDir, screen.id + '_LIGHT_FULL_PAGE.png'),
-        fullPage: true,
+      // Expo's ScrollView uses an internal scroller. Playwright fullPage=true
+      // captures only the same 390x844 viewport; scroll the actual content
+      // container and save supplementary phone frames instead.
+      const scrollArea = await page.evaluate(() => {
+        const candidates = Array.from(document.querySelectorAll('*')).filter((el) => {
+          const view = getComputedStyle(el);
+          return el.scrollHeight > el.clientHeight + 80 &&
+            el.clientHeight >= 180 && el.clientWidth >= 240 &&
+            (view.overflowY === 'auto' || view.overflowY === 'scroll');
+        });
+        candidates.sort((left, right) =>
+          (right.scrollHeight - right.clientHeight) -
+          (left.scrollHeight - left.clientHeight)
+        );
+        const selected = candidates[0];
+        if (!selected) return null;
+        selected.setAttribute('data-wow-scroll-diagnostic', '1');
+        return {
+          maxScroll: selected.scrollHeight - selected.clientHeight,
+          visibleHeight: selected.clientHeight,
+        };
       });
+      if (scrollArea) {
+        const steps = Math.min(8, Math.max(1,
+          Math.ceil(scrollArea.maxScroll / Math.max(scrollArea.visibleHeight * 0.72, 150))
+        ));
+        for (let segment = 1; segment <= steps; segment++) {
+          const offset = Math.round((scrollArea.maxScroll * segment) / steps);
+          await page.locator('[data-wow-scroll-diagnostic="1"]')
+            .evaluate((node, value) => { node.scrollTop = value; }, offset);
+          await page.waitForTimeout(150);
+          const fileName = screen.id + '_LIGHT_SCROLL_' + String(segment).padStart(2, '0') + '.png';
+          await page.screenshot({ path: path.join(scrollDiagnosticDir, fileName), fullPage: false });
+        }
+      }
 
       assert(fs.existsSync(screenshotPath), `Screenshot missing: ${screenshotPath}`);
       const stats = fs.statSync(screenshotPath);
