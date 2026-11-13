@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { UserRoundCog, FileClock } from 'lucide-react-native';
 import {
-  useAdminProfileRevisions, useAdminDecideProfileRevision,
+  useAdminProfileRevisions, useAdminDecideProfileRevision, useAdminProfileRevisionContext,
 } from '@wow/api';
 import { useWowColors } from '@wow/theme';
 import { AppButton, AppText, Badge, Card } from '@wow/ui';
@@ -31,6 +31,7 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
   const mutation = useAdminDecideProfileRevision();
   const rows = Array.isArray(query.data) ? query.data : [];
   const selected = rows.find((item) => item.id === selectedId) ?? null;
+  const baselineQuery = useAdminProfileRevisionContext(selected?.id ?? null);
   const searchTerm = search.trim().toLowerCase();
   const shown = rows.filter((item) =>
     !searchTerm || item.business_id.toLowerCase().includes(searchTerm)
@@ -43,6 +44,9 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
     : [];
   const note = reason.trim();
   const canDecide = canSubmitW06Decision(role) && selected?.status === 'submitted' && !mutation.isPending;
+  const baselineValid = baselineQuery.isSuccess && baselineQuery.data?.revision_id === selected?.id &&
+    baselineQuery.data?.business_id === selected?.business_id && baselineQuery.data?.branch_id === selected?.branch_id;
+  const canApprove = canDecide && baselineValid && patchEntries.length > 0 && unrecognizedFields.length === 0;
   const validReason = decision === 'rejected' ? note.length >= 5 && note.length <= 2000 : note.length <= 2000;
 
   const pick = (id: string) => {
@@ -54,8 +58,9 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
   };
 
   async function submit() {
-    // The queue only exposes candidate patches, not the current published baseline.
-    if (!canDecide || !selected || !decision || decision === 'approved' || !validReason || !confirming) return;
+    // Approval requires the trusted, server-verified published baseline for this revision.
+    if (!canDecide || !selected || !decision || !validReason || !confirming ||
+        (decision === 'approved' && !canApprove)) return;
     try {
       await mutation.mutateAsync({ revisionId: selected.id, decision, reason: note || null });
       setSelectedId(null);
@@ -140,7 +145,12 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
               {patchEntries.map(([key, value]) => (
                 <View key={key} className="rounded-xl bg-background border border-border p-3 gap-1">
                   <AppText variant="caption" muted className="text-xs text-right">{LABELS[key]}</AppText>
-                  <AppText className="font-tajawal-bold text-sm text-right" selectable>{value === null ? 'إزالة القيمة' : String(value)}</AppText>
+                  <AppText variant="caption" muted className="text-xs text-right">
+                    المنشور حالياً: {baselineValid ? String(baselineQuery.data?.current[key] ?? 'فارغ') : 'لم يثبت بعد'}
+                  </AppText>
+                  <AppText className="font-tajawal-bold text-sm text-right" selectable>
+                    المرشح: {value === null ? 'إزالة القيمة' : String(value)}
+                  </AppText>
                 </View>
               ))}
               {unrecognizedFields.length > 0 && (
@@ -148,10 +158,13 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
                   detail="لا تُعتمد التعديلات التي تتطلب فحص بيانات أو وسائط غير معروضة هنا." />
               )}
               <W06AuthorityNotice role={role} action="اعتماد التعديل" />
-              <W06Message kind="info" title="اعتماد تعديلات الملف معطّل" detail="تستلزم الموافقة عقد قراءة موثوقاً لمقارنة الملف المنشور بالتعديل المرشح؛ لا يكفي عرض حقول التغيير منفردةً." />
+              {!baselineValid && (
+                <W06Message kind="info" title="اعتماد التعديل يتطلب مقارنة موثوقة" detail="الاعتماد معطل حتى ينجح عقد الخادم في إرجاع الملف المنشور الموافق لنفس طلب التعديل، وتُعرض الحقول المرشحة إلى جانبه." />
+              )}
+              {baselineQuery.isError && <W06Message kind="error" title="تعذر استرجاع نسخة الملف المنشورة" detail="عقد مقارنة ملفات التجار غير مفعل أو أن الصلاحية غير متاحة لهذه الجلسة." />}
               <View className="flex-row flex-wrap gap-2">
                 <AppButton title="اعتماد التعديل" size="sm" variant="primary"
-                  disabled={true}
+                  disabled={!canApprove}
                   onPress={() => { setDecision('approved'); setConfirming(false); }} />
                 <AppButton title="رفض التعديل" size="sm" variant="danger"
                   disabled={!canDecide}
@@ -178,7 +191,7 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
                     <View className="gap-2">
                       <AppText className="font-tajawal-bold text-sm text-right">تأكيد قرار {decision === 'approved' ? 'الاعتماد' : 'الرفض'} النهائي؟</AppText>
                       <AppButton title="تأكيد وإرسال القرار" loading={mutation.isPending}
-                        disabled={!canDecide || !validReason || decision === 'approved' || unrecognizedFields.length > 0}
+                        disabled={!canDecide || !validReason || (decision === 'approved' && !canApprove)}
                         onPress={() => void submit()} />
                       <AppButton title="إلغاء" variant="outline" disabled={mutation.isPending} onPress={() => setConfirming(false)} />
                     </View>
