@@ -307,9 +307,11 @@ BEGIN
     COALESCE(p_evidence_keys, '[]'::jsonb)
   )
   RETURNING id INTO v_update;
+  -- The response has been registered; administrative review resumes.
+  UPDATE public.complaints SET status='investigating' WHERE id=p_complaint_id;
   RETURN v_update;
 END;
-$$;
+$;
 
 CREATE OR REPLACE FUNCTION "public"."wow_merchant_respond_complaint"(
   "p_complaint_id" "uuid",
