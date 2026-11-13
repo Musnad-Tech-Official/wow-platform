@@ -1,9 +1,10 @@
 import React, { type PropsWithChildren } from 'react';
 import { View, ScrollView, Platform } from 'react-native';
 import { useTheme } from '@wow/theme';
-import { PageHeader } from '@wow/ui';
+import { PageHeader, AppText, AppButton } from '@wow/ui';
 import { MerchantAppHeader, type MerchantAppHeaderProps } from './MerchantAppHeader';
 import { MerchantBottomNav, type MerchantTab } from './MerchantBottomNav';
+import { useActiveBusiness } from '../business/context/ActiveBusinessContext';
 
 export interface MerchantScaffoldProps extends PropsWithChildren, MerchantAppHeaderProps {
   currentTab: MerchantTab;
@@ -23,7 +24,20 @@ export function MerchantScaffold({
   showBusinessSelector = true,
 }: MerchantScaffoldProps) {
   const { resolvedTheme } = useTheme();
+  const { businessesError, refetchBusinesses, isSyntheticPreview } = useActiveBusiness();
   const isDark = resolvedTheme === 'dark';
+
+  const businessLoadErrorPanel = businessesError && !isSyntheticPreview ? (
+    <View className="rounded-2xl border border-amber-500/30 p-4 gap-2 mb-4">
+      <AppText variant="label" className="font-tajawal-bold text-right">
+        تعذّر تحميل الأنشطة المصرح بها
+      </AppText>
+      <AppText variant="caption" muted className="text-right">
+        تعذر تأكيد الأنشطة والصلاحيات الحالية. أعد المحاولة قبل إجراء أي تعديل.
+      </AppText>
+      <AppButton title="إعادة تحميل الأنشطة" variant="outline" onPress={refetchBusinesses} />
+    </View>
+  ) : null;
 
   const pageHeading = title ? (
     <View style={{ marginBottom: 16 }}>
@@ -56,10 +70,11 @@ export function MerchantScaffold({
               showsVerticalScrollIndicator={false}
             >
               {pageHeading}
+              {businessLoadErrorPanel}
               {children}
             </ScrollView>
           ) : (
-            <View className="flex-1 w-full p-4">{pageHeading}{children}</View>
+            <View className="flex-1 w-full p-4">{pageHeading}{businessLoadErrorPanel}{children}</View>
           )}
 
           {/* Shared Merchant Bottom Navigation */}
