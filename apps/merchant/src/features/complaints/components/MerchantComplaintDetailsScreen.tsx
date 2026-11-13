@@ -316,6 +316,44 @@ export function MerchantComplaintDetailsScreen() {
           </View>
         </View>
 
+        {/* Recorded official replies are read back from the server, not local success copy. */}
+        {detail.updates?.some((update) => update.kind === 'merchant_response') ? (
+          <View className="gap-2">
+            <AppText variant="heading" className="font-tajawal-bold text-base text-right px-1">
+              الردود الرسمية المسجلة
+            </AppText>
+            {detail.updates
+              .filter((update) => update.kind === 'merchant_response')
+              .map((update) => (
+                <View key={update.id} className="rounded-2xl border p-4 gap-2"
+                  style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                  <AppText variant="body" className="text-sm text-right">{update.message}</AppText>
+                  <AppText variant="caption" muted className="text-xs text-right">
+                    {new Date(update.created_at).toLocaleString('ar')}
+                  </AppText>
+                  {Array.isArray(update.private_evidence_keys) && update.private_evidence_keys.length > 0 ? (
+                    <AppText variant="caption" muted className="text-xs text-right">
+                      مستندات خاصة مرتبطة بالرد: {update.private_evidence_keys.length}
+                    </AppText>
+                  ) : null}
+                </View>
+              ))}
+          </View>
+        ) : null}
+
+        {detail.status === 'closed' && detail.public_outcome ? (
+          <View className="rounded-2xl border p-4 gap-2"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+            <AppText variant="heading" className="font-tajawal-bold text-base text-right">
+              نتيجة مراجعة الإدارة
+            </AppText>
+            <AppText variant="body" className="text-right">{detail.public_outcome}</AppText>
+            <AppText variant="caption" muted className="text-xs text-right">
+              الحالة مغلقة؛ لا يمكن إرسال رد جديد.
+            </AppText>
+          </View>
+        ) : null}
+
         {/* Section 3: Owner Reply Draft Area */}
         <View className="gap-2">
           <View className="flex-row items-center justify-between px-1">
