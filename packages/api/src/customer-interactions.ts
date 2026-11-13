@@ -55,7 +55,7 @@ export interface CustomerComplaint {
   updates: CustomerComplaintUpdate[];
 }
 
-/** Business-owner projection intentionally excludes complainant and evidence details. */
+/** Owner/monitor-safe projection; no complainant identity, raw description, or private evidence. */
 export interface MerchantComplaintSummary {
   id: string;
   offer_id: string;
@@ -65,6 +65,9 @@ export interface MerchantComplaintSummary {
   status: ComplaintStatus;
   created_at: string;
   response_count: number;
+  offer_title?: string;
+  branch_name?: string;
+  action_required?: boolean;
 }
 
 export interface AdminRatingSummary extends CustomerOfferRating {
