@@ -13,6 +13,7 @@ const rootUrl = process.env.WOW_MERCHANT_WEB_URL;
 const exportDir = process.env.WOW_MERCHANT_WEB_EXPORT_DIR || path.resolve(__dirname, '../apps/merchant/dist');
 const screenshotDir = path.resolve(__dirname, '../rendered_screenshots');
 const scrollDiagnosticDir = path.resolve(__dirname, '../rendered_screenshots_scroll');
+const darkDiagnosticDir = path.resolve(__dirname, '../rendered_screenshots_dark');
 
 let staticServer = null;
 let origin = rootUrl ? new URL(rootUrl).origin : null;
@@ -39,6 +40,9 @@ before(async () => {
   }
   if (!fs.existsSync(scrollDiagnosticDir)) {
     fs.mkdirSync(scrollDiagnosticDir, { recursive: true });
+  }
+  if (!fs.existsSync(darkDiagnosticDir)) {
+    fs.mkdirSync(darkDiagnosticDir, { recursive: true });
   }
 
   if (!rootUrl) {
@@ -213,6 +217,37 @@ for (const screen of final8Screens) {
       const stats = fs.statSync(screenshotPath);
       assert(stats.size > 10000, `Screenshot suspiciously small (${stats.size} bytes) for ${screen.id}`);
       assert.deepEqual(runtimeErrors, [], `Runtime errors in preview mode on ${screen.path}: ${runtimeErrors.join('; ')}`);
+    } finally {
+      await context.close();
+    }
+  });
+}
+
+
+for (const screen of final8Screens) {
+  test(`PLAYWRIGHT DARK & RESPONSIVE: ${screen.id} renders without errors or horizontal overflow`, async () => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      colorScheme: 'dark',
+    });
+    const page = await context.newPage();
+    const runtimeErrors = [];
+    page.on('pageerror', (error) => runtimeErrors.push(error.message));
+    try {
+      await page.goto(new URL(screen.path + '?preview=1', origin).href,
+        { waitUntil: 'networkidle', timeout: 30_000 });
+      await page.waitForTimeout(300);
+      const pathName = path.join(darkDiagnosticDir, screen.id + '_DARK_PHONE.png');
+      await page.screenshot({ path: pathName, fullPage: false });
+      assert(fs.existsSync(pathName) && fs.statSync(pathName).size > 10000,
+        'Missing dark screenshot for ' + screen.id);
+      const sizes = await page.evaluate(() => ({
+        viewport: window.innerWidth,
+        document: document.documentElement.scrollWidth,
+      }));
+      assert(sizes.document <= sizes.viewport + 2,
+        `Horizontal overflow on ${screen.id} in dark mode: ${JSON.stringify(sizes)}`);
+      assert.deepEqual(runtimeErrors, [], 'Dark-mode runtime errors for ' + screen.id);
     } finally {
       await context.close();
     }
