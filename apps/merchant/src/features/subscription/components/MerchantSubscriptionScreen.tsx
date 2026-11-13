@@ -51,7 +51,6 @@ export function MerchantSubscriptionScreen() {
   const paymentAlreadySubmitted = !!pendingPaid && !!billing?.payments?.some(
     (p) => p.subscription_id === pendingPaid.id && p.status === 'submitted'
   );
-  const selectedPlanAvailable = isSyntheticPreview || availablePlans.some((p) => p.code === selectedPlan);
   const isTrialActive = isSyntheticPreview ? true : (currentSub?.kind === 'trial' && currentSub?.status === 'active');
   const isPaidActive = currentSub?.kind === 'paid' && currentSub?.status === 'active';
   const isPendingVerification = billing?.payments?.some((p) => p.status === 'submitted');
@@ -65,6 +64,19 @@ export function MerchantSubscriptionScreen() {
   // Request / Payment Modal State
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanCode>('BASIC');
+  const pendingPlanCode = pendingPaid?.plan_snapshot?.code;
+  const selectedPlanAvailable = isSyntheticPreview || availablePlans.some((p) => p.code === selectedPlan);
+  const planOptions = isSyntheticPreview
+    ? [{ code: 'BASIC' as PlanCode, name: 'الباقة الأساسية', detail: 'معاينة دون أسعار معتمدة' },
+       { code: 'ADVANCED' as PlanCode, name: 'الباقة المتقدمة', detail: 'معاينة دون أسعار معتمدة' }]
+    : availablePlans.map((p) => ({
+        code: p.code, name: p.name,
+        detail: String(p.price) + ' ' + p.currency + ' / ' + p.duration_days + ' يوم',
+      }));
+  if (!isSyntheticPreview && pendingPaid && pendingPlanCode &&
+      !planOptions.some((p) => p.code === pendingPlanCode)) {
+    planOptions.push({ code: pendingPlanCode, name: 'الباقة المطلوبة مسبقًا', detail: 'الطلب قيد المراجعة' });
+  }
   const [paymentRef, setPaymentRef] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -381,33 +393,38 @@ export function MerchantSubscriptionScreen() {
                 <AppText variant="label" className="font-tajawal-bold text-xs text-right">
                   اختر الباقة المطلوبة
                 </AppText>
-                <View className="flex-row items-center gap-2">
-                  <Pressable
-                    onPress={() => setSelectedPlan('BASIC')}
-                    className="flex-1 p-3 rounded-xl border items-center"
-                    style={{
-                      backgroundColor: selectedPlan === 'BASIC' ? '#FEF9C3' : isDark ? '#18181B' : '#F8FAFC',
-                      borderColor: selectedPlan === 'BASIC' ? '#EAB308' : colors.border,
-                    }}
-                  >
-                    <AppText variant="label" className="font-tajawal-bold text-xs text-slate-900">
-                      الباقة الأساسية
-                    </AppText>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => setSelectedPlan('ADVANCED')}
-                    className="flex-1 p-3 rounded-xl border items-center"
-                    style={{
-                      backgroundColor: selectedPlan === 'ADVANCED' ? '#FEF9C3' : isDark ? '#18181B' : '#F8FAFC',
-                      borderColor: selectedPlan === 'ADVANCED' ? '#EAB308' : colors.border,
-                    }}
-                  >
-                    <AppText variant="label" className="font-tajawal-bold text-xs text-slate-900">
-                      الباقة المتقدمة
-                    </AppText>
-                  </Pressable>
-                </View>
+                {planOptions.length === 0 ? (
+                  <AppText variant="caption" muted className="text-xs text-right">
+                    لا توجد باقات مفعّلة بأسعار معتمدة. لا يمكن إرسال طلب مدفوع جديد الآن.
+                  </AppText>
+                ) : (
+                  <View className="flex-row flex-wrap gap-2">
+                    {planOptions.map((plan) => {
+                      const selected = selectedPlan === plan.code;
+                      return (
+                        <Pressable key={plan.code}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: selected, disabled: !!pendingPaid }}
+                          disabled={!!pendingPaid}
+                          onPress={() => setSelectedPlan(plan.code)}
+                          className="flex-1 min-w-[115px] rounded-xl border p-3 items-end"
+                          style={{
+                            backgroundColor: selected ? '#FEF9C3' : isDark ? '#18181B' : '#F8FAFC',
+                            borderColor: selected ? '#EAB308' : colors.border,
+                          }}>
+                          <AppText variant="label" className="font-tajawal-bold text-xs text-right"
+                            style={{ color: selected ? '#0F172D' : colors.foreground }}>
+                            {plan.name}
+                          </AppText>
+                          <AppText variant="caption" className="text-[11px] text-right"
+                            style={{ color: selected ? '#334155' : colors.mutedForeground }}>
+                            {plan.detail}
+                          </AppText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
 
                 <View className="gap-1 mt-2">
                   <AppText variant="label" className="font-tajawal-bold text-xs text-right">
@@ -453,7 +470,7 @@ export function MerchantSubscriptionScreen() {
                   title={submitting ? 'جارٍ المعالجة...' : !hasTrial ? 'بدء الفترة التجريبية' : 'إرسال الطلب'}
                   variant="primary"
                   size="lg"
-                  disabled={submitting}
+                  disabled={submitting || (!isSyntheticPreview && !!hasTrial && (!planOptions.length || paymentAlreadySubmitted))}
                   onPress={handleExecuteAction}
                 />
               </View>
