@@ -24,6 +24,8 @@ The list APIs were verified to exist in the connected `wow-platform` Supabase pr
 - Batch 02 adds a read-only query for `wow_admin_get_effective_role()`, a proposed minimal RPC that returns only the authenticated current admin's verified role.
 - **The RPC has not been deployed.** Until a separately reviewed SQL rollout, the role is `null` and buttons for review decisions remain disabled.
 - UI decision components additionally check that the selected item is in a submitted state, enforce reason lengths, and require a separate confirmation before invoking existing `@wow/api` mutation hooks.
+- **Approval intentionally remains disabled for ADM-04** until an admin-authorized private evidence viewing contract is implemented and tested; seeing an evidence count or raw storage key is not evidence review.
+- **Profile-change approval intentionally remains disabled** until an authorized server projection of the currently published business/branch profile is available for side-by-side review. The submitted patch alone is not enough. Rejection is separately available to verified reviewers after the role RPC rollout.
 - The existing DB already verifies server role and most business affiliation conflicts inside internal routines. A read-only catalog audit identified that verification decisions check owner conflict but not an active employee/affiliate conflict, unlike profile revision and payment decisions.
 - `docs/sql/w06-admin-review-security-staging-proposal.sql` fixes that omission **and** defines the effective-role RPC. It is *deliberately not* in `supabase/migrations` and **has not been applied to the connected database**. Confirm an isolated staging database and review the original source, backups and rollout plan first.
 
