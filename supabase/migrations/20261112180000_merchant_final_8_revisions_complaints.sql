@@ -368,7 +368,8 @@ BEGIN
         SELECT 1 FROM public.business_members m
         JOIN public.business_member_branches b ON b.member_id = m.id
         WHERE m.business_id = v_business AND m.user_id = v_user
-          AND m.status = 'active' AND b.branch_id = v_branch
+          AND m.status = 'active' AND m.can_monitor IS TRUE
+          AND b.business_id = v_business AND b.branch_id = v_branch
       ) INTO v_is_delegate;
     END IF;
 
@@ -529,5 +530,72 @@ REVOKE ALL ON FUNCTION wow_private.merchant_respond_complaint_internal(uuid,text
 GRANT EXECUTE ON FUNCTION wow_private.merchant_respond_complaint_internal(uuid,text,jsonb) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION wow_private.merchant_get_complaint_internal(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION wow_private.merchant_get_complaint_internal(uuid) TO authenticated, service_role;
+
+
+-- 6. Owner/monitor-scoped complaints list. Delegates see only operational
+-- fields for branches for which they retain the explicit monitoring grant.
+CREATE OR REPLACE FUNCTION wow_private.merchant_complaints_internal(
+  p_business_id uuid, p_limit integer, p_offset integer
+) RETURNS jsonb
+  LANGUAGE plpgsql STABLE SECURITY DEFINER
+  SET search_path TO ''
+AS $
+DECLARE
+  v_actor text;
+  v_owner boolean;
+  v_result jsonb;
+BEGIN
+  v_actor := wow_private.current_active_customer_id();
+  v_owner := wow_private.is_business_owner(p_business_id);
+  IF NOT v_owner AND NOT EXISTS (
+    SELECT 1 FROM public.business_members m
+    WHERE m.business_id=p_business_id AND m.user_id=v_actor
+      AND m.status='active' AND m.can_monitor IS TRUE
+  ) THEN
+    RAISE EXCEPTION 'Business owner or authorized branch monitor required'
+      USING ERRCODE='42501';
+  END IF;
+  IF p_limit NOT BETWEEN 1 AND 100 OR p_offset NOT BETWEEN 0 AND 10000 THEN
+    RAISE EXCEPTION 'Invalid complaint pagination' USING ERRCODE='22023';
+  END IF;
+  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.created_at DESC,x.id DESC),'[]'::jsonb)
+    INTO v_result
+  FROM (
+    SELECT c.id, c.offer_id, c.offer_version_id, c.branch_id,
+      c.complaint_type, c.status, c.created_at,
+      COALESCE(ov.title,'') AS offer_title,
+      COALESCE(bb.name,'') AS branch_name,
+      CASE WHEN v_owner THEN (
+        SELECT count(*)::integer FROM public.complaint_updates cu
+        WHERE cu.complaint_id=c.id AND cu.kind='merchant_response'
+      ) ELSE 0 END AS response_count,
+      CASE WHEN v_owner AND c.status='waiting' THEN EXISTS (
+        SELECT 1 FROM public.complaint_updates req
+        WHERE req.complaint_id=c.id
+          AND req.kind='request_info' AND req.visibility='proprietor_safe'
+          AND NOT EXISTS (
+            SELECT 1 FROM public.complaint_updates resp
+            WHERE resp.complaint_id=req.complaint_id
+              AND resp.kind='merchant_response' AND resp.created_at >= req.created_at
+          )
+      ) ELSE false END AS action_required
+    FROM public.complaints c
+    JOIN public.offers o ON o.id=c.offer_id
+    LEFT JOIN public.offer_versions ov ON ov.id=c.offer_version_id
+    LEFT JOIN public.business_branches bb ON bb.id=c.branch_id AND bb.business_id=p_business_id
+    WHERE o.business_id=p_business_id
+      AND (v_owner OR EXISTS (
+        SELECT 1 FROM public.business_members m
+        JOIN public.business_member_branches scope
+          ON scope.member_id=m.id AND scope.business_id=p_business_id
+        WHERE m.business_id=p_business_id AND m.user_id=v_actor
+          AND m.status='active' AND m.can_monitor IS TRUE
+          AND scope.branch_id=c.branch_id
+      ))
+    ORDER BY c.created_at DESC,c.id DESC LIMIT p_limit OFFSET p_offset
+  ) x;
+  RETURN v_result;
+END;
+$;
 
 COMMIT;
