@@ -41,7 +41,8 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
   const evidenceRefs = Array.isArray(detail?.evidence_refs) ? detail.evidence_refs.length : 0;
 
   async function submit() {
-    if (!canDecide || !decision || !confirming || !validReason) return;
+    // No authorized evidence preview contract exists: never approve blind.
+    if (!canDecide || !decision || decision === 'approved' || !confirming || !validReason) return;
     try {
       await mutation.mutateAsync({
         verificationId: id,
@@ -129,6 +130,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
             <Card className="lg:col-span-5 p-4 sm:p-6 border border-border gap-4">
               <AppText className="text-lg font-tajawal-bold text-right">قرار مراجعة التأهيل</AppText>
               <W06AuthorityNotice role={role} action="إصدار قرار التأهيل" />
+              <W06Message kind="info" title="اعتماد التأهيل غير متاح" detail="لم يجهز بعد عقد الخادم لفتح أدلة الإثبات الخاصة بشكل مؤقت وآمن؛ لن يُعتمد الطلب دون الاطلاع الموثق على الأدلة." />
               {!submitted && <W06Message title="لا يمكن إصدار قرار لهذا الطلب" detail="الخادم يقبل قرارات الطلبات المقدّمة فقط." kind="info" />}
 
               <View className="flex-row flex-wrap gap-2">
@@ -139,9 +141,9 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                 ] as const).map(([value, label]) => (
                   <Pressable
                     key={value}
-                    disabled={!canDecide}
+                    disabled={!canDecide || value === 'approved'}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: decision === value, disabled: !canDecide }}
+                    accessibilityState={{ selected: decision === value, disabled: !canDecide || value === 'approved' }}
                     onPress={() => { setDecision(value); setConfirming(false); }}
                     className={`rounded-xl p-3 border ${decision === value
                       ? 'bg-[#FEF3C7] dark:bg-[#422E12] border-[#FACC15]'
@@ -180,11 +182,11 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                   <AppText className="text-sm font-tajawal-bold text-right">
                     تأكيد نهائي: {decision === 'approved' ? 'اعتماد' : decision === 'rejected' ? 'رفض' : 'طلب استكمال'} هذا الطلب؟
                   </AppText>
-                  <AppButton title="تأكيد وإرسال القرار للخادم" loading={mutation.isPending} disabled={!canDecide || !validReason} onPress={() => void submit()} />
+                  <AppButton title="تأكيد وإرسال القرار للخادم" loading={mutation.isPending} disabled={!canDecide || decision === 'approved' || !validReason} onPress={() => void submit()} />
                   <AppButton title="إلغاء التأكيد" variant="outline" disabled={mutation.isPending} onPress={() => setConfirming(false)} />
                 </View>
               ) : (
-                <AppButton title="متابعة إلى تأكيد القرار" disabled={!canDecide || !decision || !validReason} onPress={() => setConfirming(true)} />
+                <AppButton title="متابعة إلى تأكيد القرار" disabled={!canDecide || !decision || decision === 'approved' || !validReason} onPress={() => setConfirming(true)} />
               )}
             </Card>
           </View>
