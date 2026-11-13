@@ -116,3 +116,14 @@ test('MER-01-02 recovery is externally verified and cannot regrant revoked merch
   assert.doesNotMatch(route, /<TextInput|<input|password|oneTimePassword/);
   assert.doesNotMatch(route, /<MerchantRouteGate>/);
 });
+
+test('MERCHANT NESTED AUTH: preview scope is propagated to nested offer-editor layouts safely', () => {
+  const gate = src('apps/merchant/src/features/navigation/MerchantRouteGate.tsx');
+  const editorLayout = src('apps/merchant/src/app/offers/editor/_layout.tsx');
+  assert.match(editorLayout, /<MerchantRouteGate>/);
+  assert.match(gate, /useGlobalSearchParams/);
+  assert.doesNotMatch(gate, /useLocalSearchParams/);
+  assert.match(gate, /__DEV__\s*===\s*true/);
+  const pure = src('apps/merchant/src/features/navigation/merchant-route-access.ts');
+  assert.match(pure, /isDevelopment && preview === '1'/);
+});
