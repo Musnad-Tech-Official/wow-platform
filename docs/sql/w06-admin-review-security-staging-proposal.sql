@@ -53,6 +53,74 @@ $$;
 REVOKE ALL ON FUNCTION public.wow_admin_get_effective_role() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.wow_admin_get_effective_role() TO authenticated;
 
+-- Minimal, admin-only published-state comparison for submitted profile revisions.
+-- It returns only allowlisted baseline fields; no owner identity, evidence paths,
+-- private notes, or raw table projections.
+CREATE OR REPLACE FUNCTION wow_private.admin_profile_revision_context_internal(p_revision_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path = ''
+AS $
+DECLARE
+  v_business uuid;
+  v_branch uuid;
+  v_current jsonb;
+BEGIN
+  IF wow_private.has_admin_permission(false) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Platform admin access required' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT r.business_id, r.branch_id INTO v_business, v_branch
+  FROM public.business_profile_revisions r WHERE r.id = p_revision_id;
+  IF v_business IS NULL THEN RETURN NULL; END IF;
+
+  IF v_branch IS NULL THEN
+    SELECT jsonb_build_object(
+      'name', b.name,
+      'description', b.description,
+      'contact_phone', b.contact_phone
+    ) INTO v_current
+    FROM public.businesses b WHERE b.id = v_business;
+  ELSE
+    SELECT jsonb_build_object(
+      'name', br.name,
+      'city', br.city,
+      'district', br.district,
+      'address_line', br.address_line,
+      'latitude', br.latitude,
+      'longitude', br.longitude
+    ) INTO v_current
+    FROM public.business_branches br
+    WHERE br.id = v_branch AND br.business_id = v_business;
+  END IF;
+
+  IF v_current IS NULL THEN RETURN NULL; END IF;
+
+  RETURN jsonb_build_object(
+    'revision_id', p_revision_id,
+    'business_id', v_business,
+    'branch_id', v_branch,
+    'current', v_current
+  );
+END;
+$;
+
+REVOKE ALL ON FUNCTION wow_private.admin_profile_revision_context_internal(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION wow_private.admin_profile_revision_context_internal(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.wow_admin_get_profile_revision_context(p_revision_id uuid)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $
+  SELECT wow_private.admin_profile_revision_context_internal(p_revision_id);
+$;
+
+REVOKE ALL ON FUNCTION public.wow_admin_get_profile_revision_context(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.wow_admin_get_profile_revision_context(uuid) TO authenticated;
+
 -- Preserve all existing preconditions, locks, reasons, audit writes and status
 -- updates, adding only the active business membership conflict.
 CREATE OR REPLACE FUNCTION wow_private.admin_decide_verification_internal(p_verification_id uuid, p_decision text, p_reason text DEFAULT NULL::text)
