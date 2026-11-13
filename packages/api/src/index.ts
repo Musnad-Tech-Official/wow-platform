@@ -107,6 +107,7 @@ export {
 } from './query/hooks/use-discovery';
 export {
   usePublicOfferMedia,
+  useBusinessMediaSignedUrl,
   useUploadWowMedia,
   useAttachOfferMedia,
   useAttachComplaintEvidence,
