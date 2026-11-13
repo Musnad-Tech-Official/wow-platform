@@ -337,3 +337,52 @@ test('FINAL-8 REGRESSION: live IDs, active staff, and eligible branch delegation
   assert(editor.includes('isEditMode ? "تعديل صلاحيات الموظف" : "إضافة موظف مفوض"'),
     'Editor title must respect the actual mode');
 });
+
+test('FINAL-8 DELEGATION: scoped navigation uses a server authorization projection', () => {
+  const context = read('apps/merchant/src/features/business/context/ActiveBusinessContext.tsx');
+  assert(context.includes('useAccessibleMerchantBusinesses()'),
+    'The merchant context must include eligible delegated activity memberships');
+  assert(!context.includes('useMyBusinesses()'),
+    'Owner-only business listing cannot be used as the delegated merchant navigation source');
+  const api = read('packages/api/src/businesses.ts');
+  assert(api.includes("wow_merchant_list_accessible_businesses"),
+    'Missing delegated business API contract');
+  const sql = read('supabase/migrations/20261113204859_merchant_delegate_business_scope.sql');
+  for (const guard of ["m.status='active'", "br.status='approved'", "m.user_id=v_actor",
+      'b.owner_user_id=v_actor', "x.owner_user_id=v_actor", 'FROM PUBLIC,anon']) {
+    assert(sql.includes(guard), 'Missing delegated business RLS guard: ' + guard);
+  }
+});
+
+test('FINAL-8 DELEGATION: privileged screens and account queries fail closed', () => {
+  const account = read('apps/merchant/src/features/account/components/MerchantAccountScreen.tsx');
+  assert(account.includes('useBusinessBilling(isOwner ? activeBusinessId : null)'));
+  assert(account.includes('useBusinessTeam(isOwner ? activeBusinessId : null)'));
+  assert(account.includes('useMyProfileRevisions(isOwner ? activeBusinessId : null)'));
+  for (const path of [
+    'apps/merchant/src/features/team/components/MerchantTeamScreen.tsx',
+    'apps/merchant/src/features/subscription/components/MerchantSubscriptionScreen.tsx',
+  ]) {
+    const src = read(path);
+    assert(src.includes('if (!isOwner && !isSyntheticPreview)'),
+      path + ' is missing an explicit owner-only navigation guard');
+  }
+});
+
+test('FINAL-8 BRANCHES: approved revisions and safe draft cancellation', () => {
+  const src = read('apps/merchant/src/features/branches/components/MerchantBranchEditorScreen.tsx');
+  assert(src.includes("initialBranch.status === 'approved'"));
+  assert(src.includes('submitProfileRevision.mutateAsync'));
+  assert(src.includes("initialBranch.status === 'draft'"));
+  assert(src.includes("saved !== true"));
+  assert(src.includes('Number.isFinite(latitude)'));
+  assert(src.includes('confirmCancelOpen'));
+});
+
+test('FINAL-8 BILLING: no fabricated real plan options or duplicate pending requests', () => {
+  const src = read('apps/merchant/src/features/subscription/components/MerchantSubscriptionScreen.tsx');
+  assert(src.includes('useSubscriptionPlans()'));
+  assert(src.includes('availablePlans.map'));
+  assert(src.includes('pendingPaid?.id ?? await requestPaidMutation.mutateAsync'));
+  assert(src.includes('paymentAlreadySubmitted'));
+});
