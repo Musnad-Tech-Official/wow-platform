@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Pressable, Modal, TextInput, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -37,6 +37,11 @@ import { MerchantScaffold } from '../../navigation/MerchantScaffold';
 import { ProfileMediaPicker, type ProfileImageSelection } from './ProfileMediaPicker';
 
 export function MerchantAccountScreen() {
+  const { activeBusinessId } = useActiveBusiness();
+  return <MerchantAccountScreenContent key={activeBusinessId ?? 'no-business'} />;
+}
+
+function MerchantAccountScreenContent() {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -87,17 +92,6 @@ export function MerchantAccountScreen() {
 
   // Switching the selected business invalidates pending visual/upload drafts.
   // Never carry a logo, cover, contact number or revision text across businesses.
-  useEffect(() => {
-    setEditModalOpen(false);
-    setPreviewModalOpen(false);
-    setDraftDesc('');
-    setDraftPhone('');
-    setDraftLogo(null);
-    setDraftCover(null);
-    setRevErrorMsg(null);
-    setRevSuccessMsg(null);
-  }, [activeBusinessId]);
-
   const navParams = {
     ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
     ...(isSyntheticPreview ? { preview: '1' } : {}),
