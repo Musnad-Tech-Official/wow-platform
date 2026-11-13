@@ -438,4 +438,96 @@ REVOKE ALL ON FUNCTION "public"."wow_merchant_get_complaint"("p_complaint_id" "u
 GRANT ALL ON FUNCTION "public"."wow_merchant_get_complaint"("p_complaint_id" "uuid") TO "service_role";
 GRANT ALL ON FUNCTION "public"."wow_merchant_get_complaint"("p_complaint_id" "uuid") TO "authenticated";
 
+
+-- 5. Reviewer-initiated information request, visible only to the proprietor.
+-- The existing generic admin status update intentionally creates admin-only notes
+-- and must not be interpreted as a proprietor reply request.
+CREATE OR REPLACE FUNCTION wow_private.admin_request_merchant_response_internal(
+  p_complaint_id uuid, p_message text
+) RETURNS uuid
+  LANGUAGE plpgsql SECURITY DEFINER
+  SET search_path TO ''
+AS $
+DECLARE
+  v_actor TEXT;
+  v_business UUID;
+  v_status TEXT;
+  v_update UUID;
+BEGIN
+  IF NOT wow_private.has_admin_permission(true) THEN
+    RAISE EXCEPTION 'Administrative complaint review permission required'
+      USING ERRCODE='42501';
+  END IF;
+  v_actor := wow_private.current_active_customer_id();
+  IF p_message IS NULL OR char_length(btrim(p_message)) NOT BETWEEN 5 AND 3000 THEN
+    RAISE EXCEPTION 'Proprietor request must contain 5–3000 characters'
+      USING ERRCODE='22023';
+  END IF;
+  SELECT o.business_id, c.status INTO v_business, v_status
+  FROM public.complaints c JOIN public.offers o ON o.id=c.offer_id
+  WHERE c.id=p_complaint_id FOR UPDATE OF c;
+  IF v_business IS NULL OR v_status='closed' THEN
+    RAISE EXCEPTION 'Complaint missing or closed' USING ERRCODE='22023';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.business_members m
+    WHERE m.business_id=v_business AND m.user_id=v_actor AND m.status='active'
+  ) OR EXISTS (
+    SELECT 1 FROM public.businesses b
+    WHERE b.id=v_business AND b.owner_user_id=v_actor
+  ) THEN
+    RAISE EXCEPTION 'Reviewer is affiliated with this business' USING ERRCODE='42501';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.complaint_updates req
+    WHERE req.complaint_id=p_complaint_id
+      AND req.kind='request_info' AND req.visibility='proprietor_safe'
+      AND NOT EXISTS (
+        SELECT 1 FROM public.complaint_updates reply
+        WHERE reply.complaint_id=req.complaint_id
+          AND reply.kind='merchant_response'
+          AND reply.created_at >= req.created_at
+      )
+  ) THEN
+    RAISE EXCEPTION 'An unanswered request already exists' USING ERRCODE='22023';
+  END IF;
+  UPDATE public.complaints SET status='waiting' WHERE id=p_complaint_id;
+  INSERT INTO public.complaint_updates (
+    complaint_id, author_user_id, kind, message, visibility
+  ) VALUES (
+    p_complaint_id, v_actor, 'request_info', btrim(p_message), 'proprietor_safe'
+  ) RETURNING id INTO v_update;
+  RETURN v_update;
+END;
+$;
+
+CREATE OR REPLACE FUNCTION public.wow_admin_request_merchant_response(
+  p_complaint_id uuid, p_message text
+) RETURNS uuid
+  LANGUAGE sql SET search_path TO ''
+AS $
+  SELECT wow_private.admin_request_merchant_response_internal(p_complaint_id,p_message);
+$;
+
+REVOKE ALL ON FUNCTION public.wow_admin_request_merchant_response(uuid,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.wow_admin_request_merchant_response(uuid,text) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION wow_private.admin_request_merchant_response_internal(uuid,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION wow_private.admin_request_merchant_response_internal(uuid,text) TO authenticated, service_role;
+
+-- Keep the legacy two-argument private function consistent with the stricter
+-- three-argument implementation rather than leaving an unrestricted bypass.
+CREATE OR REPLACE FUNCTION wow_private.merchant_respond_complaint_internal(
+  p_complaint_id uuid, p_message text
+) RETURNS uuid
+  LANGUAGE sql SECURITY DEFINER SET search_path TO ''
+AS $
+  SELECT wow_private.merchant_respond_complaint_internal(
+    p_complaint_id,p_message,'[]'::jsonb
+  );
+$;
+REVOKE ALL ON FUNCTION wow_private.merchant_respond_complaint_internal(uuid,text,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION wow_private.merchant_respond_complaint_internal(uuid,text,jsonb) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION wow_private.merchant_get_complaint_internal(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION wow_private.merchant_get_complaint_internal(uuid) TO authenticated, service_role;
+
 COMMIT;
