@@ -22,6 +22,7 @@ export { createWowQueryClient } from './query/query-client';
 export { wowQueryKeys } from './query/query-keys';
 export { useWowSupabaseClient, type WowSupabaseOptions } from './query/use-wow-supabase-client';
 export { useCurrentUser } from './query/hooks/use-current-user';
+export { useAdminEffectiveRole, type EffectiveAdminRole } from './query/hooks/use-admin-effective-role';
 export {
   useMyBusinesses,
   useBusiness,
