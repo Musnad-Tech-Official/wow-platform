@@ -41,10 +41,10 @@ function TeamEditorForm({
 
   // Form State initialized from initialMember
   const [employeeIdentifier, setEmployeeIdentifier] = useState(
-    initialMember?.user_id || 'موظف جديد'
+    initialMember?.user_id || (isSyntheticPreview ? 'موظف جديد' : '')
   );
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(
-    initialMember?.branch_ids || ['branch-tahrir-uuid']
+    initialMember?.branch_ids || (isSyntheticPreview ? ['branch-tahrir-uuid'] : [])
   );
   const [canDraft, setCanDraft] = useState(initialMember ? initialMember.can_draft : true);
   const [canSubmit, setCanSubmit] = useState(initialMember ? initialMember.can_submit : false);
@@ -68,8 +68,17 @@ function TeamEditorForm({
   const branchCount = selectedBranchIds.length;
 
   const handleSave = async () => {
+    if (saving) return;
     if (!employeeIdentifier.trim()) {
       setFormError('يرجى تحديد هوية الموظف.');
+      return;
+    }
+    if (!isSyntheticPreview && !/^user_[A-Za-z0-9]+$/.test(employeeIdentifier.trim())) {
+      setFormError('أدخل معرّف مستخدم Clerk مسجّلًا ومزامنًا، وليس الاسم أو البريد.');
+      return;
+    }
+    if (selectedBranchIds.some((id) => !availableBranches.some((branch) => branch.id === id && branch.status === 'approved'))) {
+      setFormError('يمكن تفويض الفروع المؤهلة فقط. أزل الفروع غير المؤهلة من التحديد.');
       return;
     }
     if (selectedBranchIds.length === 0) {
@@ -166,7 +175,7 @@ function TeamEditorForm({
             <TextInput
               value={employeeIdentifier}
               onChangeText={setEmployeeIdentifier}
-              placeholder="معرّف الموظف أو البريد المعتمد..."
+              placeholder="معرّف المستخدم المسجل (user_...)"
               placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
               className="w-full rounded-xl p-3 border text-right text-sm"
               style={{
@@ -182,7 +191,7 @@ function TeamEditorForm({
             style={{ backgroundColor: isDark ? '#18181B' : '#F8FAFC' }}
           >
             <AppText variant="caption" muted className="text-xs text-center leading-relaxed">
-              لا تُنشئ هذه المعاينة حساب دخول مستقل للموظف.
+              يلزم وجود حساب موظف مستقل مسجّل بالفعل؛ لا تنشئ هذه الصفحة حسابًا جديدًا.
             </AppText>
           </View>
         </View>
@@ -206,7 +215,8 @@ function TeamEditorForm({
                 key={branch.id}
                 accessibilityRole="checkbox"
                 accessibilityLabel={branch.name}
-                accessibilityState={{ checked: isSelected }}
+                accessibilityState={{ checked: isSelected, disabled: !isSelected && branch.status !== 'approved' }}
+                disabled={!isSelected && branch.status !== 'approved'}
                 onPress={() => toggleBranch(branch.id)}
                 className={`flex-row items-center justify-between p-4 active:opacity-75 ${
                   !isLast ? 'border-b border-border' : ''
@@ -479,7 +489,7 @@ export function MerchantTeamEditorScreen() {
   return (
     <MerchantScaffold
       currentTab="more"
-      title="تعديل التفويض"
+      title={isEditMode ? "تعديل صلاحيات الموظف" : "إضافة موظف مفوض"}
       subtitle="تحديد الفروع والصلاحيات المصرحة للموظف"
       showBusinessSelector={false}
     >
