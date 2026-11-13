@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Pressable } from 'react-native';
+import { View, TextInput, Pressable, Modal } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { Check, AlertCircle, CheckCircle2 } from 'lucide-react-native';
@@ -55,6 +55,18 @@ function TeamEditorForm({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const isDirty = employeeIdentifier !== (initialMember?.user_id || (isSyntheticPreview ? 'موظف جديد' : ''))
+    || [...selectedBranchIds].sort().join(',') !== [...(initialMember?.branch_ids || (isSyntheticPreview ? ['branch-tahrir-uuid'] : []))].sort().join(',')
+    || canDraft !== (initialMember ? initialMember.can_draft : true)
+    || canSubmit !== (initialMember ? initialMember.can_submit : false)
+    || canMonitor !== (initialMember ? initialMember.can_monitor : true)
+    || canPause !== (initialMember ? initialMember.can_pause : false);
+  const handleCancel = () => {
+    if (saving) return;
+    if (isDirty) setConfirmCancelOpen(true);
+    else onBack();
+  };
 
   const toggleBranch = (bId: string) => {
     if (selectedBranchIds.includes(bId)) {
@@ -69,6 +81,10 @@ function TeamEditorForm({
 
   const handleSave = async () => {
     if (saving) return;
+    if (isEditMode && (!initialMember || employeeIdentifier.trim() !== initialMember.user_id)) {
+      setFormError('لا يمكن تغيير هوية الموظف عند تعديل التفويض.');
+      return;
+    }
     if (!employeeIdentifier.trim()) {
       setFormError('يرجى تحديد هوية الموظف.');
       return;
@@ -175,6 +191,7 @@ function TeamEditorForm({
             <TextInput
               value={employeeIdentifier}
               onChangeText={setEmployeeIdentifier}
+              editable={!isEditMode}
               placeholder="معرّف المستخدم المسجل (user_...)"
               placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
               className="w-full rounded-xl p-3 border text-right text-sm"
@@ -425,10 +442,24 @@ function TeamEditorForm({
             variant="secondary"
             size="lg"
             disabled={saving}
-            onPress={onBack}
+            onPress={handleCancel}
           />
         </View>
       </View>
+      <Modal transparent animationType="fade" visible={confirmCancelOpen}
+        onRequestClose={() => setConfirmCancelOpen(false)}>
+        <View className="flex-1 justify-center bg-black/50 p-5">
+          <View className="rounded-2xl border p-5 gap-4"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+            <AppText variant="heading" className="text-right">إلغاء تعديل الصلاحيات؟</AppText>
+            <AppText muted className="text-right">ستفقد التعديلات غير المحفوظة على الفروع والصلاحيات.</AppText>
+            <AppButton title="متابعة التحرير" variant="outline"
+              onPress={() => setConfirmCancelOpen(false)} />
+            <AppButton title="مغادرة دون حفظ" variant="secondary"
+              onPress={() => { setConfirmCancelOpen(false); onBack(); }} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -447,9 +478,10 @@ export function MerchantTeamEditorScreen() {
   const {
     activeBusinessId,
     isSyntheticPreview,
+    isOwner,
   } = useActiveBusiness();
 
-  const { data: team = [] } = useBusinessTeam(activeBusinessId);
+  const { data: team = [], isLoading: teamLoading, error: teamError, refetch: refetchTeam } = useBusinessTeam(activeBusinessId);
   const { data: branches = [] } = useBusinessBranches(activeBusinessId);
 
   // Find target member if editing
@@ -493,15 +525,29 @@ export function MerchantTeamEditorScreen() {
       subtitle="تحديد الفروع والصلاحيات المصرحة للموظف"
       showBusinessSelector={false}
     >
-      <TeamEditorForm
-        key={currentMember?.user_id || 'new-member'}
+      {!isOwner || (isEditMode && !isSyntheticPreview &&
+          (!currentMember || currentMember.status !== 'active')) ? (
+        <View className="rounded-2xl border border-border p-5 gap-3">
+          <AppText variant="heading" className="text-right">
+            {!isOwner ? 'إدارة التفويض خاصة بمالك النشاط' :
+              teamLoading ? 'جارٍ تحميل الموظف...' :
+              teamError ? 'تعذر تحميل الصلاحيات' : 'الموظف غير متاح للتعديل'}
+          </AppText>
+          <AppText muted className="text-right">
+            لا يمكن تعديل تفويض لموظف غير موجود أو لم يعد نشطًا في هذا النشاط.
+          </AppText>
+          {teamError && isOwner ? <AppButton title="إعادة المحاولة" onPress={() => void refetchTeam()} /> : null}
+          <AppButton title="العودة للموظفين" variant="outline" onPress={handleBack} />
+        </View>
+      ) : <TeamEditorForm
+        key={(activeBusinessId || 'no-business') + ':' + (currentMember?.user_id || 'new-member')}
         initialMember={currentMember}
         isEditMode={isEditMode}
         businessId={activeBusinessId || ''}
         isSyntheticPreview={isSyntheticPreview}
         availableBranches={availableBranches}
         onBack={handleBack}
-      />
+      />}
     </MerchantScaffold>
   );
 }
