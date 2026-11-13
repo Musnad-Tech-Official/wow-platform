@@ -2,7 +2,7 @@ import { useState, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useGlobalSearchParams } from 'expo-router';
 import { useAuth, useSSO } from '@wow/auth';
 import { AppButton, AppText } from '@wow/ui';
 import { resolveMerchantRouteAccess } from './merchant-route-access';
@@ -20,7 +20,7 @@ export function MerchantRouteGate({ children }: PropsWithChildren) {
   const { isLoaded, isSignedIn } = useAuth();
   const isClient = useSyncExternalStore(noChangeSubscribe, () => true, () => false);
   const { startSSOFlow } = useSSO();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const { preview } = useGlobalSearchParams<{ preview?: string }>();
   const [signInBusy, setSignInBusy] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
 
