@@ -37,11 +37,11 @@ export function MerchantComplaintDetailsScreen() {
     isSyntheticPreview,
   } = useActiveBusiness();
 
-  const { data: serverDetail } = useMerchantComplaint(complaintId);
+  const { data: serverDetail, isLoading: isDetailLoading, error: detailError, refetch: refetchDetail } = useMerchantComplaint(complaintId);
   const respondMutation = useMerchantRespondComplaint();
 
   // Synthetic fallback detail matching reference MER-09
-  const detail: MerchantComplaintDetail = isSyntheticPreview || !serverDetail
+  const detail: MerchantComplaintDetail | null = isSyntheticPreview
     ? {
         id: complaintId || 'case-018-uuid',
         offer_id: 'offer-headphones-uuid',
@@ -67,7 +67,7 @@ export function MerchantComplaintDetailsScreen() {
           },
         ],
       }
-    : serverDetail;
+    : (serverDetail ?? null);
 
   const [responseMessage, setResponseMessage] = useState('');
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -87,6 +87,19 @@ export function MerchantComplaintDetailsScreen() {
     });
   };
 
+  // Waiting does not by itself establish a new administrative request.
+  const requestedUpdate = detail?.updates?.filter(
+    (update) => update.kind === 'request_info' && update.visibility === 'proprietor_safe'
+  ).at(-1);
+  const lastProprietorReply = detail?.updates?.filter(
+    (update) => update.kind === 'merchant_response'
+  ).at(-1);
+  const responseRequested = Boolean(
+    detail?.status === 'waiting' && requestedUpdate &&
+    (!lastProprietorReply || Date.parse(requestedUpdate.created_at) > Date.parse(lastProprietorReply.created_at))
+  );
+  const canRespond = Boolean(detail && isOwner && detail.is_owner && responseRequested);
+
   const handleOpenReview = () => {
     if (responseMessage.trim().length < 5) {
       setSendError('يجب أن يحتوي الرد على 5 أحرف على الأقل.');
@@ -101,7 +114,7 @@ export function MerchantComplaintDetailsScreen() {
   };
 
   const handleSendResponse = async () => {
-    if (!complaintId) return;
+    if (!complaintId || !canRespond || submitting) return;
     setSubmitting(true);
     setSendError(null);
     setSendSuccess(null);
@@ -133,7 +146,28 @@ export function MerchantComplaintDetailsScreen() {
     }
   };
 
-  const isClosed = detail.status === 'closed';
+  const isClosed = detail?.status === 'closed';
+
+  // An unauthorized, missing, or failed lookup must never render a sample complaint.
+  if (!detail) {
+    return (
+      <MerchantScaffold currentTab="complaints" title="تفاصيل الشكوى"
+        subtitle="مراجعة الحالة والتواصل الرسمي مع إدارة واو" showBusinessSelector={false}>
+        <View className="gap-4 rounded-2xl border border-border p-5">
+          <AppText variant="heading" className="text-right">
+            {detailError ? 'تعذر تحميل الشكوى' : isDetailLoading ? 'جارٍ تحميل الشكوى...' : 'الحالة غير متاحة'}
+          </AppText>
+          <AppText muted className="text-right">
+            {detailError ? 'تحقق من الاتصال ثم أعد المحاولة.' :
+              isDetailLoading ? 'يُرجى الانتظار حتى اكتمال جلب بيانات الحالة.' :
+              'لم يتم العثور على حالة مصرّح بعرضها لهذا الحساب.'}
+          </AppText>
+          {detailError ? <AppButton title="إعادة المحاولة" onPress={() => void refetchDetail()} /> : null}
+          <AppButton title="العودة إلى الشكاوى" variant="outline" onPress={handleBack} />
+        </View>
+      </MerchantScaffold>
+    );
+  }
 
   return (
     <MerchantScaffold
@@ -158,7 +192,7 @@ export function MerchantComplaintDetailsScreen() {
                 className="font-tajawal-bold text-xs"
                 style={{ color: '#0F172D' }}
               >
-                مطلوب رد من المالك
+                {responseRequested ? 'مطلوب رد من المالك' : isClosed ? 'حالة مغلقة' : 'قيد المتابعة'}
               </AppText>
             </View>
 
@@ -172,7 +206,7 @@ export function MerchantComplaintDetailsScreen() {
             className="font-tajawal-bold text-2xl text-center tracking-wider my-1"
             style={{ color: '#0F172D' }}
           >
-            CASE-018
+            {isSyntheticPreview ? 'CASE-018' : detail.id.slice(0, 8).toUpperCase()}
           </AppText>
         </View>
 
@@ -192,7 +226,7 @@ export function MerchantComplaintDetailsScreen() {
                   الفرع
                 </AppText>
                 <AppText variant="label" className="font-tajawal-bold text-sm mt-0.5">
-                  {detail.branch_name || 'فرع التحرير'}
+                  {detail.branch_name || 'فرع غير محدد'}
                 </AppText>
               </View>
 
@@ -201,7 +235,7 @@ export function MerchantComplaintDetailsScreen() {
                   العرض
                 </AppText>
                 <AppText variant="label" className="font-tajawal-bold text-sm text-right mt-0.5">
-                  {detail.offer_title || 'سماعات لاسلكية مع ضمان المحل'}
+                  {detail.offer_title || 'عرض مرتبط بالحالة'}
                 </AppText>
               </View>
             </View>
@@ -228,7 +262,7 @@ export function MerchantComplaintDetailsScreen() {
             style={{ backgroundColor: colors.surface, borderColor: colors.border }}
           >
             <AppText variant="body" className="text-sm text-right leading-relaxed">
-              تطلب الإدارة توضيح طريقة احتساب السعر المعروض فقط.
+              {requestedUpdate?.message || 'لا يوجد طلب توضيح جديد موجّه إلى المالك.'}
             </AppText>
 
             <View
@@ -240,7 +274,7 @@ export function MerchantComplaintDetailsScreen() {
                 className="font-tajawal-bold text-xs"
                 style={{ color: '#D97706' }}
               >
-                طلب توضيح مطلوب من المالك
+                {responseRequested ? 'طلب توضيح مطلوب من المالك' : 'لا يوجد طلب رد جديد'}
               </AppText>
             </View>
           </View>
@@ -273,7 +307,7 @@ export function MerchantComplaintDetailsScreen() {
                 onChangeText={setResponseMessage}
                 multiline
                 numberOfLines={4}
-                editable={isOwner && !isClosed}
+                editable={canRespond && !isClosed}
                 placeholder="رد موضوعي يستند إلى الوقائع المتاحة"
                 placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
                 className="w-full rounded-xl p-3 border text-right text-sm"
@@ -292,7 +326,7 @@ export function MerchantComplaintDetailsScreen() {
               style={{ backgroundColor: isDark ? '#18181B' : '#F8FAFC' }}
             >
               <AppText variant="caption" muted className="text-xs text-center leading-relaxed">
-                لا يُنشر الرد للعملاء، ولا يتم إرسال أي شيء إلى خادم من هذه المعاينة.
+                {isSyntheticPreview ? 'هذه معاينة تجريبية لا ترسل ردًا إلى الخادم.' : 'سيُرسل الرد إلى الإدارة فقط بعد التأكيد.'}
               </AppText>
             </View>
 
@@ -319,7 +353,7 @@ export function MerchantComplaintDetailsScreen() {
               title="معاينة إرسال الرد"
               variant="primary"
               size="lg"
-              disabled={!isOwner || isClosed || responseMessage.trim().length < 5}
+              disabled={!canRespond || isClosed || responseMessage.trim().length < 5}
               onPress={handleOpenReview}
             />
           </View>
