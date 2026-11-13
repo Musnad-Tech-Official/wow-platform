@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
-import { CreditCard, ShieldCheck, AlertTriangle } from 'lucide-react-native';
+import { CreditCard, ShieldCheck } from 'lucide-react-native';
 import { useAdminSubscriptionPayments, useAdminDecideSubscriptionPayment } from '@wow/api';
 import { useWowColors } from '@wow/theme';
 import { AppButton, AppText, Badge, Card } from '@wow/ui';
