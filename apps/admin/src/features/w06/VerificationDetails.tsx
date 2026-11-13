@@ -48,13 +48,19 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
   );
   // A signed URL is a temporary credential; force a refresh after 45 seconds.
   const evidenceReady = evidenceRefs > 0 && evidenceQuery.isSuccess &&
-    evidenceQuery.data.length === evidenceRefs && Date.now() - evidenceQuery.dataUpdatedAt < 45_000;
+    evidenceQuery.data.length === evidenceRefs;
   const approvalEvidenceVerified = evidenceReady && evidenceReviewed;
 
   async function submit() {
     // Approval requires fresh, RLS-signed evidence and reviewer attestation.
     if (!canDecide || !decision || !confirming || !validReason ||
         (decision === 'approved' && !approvalEvidenceVerified)) return;
+    if (decision === 'approved' && Date.now() - evidenceQuery.dataUpdatedAt >= 45_000) {
+      setEvidenceReviewed(false);
+      setConfirming(false);
+      void evidenceQuery.refetch();
+      return;
+    }
     try {
       await mutation.mutateAsync({
         verificationId: id,
@@ -116,7 +122,14 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                   key={item.keyIndex}
                   variant="outline" size="sm"
                   title={`فتح المستند ${item.keyIndex + 1} (${item.mimeType === 'application/pdf' ? 'PDF' : 'صورة'})`}
-                  onPress={() => void Linking.openURL(item.signedUrl)}
+                  onPress={() => {
+                    if (Date.now() - evidenceQuery.dataUpdatedAt >= 45_000) {
+                      setEvidenceReviewed(false);
+                      void evidenceQuery.refetch();
+                      return;
+                    }
+                    void Linking.openURL(item.signedUrl);
+                  }}
                 />
               ))}
               {canSubmitW06Decision(role) && evidenceRefs > 0 && (
