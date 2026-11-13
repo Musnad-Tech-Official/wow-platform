@@ -413,7 +413,7 @@ export function MerchantBranchEditorScreen() {
     isSyntheticPreview,
   } = useActiveBusiness();
 
-  const { data: branches = [] } = useBusinessBranches(activeBusinessId);
+  const { data: branches = [], isLoading: branchesLoading, error: branchesError, refetch: refetchBranches } = useBusinessBranches(activeBusinessId);
 
   // Find target branch if in edit mode
   const currentBranch: Branch | undefined = branches.find((b) => b.id === branchId) || (
@@ -431,6 +431,7 @@ export function MerchantBranchEditorScreen() {
       : undefined
   );
 
+  const unavailable = isEditMode && !isSyntheticPreview && !currentBranch;
   const handleBack = () => {
     router.replace({
       pathname: '/business/branches',
@@ -448,7 +449,19 @@ export function MerchantBranchEditorScreen() {
       subtitle="بيانات موقع الفرع التشغيلي وعنوانه المعتمد"
       showBusinessSelector={false}
     >
-      <BranchEditorForm
+      {unavailable ? (
+        <View className="rounded-2xl border border-border p-5 gap-3">
+          <AppText variant="heading" className="text-right">
+            {branchesLoading ? 'جارٍ تحميل بيانات الفرع...' : branchesError ? 'تعذر تحميل الفرع' : 'الفرع غير متاح'}
+          </AppText>
+          <AppText muted className="text-right">
+            {branchesLoading ? 'يرجى انتظار التحقق من الفرع والصلاحيات.' :
+              'لم يُعثر على فرع مسموح بتعديله ضمن النشاط الحالي.'}
+          </AppText>
+          {branchesError ? <AppButton title="إعادة المحاولة" onPress={() => void refetchBranches()} /> : null}
+          <AppButton title="العودة إلى الفروع" variant="outline" onPress={handleBack} />
+        </View>
+      ) : <BranchEditorForm
         key={currentBranch?.id || 'new-branch'}
         initialBranch={currentBranch}
         isEditMode={isEditMode}
@@ -456,7 +469,7 @@ export function MerchantBranchEditorScreen() {
         businessId={activeBusinessId || ''}
         isSyntheticPreview={isSyntheticPreview}
         onBack={handleBack}
-      />
+      />}
     </MerchantScaffold>
   );
 }
