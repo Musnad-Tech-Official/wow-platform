@@ -1,4 +1,4 @@
--- W06 ADMIN BATCH 02 — REVIEW ONLY UNTIL AN ISOLATED STAGING ENVIRONMENT IS VERIFIED
+-- W06 ADMIN BATCH 02 — PREPARED FOR REVIEW — REHEARSED WITH ROLLBACK, NOT YET DEPLOYED
 -- Source: read from deployed wow-platform Supabase catalog on 2026-11-13.
 -- This file is deliberately under docs/sql and NOT in supabase/migrations:
 -- do not apply automatically to an environment that may hold live data.
@@ -7,10 +7,10 @@
 -- Purpose 2: close the missing active-business-member conflict guard on
 --            business verification decisions (owner guard already existed).
 --
--- Deployment requirements: peer security review, confirmed staging identity,
--- original migration history reconciliation, backup/rollback plan,
--- testing authenticated viewer/reviewer/super_admin, non-admin,
--- owner/employee conflicts and empty session BEFORE promotion.
+-- Deployment requirements: verified backup/rollback plan and controlled migration,
+-- then live authenticated-role checks. On 2026-11-14 the transaction-only rehearsal
+-- reproduced and blocked the active-employee conflict, and was rolled back.
+-- Permanent database deployment has NOT occurred.
 --
 -- No service_role key is embedded, and the RPC returns the caller's own role only.
 
@@ -61,7 +61,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 STABLE SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $w06safe$
 DECLARE
   v_business uuid;
   v_branch uuid;
@@ -104,7 +104,7 @@ BEGIN
     'current', v_current
   );
 END;
-$;
+$w06safe$;
 
 REVOKE ALL ON FUNCTION wow_private.admin_profile_revision_context_internal(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION wow_private.admin_profile_revision_context_internal(uuid) TO authenticated;
@@ -114,9 +114,9 @@ RETURNS jsonb
 LANGUAGE sql
 STABLE
 SET search_path = ''
-AS $
+AS $w06safe$
   SELECT wow_private.admin_profile_revision_context_internal(p_revision_id);
-$;
+$w06safe$;
 
 REVOKE ALL ON FUNCTION public.wow_admin_get_profile_revision_context(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.wow_admin_get_profile_revision_context(uuid) TO authenticated;
@@ -177,7 +177,7 @@ BEGIN
       AND m.user_id = v_reviewer
       AND m.status = 'active'
   ) THEN
-    RAISE EXCEPTION 'A business owner cannot review their own qualification'
+    RAISE EXCEPTION 'A business owner or active staff member cannot review their own qualification'
       USING ERRCODE = '42501';
   END IF;
 
