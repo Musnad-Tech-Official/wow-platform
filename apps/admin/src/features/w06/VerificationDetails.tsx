@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Linking, Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FileText, ShieldCheck } from 'lucide-react-native';
-import { useAdminBusinessVerification, useAdminDecideBusinessVerification } from '@wow/api';
+import { useAdminBusinessVerification, useAdminDecideBusinessVerification, useAdminVerificationEvidence } from '@wow/api';
 import { useWowColors } from '@wow/theme';
 import { AppButton, AppText, Badge, Card } from '@wow/ui';
 import { canSubmitW06Decision, W06AuthorityNotice, W06Header, W06Message, w06ErrorMessage } from './W06Shared';
@@ -25,6 +25,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
   const [decision, setDecision] = useState<Decision | null>(null);
   const [reason, setReason] = useState('');
   const [confirming, setConfirming] = useState(false);
+  const [evidenceReviewed, setEvidenceReviewed] = useState(false);
 
   const detail = query.data && !Array.isArray(query.data) && typeof query.data === 'object'
     ? (query.data as JsonObject)
@@ -38,11 +39,22 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
     : reasonTrim.length <= 2000;
   const submissions = asArray(detail?.submission_history);
   const history = asArray(detail?.decision_history);
-  const evidenceRefs = Array.isArray(detail?.evidence_refs) ? detail.evidence_refs.length : 0;
+  const evidenceKeys: string[] = Array.isArray(detail?.evidence_refs)
+    ? detail.evidence_refs.filter((item): item is string => typeof item === 'string') : [];
+  const evidenceRefs = evidenceKeys.length;
+  const evidenceQuery = useAdminVerificationEvidence(
+    id, typeof detail?.business_id === 'string' ? detail.business_id : null,
+    evidenceKeys, canSubmitW06Decision(role),
+  );
+  // A signed URL is a temporary credential; force a refresh after 45 seconds.
+  const evidenceReady = evidenceRefs > 0 && evidenceQuery.isSuccess &&
+    evidenceQuery.data.length === evidenceRefs && Date.now() - evidenceQuery.dataUpdatedAt < 45_000;
+  const approvalEvidenceVerified = evidenceReady && evidenceReviewed;
 
   async function submit() {
-    // No authorized evidence preview contract exists: never approve blind.
-    if (!canDecide || !decision || decision === 'approved' || !confirming || !validReason) return;
+    // Approval requires fresh, RLS-signed evidence and reviewer attestation.
+    if (!canDecide || !decision || !confirming || !validReason ||
+        (decision === 'approved' && !approvalEvidenceVerified)) return;
     try {
       await mutation.mutateAsync({
         verificationId: id,
@@ -89,14 +101,40 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                 </View>
               ))}
             </View>
-            <View className="rounded-xl border border-border p-4 flex-row gap-3 items-center">
-              <FileText size={22} color="#A16207" />
-              <View className="flex-1 gap-1">
-                <AppText className="font-tajawal-bold text-sm text-right">مراجع الأدلة المرفقة: {evidenceRefs}</AppText>
-                <AppText variant="caption" muted className="text-xs text-right">
-                  لا تُكشف مسارات التخزين الخاصة ولا روابط عامة. المعاينة الآمنة للمستند تتطلب عقد توقيع وسائط مخوّلاً.
-                </AppText>
+            <View className="rounded-xl border border-border p-4 gap-3">
+              <View className="flex-row gap-3 items-center">
+                <FileText size={22} color="#A16207" />
+                <AppText className="font-tajawal-bold text-sm text-right flex-1">الأدلة الخاصة المرفقة: {evidenceRefs}</AppText>
               </View>
+              <AppText variant="caption" muted className="text-xs text-right">
+                تُفتح الأدلة بروابط توقيع مؤقتة (60 ثانية) يتحقق الخادم من صلاحية المراجع وتعارض مصالحه قبل إصدارها.
+              </AppText>
+              {evidenceQuery.isPending && canSubmitW06Decision(role) && <AppText variant="caption" muted className="text-xs text-right">جارٍ التحقق من صلاحية عرض المستندات…</AppText>}
+              {evidenceQuery.isError && <W06Message kind="error" title="تعذر فتح الأدلة بشكل آمن" detail="لا يمكن اعتماد الطلب قبل إعادة التحقق من صلاحيات التخزين والمستندات." />}
+              {evidenceQuery.isSuccess && evidenceReady && evidenceQuery.data.map((item) => (
+                <AppButton
+                  key={item.keyIndex}
+                  variant="outline" size="sm"
+                  title={`فتح المستند ${item.keyIndex + 1} (${item.mimeType === 'application/pdf' ? 'PDF' : 'صورة'})`}
+                  onPress={() => void Linking.openURL(item.signedUrl)}
+                />
+              ))}
+              {canSubmitW06Decision(role) && evidenceRefs > 0 && (
+                <AppButton variant="quiet" size="sm" title="تجديد صلاحية روابط المستندات"
+                  onPress={() => { setEvidenceReviewed(false); void evidenceQuery.refetch(); }} />
+              )}
+              {evidenceReady && (
+                <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: evidenceReviewed }}
+                  onPress={() => setEvidenceReviewed((value) => !value)}
+                  className="flex-row items-center gap-3 rounded-xl bg-[#FEFCE8] dark:bg-[#422E12] p-3">
+                  <View className="rounded h-5 w-5 border border-[#A16207] items-center justify-center">
+                    {evidenceReviewed && <ShieldCheck size={16} color="#A16207" />}
+                  </View>
+                  <AppText className="flex-1 text-xs font-tajawal-bold text-[#854D0E] dark:text-[#FEF08A] text-right">
+                    أؤكد أنني اطلعت على المستندات وفحصت أدلة الطلب فعلياً.
+                  </AppText>
+                </Pressable>
+              )}
             </View>
           </Card>
 
@@ -130,7 +168,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
             <Card className="lg:col-span-5 p-4 sm:p-6 border border-border gap-4">
               <AppText className="text-lg font-tajawal-bold text-right">قرار مراجعة التأهيل</AppText>
               <W06AuthorityNotice role={role} action="إصدار قرار التأهيل" />
-              <W06Message kind="info" title="اعتماد التأهيل غير متاح" detail="لم يجهز بعد عقد الخادم لفتح أدلة الإثبات الخاصة بشكل مؤقت وآمن؛ لن يُعتمد الطلب دون الاطلاع الموثق على الأدلة." />
+              {(!evidenceReady || !evidenceReviewed) && <W06Message kind="info" title="الاعتماد مرتبط بفحص الأدلة" detail="اعتماد التأهيل يظل معطلاً حتى تنجح صلاحية عرض جميع الأدلة وتؤكد فحصها. لا تُعرض روابط التخزين الخاصة مباشرةً." />}
               {!submitted && <W06Message title="لا يمكن إصدار قرار لهذا الطلب" detail="الخادم يقبل قرارات الطلبات المقدّمة فقط." kind="info" />}
 
               <View className="flex-row flex-wrap gap-2">
@@ -141,9 +179,9 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                 ] as const).map(([value, label]) => (
                   <Pressable
                     key={value}
-                    disabled={!canDecide || value === 'approved'}
+                    disabled={!canDecide || (value === 'approved' && !approvalEvidenceVerified)}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: decision === value, disabled: !canDecide || value === 'approved' }}
+                    accessibilityState={{ selected: decision === value, disabled: !canDecide || (value === 'approved' && !approvalEvidenceVerified) }}
                     onPress={() => { setDecision(value); setConfirming(false); }}
                     className={`rounded-xl p-3 border ${decision === value
                       ? 'bg-[#FEF3C7] dark:bg-[#422E12] border-[#FACC15]'
@@ -182,11 +220,11 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                   <AppText className="text-sm font-tajawal-bold text-right">
                     تأكيد نهائي: {decision === 'approved' ? 'اعتماد' : decision === 'rejected' ? 'رفض' : 'طلب استكمال'} هذا الطلب؟
                   </AppText>
-                  <AppButton title="تأكيد وإرسال القرار للخادم" loading={mutation.isPending} disabled={!canDecide || decision === 'approved' || !validReason} onPress={() => void submit()} />
+                  <AppButton title="تأكيد وإرسال القرار للخادم" loading={mutation.isPending} disabled={!canDecide || (decision === 'approved' && !approvalEvidenceVerified) || !validReason} onPress={() => void submit()} />
                   <AppButton title="إلغاء التأكيد" variant="outline" disabled={mutation.isPending} onPress={() => setConfirming(false)} />
                 </View>
               ) : (
-                <AppButton title="متابعة إلى تأكيد القرار" disabled={!canDecide || !decision || decision === 'approved' || !validReason} onPress={() => setConfirming(true)} />
+                <AppButton title="متابعة إلى تأكيد القرار" disabled={!canDecide || !decision || (decision === 'approved' && !approvalEvidenceVerified) || !validReason} onPress={() => setConfirming(true)} />
               )}
             </Card>
           </View>
