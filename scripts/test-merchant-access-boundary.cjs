@@ -102,3 +102,17 @@ test('merchant integration diagnostics read the existing branch table', () => {
   assert.match(integration, /from\('business_branches'\)/);
   assert.doesNotMatch(integration, /from\('branches'\)/);
 });
+
+test('MER-01-02 recovery is externally verified and cannot regrant revoked merchant access', () => {
+  const route = src('apps/merchant/src/app/auth/recovery.tsx');
+  const gate = src('apps/merchant/src/features/navigation/MerchantRouteGate.tsx');
+  assert.match(gate, /router\.push\('\/auth\/recovery'\)/);
+  assert.match(route, /accounts\.google\.com\/signin\/recovery/);
+  assert.match(route, /facebook\.com\/login\/identify/);
+  assert.match(route, /استعادة حساب Google/);
+  assert.match(route, /استعادة حساب Facebook/);
+  assert.match(route, /لا تعيد ملكية نشاط أو تفويضًا ملغى/);
+  assert.doesNotMatch(route, /setEmployeeAccess|submitProfileRevision|createBusiness|service_role/);
+  assert.doesNotMatch(route, /<TextInput|<input|password|oneTimePassword/);
+  assert.doesNotMatch(route, /<MerchantRouteGate>/);
+});
