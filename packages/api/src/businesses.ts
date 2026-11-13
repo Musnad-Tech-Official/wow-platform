@@ -59,6 +59,18 @@ export interface SaveBusinessRepresentativeDraftInput {
   evidenceContentType?: string | null;
 }
 
+/** Owner + delegated merchant navigation scope, securely projected by SQL.
+ *  This is not a replacement for owner-only onboarding queries.
+ */
+export async function listAccessibleMerchantBusinesses(client: WowSupabaseClient): Promise<Business[]> {
+  const { data, error } = await client.rpc('wow_merchant_list_accessible_businesses');
+  if (error) throw error;
+  if (!Array.isArray(data)) {
+    throw new Error('wow_merchant_list_accessible_businesses did not return an array.');
+  }
+  return data as Business[];
+}
+
 /** Existing business listing query; preserves baseline schema projection without requiring new migrations. */
 export async function getMyBusinesses(client: WowSupabaseClient, userId: string, signal?: AbortSignal): Promise<Business[]> {
   let request = client.from('businesses').select('id,name,owner_user_id,status').eq('owner_user_id', userId).order('id');
