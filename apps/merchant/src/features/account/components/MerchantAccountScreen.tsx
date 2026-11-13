@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Pressable, Modal, TextInput, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -84,6 +84,19 @@ export function MerchantAccountScreen() {
   const [revErrorMsg, setRevErrorMsg] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+
+  // Switching the selected business invalidates pending visual/upload drafts.
+  // Never carry a logo, cover, contact number or revision text across businesses.
+  useEffect(() => {
+    setEditModalOpen(false);
+    setPreviewModalOpen(false);
+    setDraftDesc('');
+    setDraftPhone('');
+    setDraftLogo(null);
+    setDraftCover(null);
+    setRevErrorMsg(null);
+    setRevSuccessMsg(null);
+  }, [activeBusinessId]);
 
   const navParams = {
     ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
