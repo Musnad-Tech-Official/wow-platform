@@ -12,6 +12,7 @@ const { chromium } = require('playwright');
 const rootUrl = process.env.WOW_MERCHANT_WEB_URL;
 const exportDir = process.env.WOW_MERCHANT_WEB_EXPORT_DIR || path.resolve(__dirname, '../apps/merchant/dist');
 const screenshotDir = path.resolve(__dirname, '../rendered_screenshots');
+const fullPageScreenshotDir = path.resolve(__dirname, '../rendered_screenshots_full');
 
 let staticServer = null;
 let origin = rootUrl ? new URL(rootUrl).origin : null;
@@ -35,6 +36,9 @@ const mime = {
 before(async () => {
   if (!fs.existsSync(screenshotDir)) {
     fs.mkdirSync(screenshotDir, { recursive: true });
+  }
+  if (!fs.existsSync(fullPageScreenshotDir)) {
+    fs.mkdirSync(fullPageScreenshotDir, { recursive: true });
   }
 
   if (!rootUrl) {
@@ -169,6 +173,11 @@ for (const screen of final8Screens) {
 
       const screenshotPath = path.join(screenshotDir, screen.screenshot);
       await page.screenshot({ path: screenshotPath, fullPage: false });
+      // Full-page diagnostic is separate from the required eight phone screenshots.
+      await page.screenshot({
+        path: path.join(fullPageScreenshotDir, screen.id + '_LIGHT_FULL_PAGE.png'),
+        fullPage: true,
+      });
 
       assert(fs.existsSync(screenshotPath), `Screenshot missing: ${screenshotPath}`);
       const stats = fs.statSync(screenshotPath);
@@ -179,6 +188,70 @@ for (const screen of final8Screens) {
     }
   });
 }
+
+
+test('PLAYWRIGHT INTERACTION: complaint filters show only selected status', async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
+  const page = await context.newPage();
+  try {
+    await page.goto(new URL('/complaints?preview=1', origin).href, { waitUntil: 'networkidle' });
+    await page.getByRole('tab', { name: 'مغلقة' }).click();
+    await page.getByText('CASE-008').waitFor();
+    assert.equal(await page.getByText('CASE-018').count(), 0);
+    await page.getByRole('tab', { name: 'الكل' }).click();
+    await page.getByText('CASE-018').waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+test('PLAYWRIGHT INTERACTION: delegated team active/former tabs remain separate', async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
+  const page = await context.newPage();
+  try {
+    await page.goto(new URL('/business/team?preview=1', origin).href, { waitUntil: 'networkidle' });
+    await page.getByRole('tab', { name: /السابقون/ }).click();
+    await page.getByText('موظف سابق').waitFor();
+    await page.getByRole('tab', { name: /النشطون/ }).click();
+    await page.getByText('موظف المبيعات').waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+test('PLAYWRIGHT INTERACTION: merchant reply requires explicit review before send', async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
+  const page = await context.newPage();
+  try {
+    await page.goto(new URL('/complaints/details?preview=1', origin).href, { waitUntil: 'networkidle' });
+    await page.getByPlaceholder('رد موضوعي يستند إلى الوقائع المتاحة')
+      .fill('أوضح تفاصيل العرض وسياسة السعر المعلن للإدارة.');
+    await page.getByRole('button', { name: 'معاينة إرسال الرد' }).click();
+    await page.getByText('تأكيد إرسال الرد للإدارة').waitFor();
+    await page.getByRole('button', { name: 'تعديل الرد' }).click();
+    assert.equal(await page.getByText('تم تسجيل الرد وإشعار فريق المراجعة الإدارية.').count(), 0);
+  } finally {
+    await context.close();
+  }
+});
+
+test('PLAYWRIGHT RESPONSIVE: subscription card does not expand document horizontally', async () => {
+  for (const colorScheme of ['light', 'dark']) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme });
+    const page = await context.newPage();
+    try {
+      await page.goto(new URL('/business/subscription?preview=1', origin).href, { waitUntil: 'networkidle' });
+      const metrics = await page.evaluate(() => ({
+        documentWidth: document.documentElement.scrollWidth,
+        windowWidth: window.innerWidth,
+      }));
+      assert(metrics.documentWidth <= metrics.windowWidth + 2,
+        `Subscription horizontal overflow in ${colorScheme} mode: ${JSON.stringify(metrics)}`);
+    } finally {
+      await context.close();
+    }
+  }
+});
 
 test('PLAYWRIGHT: Package all 8 screenshots into WOW_MERCHANT_FINAL_8_RENDERED_SCREENSHOTS.zip', () => {
   const zipPath = path.resolve(__dirname, '../WOW_MERCHANT_FINAL_8_RENDERED_SCREENSHOTS.zip');
