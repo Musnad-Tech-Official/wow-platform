@@ -46,7 +46,9 @@ test('ADM-04 requires trusted reviewer role, reason and explicit confirmation', 
   assert.match(s, /reasonTrim\.length >= 5/);
   assert.match(s, /!confirming/);
   assert.match(s, /useAdminDecideBusinessVerification/);
-  assert.match(s, /لا تُكشف مسارات التخزين الخاصة/);
+  assert.match(s, /approvalEvidenceVerified/);
+  assert.match(s, /evidenceQuery\.isSuccess/);
+  assert.match(s, /Linking\.openURL/);
   assert.doesNotMatch(s, /getPublicUrl|storage\.from\(/);
 });
 
@@ -57,6 +59,9 @@ test('Profile revision review shows allowlisted candidate patch values only', ()
   assert.match(s, /useAdminDecideProfileRevision/);
   assert.match(s, /!confirming/);
   assert.match(s, /selected\?\.status === 'submitted'/);
+  assert.match(s, /baselineValid/);
+  assert.match(s, /useAdminProfileRevisionContext/);
+  assert.match(s, /canApprove/);
 });
 
 test('Payment review requires actual independent verification and documented note', () => {
@@ -75,6 +80,7 @@ test('W06 SQL security proposal closes active employee conflicts and scopes effe
   assert.match(s, /m\.business_id = v_business_id/);
   assert.match(s, /m\.status = 'active'/);
   assert.match(s, /wow_admin_get_effective_role/);
+  assert.match(s, /wow_admin_get_profile_revision_context/);
   assert.match(s, /REVOKE ALL ON FUNCTION public\.wow_admin_get_effective_role\(\) FROM PUBLIC, anon/);
   assert.match(s, /has_admin_permission\(false\)/);
   assert.match(s, /NOT in supabase\/migrations/i);
