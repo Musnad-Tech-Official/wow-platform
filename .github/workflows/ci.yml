@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feat/admin-batch-01-access-shell-dashboard]
+    branches: [main, feat/admin-batch-01-access-shell-dashboard, feat/admin-batch-02-w06-review-workflows]
   workflow_dispatch:
 
 permissions:
