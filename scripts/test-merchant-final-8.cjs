@@ -386,3 +386,29 @@ test('FINAL-8 BILLING: no fabricated real plan options or duplicate pending requ
   assert(src.includes('pendingPaid?.id ?? await requestPaidMutation.mutateAsync'));
   assert(src.includes('paymentAlreadySubmitted'));
 });
+
+test('FINAL-8 BUSINESS SWITCH: no cross-business profile, media or payment draft leakage', () => {
+  const account = read('apps/merchant/src/features/account/components/MerchantAccountScreen.tsx');
+  const billing = read('apps/merchant/src/features/subscription/components/MerchantSubscriptionScreen.tsx');
+  for (const guard of [
+    'setEditModalOpen(false)',
+    'setDraftDesc(\'\')',
+    'setDraftPhone(\'\')',
+    'setDraftLogo(null)',
+    'setDraftCover(null)',
+    '}, [activeBusinessId]);',
+  ]) assert(account.includes(guard), 'Account draft cross-business guard missing: ' + guard);
+  for (const guard of [
+    'setRequestModalOpen(false)',
+    'setPaymentRef(\'\')',
+    '}, [activeBusinessId]);',
+    'paymentStatusLabel',
+    'paymentStatusDescription',
+    '{paymentStatusLabel}',
+    '{paymentStatusDescription}',
+  ]) assert(billing.includes(guard), 'Billing business scope/state guard missing: ' + guard);
+  assert(!billing.includes('بانتظار إثبات إداري'),
+    'Billing must not use a static waiting-payment status');
+  assert(!billing.includes('لا يعالج التطبيق دفعات حقيقية في هذه المعاينة'),
+    'Production payment explanation must not describe preview-only behavior');
+});
