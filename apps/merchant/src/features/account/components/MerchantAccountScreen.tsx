@@ -53,7 +53,7 @@ export function MerchantAccountScreen() {
   const { data: branches = [] } = useBusinessBranches(activeBusinessId);
   const { data: billing } = useBusinessBilling(isOwner ? activeBusinessId : null);
   const { data: team = [] } = useBusinessTeam(isOwner ? activeBusinessId : null);
-  const { data: revisions = [] } = useMyProfileRevisions(activeBusinessId);
+  const { data: revisions = [] } = useMyProfileRevisions(isOwner ? activeBusinessId : null);
   const submitRevisionMutation = useSubmitProfileRevision();
   const mediaUploadMutation = useUploadWowMedia();
   const { data: approvedLogoUrl } = useBusinessMediaSignedUrl(activeBusiness?.logo_url);
