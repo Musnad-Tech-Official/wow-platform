@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, Modal, TextInput } from 'react-native';
+import { View, Pressable, Modal, TextInput, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import {
@@ -28,10 +28,13 @@ import {
   useBusinessTeam,
   useMyProfileRevisions,
   useSubmitProfileRevision,
+  useUploadWowMedia,
+  useBusinessMediaSignedUrl,
   type MerchantProfileRevision,
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
+import { ProfileMediaPicker, type ProfileImageSelection } from './ProfileMediaPicker';
 
 export function MerchantAccountScreen() {
   const colors = useWowColors();
@@ -52,6 +55,9 @@ export function MerchantAccountScreen() {
   const { data: team = [] } = useBusinessTeam(activeBusinessId);
   const { data: revisions = [] } = useMyProfileRevisions(activeBusinessId);
   const submitRevisionMutation = useSubmitProfileRevision();
+  const mediaUploadMutation = useUploadWowMedia();
+  const { data: approvedLogoUrl } = useBusinessMediaSignedUrl(activeBusiness?.logo_url);
+  const { data: approvedCoverUrl } = useBusinessMediaSignedUrl(activeBusiness?.cover_url);
 
   // Synthetic fallbacks for preview mode
   const effectiveBranchCount = isSyntheticPreview ? 2 : branches.length;
@@ -70,6 +76,9 @@ export function MerchantAccountScreen() {
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [draftDesc, setDraftDesc] = useState(activeBusiness?.description || '');
   const [draftPhone, setDraftPhone] = useState(activeBusiness?.contact_phone || '');
+  const [draftLogo, setDraftLogo] = useState<ProfileImageSelection | null>(null);
+  const [draftCover, setDraftCover] = useState<ProfileImageSelection | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [submittingRev, setSubmittingRev] = useState(false);
   const [revSuccessMsg, setRevSuccessMsg] = useState<string | null>(null);
   const [revErrorMsg, setRevErrorMsg] = useState<string | null>(null);
@@ -101,6 +110,8 @@ export function MerchantAccountScreen() {
   const handleOpenEdit = () => {
     setDraftDesc(activeBusiness?.description || '');
     setDraftPhone(activeBusiness?.contact_phone || '');
+    setDraftLogo(null);
+    setDraftCover(null);
     setRevSuccessMsg(null);
     setRevErrorMsg(null);
     setEditModalOpen(true);
@@ -117,18 +128,39 @@ export function MerchantAccountScreen() {
         setTimeout(() => setEditModalOpen(false), 1200);
         return;
       }
-      await submitRevisionMutation.mutateAsync({
-        businessId: activeBusinessId,
-        patch: {
-          description: draftDesc.trim() || null,
-          contact_phone: draftPhone.trim() || null,
-        },
-      });
+      const patch: {
+        description: string | null;
+        contact_phone: string | null;
+        logo_url?: string;
+        cover_url?: string;
+      } = { description: draftDesc.trim() || null, contact_phone: draftPhone.trim() || null };
+      for (const [kind, selected] of [['logo', draftLogo], ['cover', draftCover]] as const) {
+        if (!selected) continue;
+        let key = selected.uploadedKey;
+        if (!key) {
+          setUploadingMedia(true);
+          const uploaded = await mediaUploadMutation.mutateAsync({
+            scope: { kind: 'business', businessId: activeBusinessId },
+            bytes: selected.bytes,
+            contentType: selected.mimeType,
+          });
+          key = uploaded.key;
+          const persist = (previous: ProfileImageSelection | null) =>
+            previous ? { ...previous, uploadedKey: uploaded.key } : previous;
+          if (kind === 'logo') setDraftLogo(persist);
+          else setDraftCover(persist);
+        }
+        if (kind === 'logo') patch.logo_url = key;
+        else patch.cover_url = key;
+      }
+      setUploadingMedia(false);
+      await submitRevisionMutation.mutateAsync({ businessId: activeBusinessId, patch });
       setRevSuccessMsg('تم تقديم مقترح التعديل بنجاح، وستظل النسخة المعتمدة ظاهرة حتى الموافقة.');
       setTimeout(() => setEditModalOpen(false), 1500);
     } catch (err: unknown) {
       setRevErrorMsg(err instanceof Error ? err.message : 'تعذر تقديم طلب التعديل.');
     } finally {
+      setUploadingMedia(false);
       setSubmittingRev(false);
     }
   };
@@ -151,7 +183,9 @@ export function MerchantAccountScreen() {
                 className="w-11 h-11 rounded-xl items-center justify-center"
                 style={{ backgroundColor: isDark ? '#1E293B' : '#FEF9C3' }}
               >
-                <Store size={22} color="#FACC15" />
+                {approvedLogoUrl ? (
+                <Image source={{ uri: approvedLogoUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+              ) : <Store size={22} color="#FACC15" />}
               </View>
               <View>
                 <AppText variant="heading" className="font-tajawal-bold text-base text-right">
@@ -229,7 +263,9 @@ export function MerchantAccountScreen() {
           {/* Compact Cover & Logo Preview */}
           <View className="rounded-xl overflow-hidden border border-border" style={{ height: 110, backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }}>
             <View className="w-full h-full items-center justify-center">
-              <Building2 size={32} color={isDark ? '#64748B' : '#94A3B8'} />
+              {approvedCoverUrl ? (
+                <Image source={{ uri: approvedCoverUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+              ) : <Building2 size={32} color={isDark ? '#64748B' : '#94A3B8'} />}
             </View>
             {/* Logo thumbnail overlay */}
             <View
@@ -461,7 +497,7 @@ export function MerchantAccountScreen() {
         <View className="flex-1 justify-end bg-black/50">
           <View
             className="w-full max-w-lg self-center rounded-t-3xl border-t p-5 gap-4"
-            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+            style={{ backgroundColor: colors.surface, borderColor: colors.border, maxHeight: '88%' }}
           >
             <View className="flex-row items-center justify-between pb-2 border-b border-border">
               <AppText variant="heading" className="font-tajawal-bold text-base">
@@ -476,6 +512,7 @@ export function MerchantAccountScreen() {
               التعديلات المقترحة ستخضع لمراجعة إدارة المنصة ولن تُنشر للجمهور مباشرة.
             </AppText>
 
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 14 }}>
             <View className="gap-2">
               <AppText variant="label" className="font-tajawal-bold text-xs text-right">
                 الوصف العام للنشاط
@@ -517,6 +554,8 @@ export function MerchantAccountScreen() {
               />
             </View>
 
+            <ProfileMediaPicker label="الشعار المقترح" value={draftLogo} onChange={setDraftLogo} disabled={submittingRev} />
+            <ProfileMediaPicker label="الغلاف المقترح" value={draftCover} onChange={setDraftCover} disabled={submittingRev} />
             {revSuccessMsg ? (
               <View className="p-3 rounded-xl bg-emerald-500/10 flex-row items-center gap-2">
                 <CheckCircle2 size={16} color="#16A34A" />
@@ -535,10 +574,11 @@ export function MerchantAccountScreen() {
               </View>
             ) : null}
 
+            </ScrollView>
             <View className="flex-row items-center gap-3 pt-2">
               <View className="flex-1">
                 <AppButton
-                  title={submittingRev ? 'جارٍ الإرسال...' : 'إرسال للمراجعة'}
+                  title={submittingRev ? (uploadingMedia ? 'جارٍ رفع الصور...' : 'جارٍ إرسال الطلب...') : 'إرسال للمراجعة'}
                   variant="primary"
                   size="lg"
                   disabled={submittingRev}
