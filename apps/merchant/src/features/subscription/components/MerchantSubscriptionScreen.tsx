@@ -13,6 +13,7 @@ import { useWowColors, useTheme } from '@wow/theme';
 import { AppButton, AppText } from '@wow/ui';
 import {
   useBusinessBilling,
+  useSubscriptionPlans,
   useActivateBusinessTrial,
   useRequestPaidSubscription,
   useSubmitSubscriptionPayment,
@@ -32,7 +33,8 @@ export function MerchantSubscriptionScreen() {
     isSyntheticPreview,
   } = useActiveBusiness();
 
-  const { data: billing } = useBusinessBilling(activeBusinessId);
+  const { data: billing, isLoading: billingLoading, error: billingError } = useBusinessBilling(activeBusinessId);
+  const { data: availablePlans = [], isLoading: plansLoading, error: plansError } = useSubscriptionPlans();
 
   const activateTrialMutation = useActivateBusinessTrial();
   const requestPaidMutation = useRequestPaidSubscription();
@@ -43,6 +45,13 @@ export function MerchantSubscriptionScreen() {
     ?? billing?.subscriptions?.find((sub) => sub.status === 'pending')
     ?? billing?.subscriptions?.[0];
   const hasTrial = billing?.subscriptions?.some((s) => s.kind === 'trial');
+  const pendingPaid = billing?.subscriptions?.find(
+    (s) => s.kind === 'paid' && s.status === 'pending'
+  );
+  const paymentAlreadySubmitted = !!pendingPaid && !!billing?.payments?.some(
+    (p) => p.subscription_id === pendingPaid.id && p.status === 'submitted'
+  );
+  const selectedPlanAvailable = isSyntheticPreview || availablePlans.some((p) => p.code === selectedPlan);
   const isTrialActive = isSyntheticPreview ? true : (currentSub?.kind === 'trial' && currentSub?.status === 'active');
   const isPaidActive = currentSub?.kind === 'paid' && currentSub?.status === 'active';
   const isPendingVerification = billing?.payments?.some((p) => p.status === 'submitted');
@@ -67,13 +76,28 @@ export function MerchantSubscriptionScreen() {
   };
 
   const handleOpenAction = () => {
+    if (!isOwner || submitting) return;
+    const pendingCode = pendingPaid?.plan_snapshot?.code;
+    if (pendingCode === 'BASIC' || pendingCode === 'ADVANCED') {
+      setSelectedPlan(pendingCode);
+    } else if (!isSyntheticPreview && availablePlans.length && !availablePlans.some((p) => p.code === selectedPlan)) {
+      setSelectedPlan(availablePlans[0].code);
+    }
     setActionSuccess(null);
     setActionError(null);
     setRequestModalOpen(true);
   };
 
   const handleExecuteAction = async () => {
-    if (!activeBusinessId) return;
+    if (submitting || !isOwner || !activeBusinessId) return;
+    if (!isSyntheticPreview && (billingLoading || billingError || !billing)) {
+      setActionError('تعذر تأكيد حالة الاستحقاق. أعد تحميل بيانات النشاط قبل الإرسال.');
+      return;
+    }
+    if (!isSyntheticPreview && hasTrial && !pendingPaid && (plansLoading || plansError || !selectedPlanAvailable)) {
+      setActionError('الباقة المختارة غير متاحة أو لم تعتمد الإدارة بياناتها بعد.');
+      return;
+    }
     setSubmitting(true);
     setActionSuccess(null);
     setActionError(null);
@@ -86,10 +110,20 @@ export function MerchantSubscriptionScreen() {
       }
 
       if (!hasTrial) {
+        if (isPaidActive) throw new Error('الاشتراك المدفوع فعّال بالفعل؛ لا تبدأ تجربة جديدة.');
         await activateTrialMutation.mutateAsync(activeBusinessId);
-        setActionSuccess('تم تفعيل الفترة التجريبية (30 يوماً) بنجاح.');
+        setActionSuccess('تم تسجيل تفعيل الفترة التجريبية وفق الاستحقاق المؤكد.');
       } else {
-        const subId = await requestPaidMutation.mutateAsync({
+        if (paymentAlreadySubmitted) {
+          throw new Error('هناك دفعة مقدمة بانتظار مراجعة الإدارة؛ لا ترسل مرجعًا جديدًا.');
+        }
+        const pendingCode = pendingPaid?.plan_snapshot?.code;
+        if (pendingPaid && pendingCode !== selectedPlan) {
+          throw new Error('يوجد طلب باقة مدفوعة قيد المراجعة. لا يمكن تبديل باقته قبل حسم الطلب.');
+        }
+        // Reuse the already-created pending subscription if a previous payment
+        // upload failed. The server also forbids duplicate pending requests.
+        const subId = pendingPaid?.id ?? await requestPaidMutation.mutateAsync({
           businessId: activeBusinessId,
           planCode: selectedPlan,
         });
@@ -100,7 +134,9 @@ export function MerchantSubscriptionScreen() {
             reference: paymentRef.trim(),
           });
         }
-        setActionSuccess('تم إرسال طلب الاشتراك للدراسة الإدارية.');
+        setActionSuccess(paymentRef.trim()
+          ? 'قُدم مرجع الدفعة للمراجعة الإدارية؛ لم يُفعّل الاشتراك بعد.'
+          : 'سُجل طلب الاشتراك؛ سيبقى معلقًا حتى إتمام إجراءات الدفع والمراجعة.');
       }
 
       setTimeout(() => setRequestModalOpen(false), 1500);
