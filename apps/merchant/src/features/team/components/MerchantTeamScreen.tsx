@@ -59,6 +59,7 @@ export function MerchantTeamScreen() {
   // Revocation modal state
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const [targetMember, setTargetMember] = useState<BusinessTeamMember | null>(null);
+  const [statusTab, setStatusTab] = useState<'active' | 'revoked'>('active');
   const [revoking, setRevoking] = useState(false);
   const [revokeSuccess, setRevokeSuccess] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
@@ -220,16 +221,37 @@ export function MerchantTeamScreen() {
             <AppText variant="heading" className="font-tajawal-bold text-base text-right px-1">
               أفراد الفريق
             </AppText>
-
+            <View className="flex-row gap-2">
+              {(['active', 'revoked'] as const).map((tab) => (
+                <Pressable
+                  key={tab}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: statusTab === tab }}
+                  onPress={() => setStatusTab(tab)}
+                  className="flex-1 rounded-xl border p-2.5 items-center"
+                  style={{
+                    borderColor: statusTab === tab ? '#EAB308' : colors.border,
+                    backgroundColor: statusTab === tab ? (isDark ? '#422006' : '#FEF9C3') : colors.surface,
+                  }}>
+                  <AppText variant="caption" className="font-tajawal-bold">
+                    {tab === 'active' ? 'النشطون' : 'السابقون'} ({team.filter((m) => m.status === tab).length})
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
             <View
               className="rounded-2xl border p-4 gap-4"
               style={{ backgroundColor: colors.surface, borderColor: colors.border }}
             >
-              {team.map((member, idx) => {
+              {team.filter((member) => member.status === statusTab).map((member, idx) => {
                 const isActive = member.status === 'active';
-                const branchCount = member.branch_ids?.length || 1;
+                const branchCount = member.branch_ids?.length ?? 0;
                 const permCount = countPermissions(member);
-                const displayName = idx === 0 ? 'موظف المبيعات' : 'موظف سابق';
+                // The owner-facing API does not currently supply verified display names.
+                // Show a stable partial user ID rather than invent an employee name.
+                const displayName = isSyntheticPreview
+                  ? (member.status === 'active' ? 'موظف المبيعات' : 'موظف سابق')
+                  : 'معرف الموظف • ' + member.user_id.slice(-8);
 
                 return (
                   <View
