@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, type PropsWithChildren } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { useMyBusinesses, type Business } from '@wow/api';
+import { useAccessibleMerchantBusinesses, type Business } from '@wow/api';
 import { useAuth } from '@wow/auth';
 
 export interface ActiveBusinessContextValue {
@@ -45,7 +45,7 @@ export function ActiveBusinessProvider({
     (searchParams.preview === '1' ||
       (typeof window !== 'undefined' && Boolean(window.location?.search?.includes('preview=1'))));
 
-  const { data: serverBusinesses = [], isLoading: isServerLoading } = useMyBusinesses();
+  const { data: serverBusinesses = [], isLoading: isServerLoading } = useAccessibleMerchantBusinesses();
 
   const businesses = useMemo(() => {
     if (isSyntheticPreview) {
