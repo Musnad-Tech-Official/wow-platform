@@ -51,7 +51,7 @@ export function MerchantTeamScreen() {
     isSyntheticPreview,
   } = useActiveBusiness();
 
-  const { data: serverTeam = [], isLoading, error } = useBusinessTeam(activeBusinessId);
+  const { data: serverTeam = [], isLoading, error } = useBusinessTeam(isOwner ? activeBusinessId : null);
   const setAccessMutation = useSetEmployeeAccess();
 
   const team = isSyntheticPreview ? PREVIEW_TEAM : serverTeam;
@@ -126,6 +126,22 @@ export function MerchantTeamScreen() {
     if (m.can_pause) count++;
     return count;
   };
+
+  if (!isOwner && !isSyntheticPreview) {
+    return (
+      <MerchantScaffold currentTab="more" title="الموظفون والتفويضات خاصة بمالك النشاط">
+        <View className="rounded-2xl border border-border p-5 gap-3">
+          <AppText variant="heading" className="text-right">هذه الصفحة للمالك فقط</AppText>
+          <AppText muted className="text-right">
+            لا يسمح التفويض التشغيلي بإدارة الاشتراكات أو تفويض الموظفين.
+          </AppText>
+          <AppButton title="العودة إلى حساب النشاط" variant="outline"
+            onPress={() => router.replace({ pathname: '/business/account',
+              params: activeBusinessId ? { businessId: activeBusinessId } : {} })} />
+        </View>
+      </MerchantScaffold>
+    );
+  }
 
   return (
     <MerchantScaffold
