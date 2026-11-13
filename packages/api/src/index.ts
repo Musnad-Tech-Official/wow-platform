@@ -24,6 +24,7 @@ export { useWowSupabaseClient, type WowSupabaseOptions } from './query/use-wow-s
 export { useCurrentUser } from './query/hooks/use-current-user';
 export {
   useMyBusinesses,
+  useAccessibleMerchantBusinesses,
   useBusiness,
   useBusinessDraftDetails,
   useBusinessRepresentativeDraft,
