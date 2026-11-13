@@ -1,7 +1,7 @@
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser, useClerk } from '@wow/auth';
-import { useAdminBusinessVerifications, useWowApiContext } from '@wow/api';
+import { useAdminBusinessVerifications, useAdminEffectiveRole, useWowApiContext } from '@wow/api';
 import type { AdminAccessStatus, AdminRole } from './admin-access';
 
 export interface UseAdminAccessResult {
@@ -29,6 +29,7 @@ export function useAdminAccess(): UseAdminAccessResult {
   const { user } = useUser();
   const { signOut: clerkSignOut } = useClerk();
   const apiContext = useWowApiContext();
+  const effectiveRoleQuery = useAdminEffectiveRole();
   const params = useLocalSearchParams<{ preview?: string }>();
 
   // CRITICAL SECURITY GUARD: Preview parameters are STRICTLY development-only (__DEV__).
@@ -248,7 +249,7 @@ export function useAdminAccess(): UseAdminAccessResult {
   // DO NOT invent or default to 'reviewer' or 'super_admin'. Keep role as null (unverified specific role).
   return {
     status: 'authorized',
-    role: null, // Truthful server contract: admin verified, specific granular role unexposed by RPC
+    role: effectiveRoleQuery.isSuccess ? (effectiveRoleQuery.data ?? null) : null,
     isAuthorized: true,
     error: null,
     user: user ?? null,
