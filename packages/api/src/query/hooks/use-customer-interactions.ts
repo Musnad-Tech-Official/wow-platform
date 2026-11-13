@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   adminModerateRating,
   adminUpdateComplaint,
+  adminRequestMerchantResponse,
   getAdminComplaint,
   getBusinessComplaints,
   getMerchantComplaint,
@@ -22,6 +23,7 @@ import {
   type AdminModerateRatingInput,
   type AdminRatingsListOptions,
   type AdminUpdateComplaintInput,
+  type AdminRequestMerchantResponseInput,
   type MerchantComplaintListOptions,
   type MerchantComplaintResponseInput,
   type Pagination,
@@ -251,6 +253,25 @@ export function useAdminComplaint(complaintId?: string | null) {
     queryFn: () => {
       if (!complaintId) throw new Error('A complaint ID is required.');
       return getAdminComplaint(requireWowApiSession(context).client, complaintId);
+    },
+  });
+}
+
+export function useAdminRequestMerchantResponse() {
+  const context = useWowApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AdminRequestMerchantResponseInput) =>
+      adminRequestMerchantResponse(requireWowApiSession(context).client, input),
+    onSuccess: async (_id, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: wowQueryKeys.interactions.adminComplaintsRoot(context.userId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: wowQueryKeys.interactions.adminComplaint(context.userId, input.complaintId),
+        }),
+      ]);
     },
   });
 }
