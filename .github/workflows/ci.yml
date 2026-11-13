@@ -90,7 +90,7 @@ jobs:
           name: merchant-final8-screenshots-${{ github.sha }}
           path: |
             rendered_screenshots/*.png
-            rendered_screenshots_full/*.png
+            rendered_screenshots_scroll/*.png
             WOW_MERCHANT_FINAL_8_RENDERED_SCREENSHOTS.zip
           if-no-files-found: warn
           retention-days: 7
