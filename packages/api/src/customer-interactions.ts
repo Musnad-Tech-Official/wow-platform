@@ -127,6 +127,34 @@ export interface MerchantComplaintListOptions extends Pagination {
 export interface MerchantComplaintResponseInput {
   complaintId: string;
   message: string;
+  evidenceKeys?: string[];
+}
+
+export interface MerchantComplaintUpdate {
+  id: string;
+  kind: string;
+  message: string;
+  visibility: string;
+  created_at: string;
+  private_evidence_keys?: string[];
+}
+
+export interface MerchantComplaintDetail {
+  id: string;
+  offer_id: string;
+  offer_title: string;
+  offer_version_id: string;
+  branch_id: string | null;
+  branch_name: string;
+  complaint_type: ComplaintType;
+  description: string;
+  incident_at: string | null;
+  status: ComplaintStatus;
+  public_outcome: string | null;
+  created_at: string;
+  closed_at: string | null;
+  is_owner: boolean;
+  updates: MerchantComplaintUpdate[];
 }
 
 export interface AdminRatingsListOptions extends Pagination {
@@ -359,12 +387,29 @@ export async function merchantRespondComplaint(
   client: WowSupabaseClient,
   input: MerchantComplaintResponseInput,
 ): Promise<string> {
-  const { data, error } = await client.rpc('wow_merchant_respond_complaint', {
+  const params: Record<string, unknown> = {
     p_complaint_id: input.complaintId,
     p_message: input.message,
-  });
+  };
+  if (input.evidenceKeys && input.evidenceKeys.length > 0) {
+    params.p_evidence_keys = input.evidenceKeys;
+  }
+  const { data, error } = await client.rpc('wow_merchant_respond_complaint', params);
   if (error) throw error;
   return requireUuid(data, 'wow_merchant_respond_complaint');
+}
+
+export async function getMerchantComplaint(
+  client: WowSupabaseClient,
+  complaintId: string,
+): Promise<MerchantComplaintDetail | null> {
+  if (!uuid(complaintId)) return null;
+  const { data, error } = await client.rpc('wow_merchant_get_complaint', {
+    p_complaint_id: complaintId,
+  });
+  if (error) throw error;
+  if (!data || typeof data !== 'object') return null;
+  return data as unknown as MerchantComplaintDetail;
 }
 
 export async function listAdminRatings(

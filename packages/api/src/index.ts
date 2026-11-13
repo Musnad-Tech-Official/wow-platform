@@ -76,6 +76,7 @@ export {
   useMyComplaint,
   useSubmitComplaint,
   useBusinessComplaints,
+  useMerchantComplaint,
   useMerchantRespondComplaint,
   useAdminRatings,
   useAdminModerateRating,

@@ -1,0 +1,433 @@
+import React, { useState } from 'react';
+import { View, Pressable, Modal, TextInput } from 'react-native';
+import { router } from 'expo-router';
+import { Image } from 'expo-image';
+import {
+  Crown,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+} from 'lucide-react-native';
+import { wowIllustrations } from '@wow/assets';
+import { useWowColors, useTheme } from '@wow/theme';
+import { AppButton, AppText } from '@wow/ui';
+import {
+  useBusinessBilling,
+  useActivateBusinessTrial,
+  useRequestPaidSubscription,
+  useSubmitSubscriptionPayment,
+  type PlanCode,
+} from '@wow/api';
+import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
+import { MerchantScaffold } from '../../navigation/MerchantScaffold';
+
+export function MerchantSubscriptionScreen() {
+  const colors = useWowColors();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+
+  const {
+    activeBusinessId,
+    isOwner,
+    isSyntheticPreview,
+  } = useActiveBusiness();
+
+  const { data: billing } = useBusinessBilling(activeBusinessId);
+
+  const activateTrialMutation = useActivateBusinessTrial();
+  const requestPaidMutation = useRequestPaidSubscription();
+  const submitPaymentMutation = useSubmitSubscriptionPayment();
+
+  // Synthetic preview fallbacks
+  const currentSub = billing?.subscriptions?.[0];
+  const hasTrial = billing?.subscriptions?.some((s) => s.kind === 'trial');
+  const isTrialActive = isSyntheticPreview ? true : (currentSub?.kind === 'trial' && currentSub?.status === 'active');
+  const isPaidActive = currentSub?.kind === 'paid' && currentSub?.status === 'active';
+  const isPendingVerification = billing?.payments?.some((p) => p.status === 'submitted');
+
+  // Status computation
+  let statusChip = 'تجربة';
+  if (isPendingVerification) statusChip = 'بانتظار تأكيد';
+  else if (isPaidActive) statusChip = 'فعالة';
+  else if (currentSub?.status === 'expired') statusChip = 'منتهية';
+
+  // Request / Payment Modal State
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<PlanCode>('BASIC');
+  const [paymentRef, setPaymentRef] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const navParams = {
+    ...(activeBusinessId ? { businessId: activeBusinessId } : {}),
+    ...(isSyntheticPreview ? { preview: '1' } : {}),
+  };
+
+  const handleOpenAction = () => {
+    setActionSuccess(null);
+    setActionError(null);
+    setRequestModalOpen(true);
+  };
+
+  const handleExecuteAction = async () => {
+    if (!activeBusinessId) return;
+    setSubmitting(true);
+    setActionSuccess(null);
+    setActionError(null);
+
+    try {
+      if (isSyntheticPreview) {
+        setActionSuccess('تم تسجيل طلب الاشتراك بنجاح (معاينة)');
+        setTimeout(() => setRequestModalOpen(false), 1200);
+        return;
+      }
+
+      if (!hasTrial) {
+        await activateTrialMutation.mutateAsync(activeBusinessId);
+        setActionSuccess('تم تفعيل الفترة التجريبية (30 يوماً) بنجاح.');
+      } else {
+        const subId = await requestPaidMutation.mutateAsync({
+          businessId: activeBusinessId,
+          planCode: selectedPlan,
+        });
+        if (paymentRef.trim()) {
+          await submitPaymentMutation.mutateAsync({
+            subscriptionId: subId,
+            method: 'bank_transfer',
+            reference: paymentRef.trim(),
+          });
+        }
+        setActionSuccess('تم إرسال طلب الاشتراك للدراسة الإدارية.');
+      }
+
+      setTimeout(() => setRequestModalOpen(false), 1500);
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'تعذر إتمام طلب الاشتراك.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <MerchantScaffold
+      currentTab="more"
+      title="الاشتراك والصلاحية"
+      subtitle="حالة الاستحقاق وباقات الظهور للنشاط التجاري"
+    >
+      <View className="gap-5 pb-10">
+        {/* Banner with Mascot (Matching Reference MER-10) */}
+        <View
+          className="rounded-2xl border p-4 flex-row items-center justify-between"
+          style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+        >
+          <View className="flex-1 items-end pr-2">
+            <AppText variant="caption" muted className="text-[11px] font-tajawal-bold text-right">
+              WOW · FOR BUSINESS
+            </AppText>
+            <AppText variant="heading" className="font-tajawal-bold text-base text-right mt-0.5">
+              استحقاق نشاطك التجاري
+            </AppText>
+            <AppText variant="body" muted className="text-xs text-right mt-1 leading-relaxed">
+              الاشتراك مرتبط بالنشاط المؤهل، لا بهوية الدخول أو بعدد الفروع.
+            </AppText>
+          </View>
+
+          <Image
+            source={wowIllustrations.merchant.mer10SubscriptionMascot}
+            alt="مساعد واو للاشتراك"
+            style={{ width: 80, height: 80 }}
+            contentFit="contain"
+          />
+        </View>
+
+        {/* Section 1: Current Status Card */}
+        <View className="gap-2">
+          <AppText variant="heading" className="font-tajawal-bold text-base text-right px-1">
+            الحالة الحالية
+          </AppText>
+
+          <View
+            className="rounded-2xl border p-4 gap-3.5"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          >
+            <View className="flex-row items-center justify-between">
+              <View
+                className="w-11 h-11 rounded-xl items-center justify-center"
+                style={{ backgroundColor: isDark ? '#1E293B' : '#FEF9C3' }}
+              >
+                <Crown size={22} color="#D97706" />
+              </View>
+
+              <View className="items-end">
+                <AppText variant="caption" muted className="text-xs">
+                  نموذج الاستحقاق
+                </AppText>
+                <AppText variant="heading" className="font-tajawal-bold text-lg">
+                  {isTrialActive ? 'تجربة نشطة' : isPaidActive ? 'اشتراك مدفوع' : 'غير مفعل'}
+                </AppText>
+              </View>
+            </View>
+
+            <AppText variant="caption" muted className="text-xs text-right leading-relaxed">
+              التجربة صالحة لمدة 30 يوماً لكل نشاط حقيقي مؤهل.
+            </AppText>
+
+            {/* Status Chips Row */}
+            <View className="flex-row items-center gap-2 pt-1 flex-wrap justify-end">
+              {['تجربة', 'منتهية', 'فعالة', 'بانتظار تأكيد'].map((chip) => {
+                const isSelected = chip === statusChip;
+                return (
+                  <View
+                    key={chip}
+                    className="px-3 py-1.5 rounded-xl border"
+                    style={{
+                      backgroundColor: isSelected
+                        ? '#FACC15'
+                        : isDark
+                        ? '#18181B'
+                        : '#FAFAFA',
+                      borderColor: isSelected ? '#EAB308' : colors.border,
+                    }}
+                  >
+                    <AppText
+                      variant="caption"
+                      className="font-tajawal-bold text-xs"
+                      style={{ color: isSelected ? '#0F172D' : colors.foreground }}
+                    >
+                      {chip}
+                    </AppText>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Eligibility Note Card */}
+            <View
+              className="p-3 rounded-xl border border-border"
+              style={{ backgroundColor: isDark ? '#18181B' : '#F8FAFC' }}
+            >
+              <AppText variant="caption" muted className="text-xs text-center leading-relaxed">
+                الموافقة على المحتوى، والفرع، والفترة، والتوفر تظل شروطاً منفصلة.
+              </AppText>
+            </View>
+          </View>
+        </View>
+
+        {/* Section 2: Plan Details Card */}
+        <View className="gap-2">
+          <AppText variant="heading" className="font-tajawal-bold text-base text-right px-1">
+            تفاصيل الباقة
+          </AppText>
+
+          <View
+            className="rounded-2xl border p-4 gap-3.5"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          >
+            {/* Row 1: Plan Code & Info Badge */}
+            <View className="flex-row items-center justify-between pb-3 border-b border-border">
+              <View
+                className="rounded-lg px-2.5 py-1"
+                style={{ backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }}
+              >
+                <AppText variant="caption" className="font-tajawal-bold text-xs" style={{ color: isDark ? '#94A3B8' : '#64748B' }}>
+                  معلومات
+                </AppText>
+              </View>
+
+              <View className="items-end">
+                <AppText variant="label" className="font-tajawal-bold text-sm">
+                  أساسي / متقدم
+                </AppText>
+                <AppText variant="caption" muted className="text-xs mt-0.5">
+                  حدود الباقات وأسعارها الدقيقة تنتظر سياسة تجارية معتمدة.
+                </AppText>
+              </View>
+            </View>
+
+            {/* Row 2: Duration */}
+            <View className="items-end">
+              <AppText variant="label" className="font-tajawal-bold text-sm">
+                بداية ونهاية الاشتراك
+              </AppText>
+              <AppText variant="caption" muted className="text-xs mt-0.5">
+                تظهر التواريخ الفعلية عند تزويدها من النظام.
+              </AppText>
+            </View>
+          </View>
+        </View>
+
+        {/* Section 3: Payment Verification Review */}
+        <View className="gap-2">
+          <AppText variant="heading" className="font-tajawal-bold text-base text-right px-1">
+            مراجعة الدفعات
+          </AppText>
+
+          <View
+            className="rounded-2xl border p-4 gap-2.5"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          >
+            <View className="flex-row items-center justify-between">
+              <View
+                className="rounded-lg px-2.5 py-1"
+                style={{ backgroundColor: isDark ? '#451A03' : '#FEF3C7' }}
+              >
+                <AppText variant="caption" className="font-tajawal-bold text-xs" style={{ color: '#D97706' }}>
+                  بانتظار إثبات إداري
+                </AppText>
+              </View>
+
+              <AppText variant="label" className="font-tajawal-bold text-sm">
+                حالة التأكيد
+              </AppText>
+            </View>
+
+            <AppText variant="caption" muted className="text-xs text-right leading-relaxed">
+              لا يعالج التطبيق دفعات حقيقية في هذه المعاينة، ولا يفعّل الاشتراك تلقائياً.
+            </AppText>
+          </View>
+        </View>
+
+        {/* Bottom Actions */}
+        <View className="flex-row items-center gap-3 pt-2">
+          <View className="flex-1">
+            <AppButton
+              title="طلب تفعيل / تجديد"
+              variant="primary"
+              size="lg"
+              disabled={!isOwner}
+              onPress={handleOpenAction}
+            />
+          </View>
+
+          <View className="flex-1">
+            <AppButton
+              title="الرئيسية"
+              variant="secondary"
+              size="lg"
+              onPress={() => router.replace({ pathname: '/', params: navParams })}
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* Subscription Action Modal */}
+      <Modal visible={requestModalOpen} transparent animationType="slide">
+        <View className="flex-1 justify-end bg-black/50">
+          <View
+            className="w-full max-w-lg self-center rounded-t-3xl border-t p-5 gap-4"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          >
+            <View className="flex-row items-center justify-between pb-2 border-b border-border">
+              <AppText variant="heading" className="font-tajawal-bold text-base">
+                طلب تفعيل أو تجديد الاشتراك
+              </AppText>
+              <Pressable onPress={() => setRequestModalOpen(false)} className="p-1">
+                <XCircle size={20} color={isDark ? '#A1A1AA' : '#64748B'} />
+              </Pressable>
+            </View>
+
+            <AppText variant="caption" muted className="text-xs text-right leading-relaxed">
+              {!hasTrial
+                ? 'يحق لكل نشاط مؤهل تجربة مجانية لمدة 30 يوماً عند توفر عرض مؤهل وفرع معتمد.'
+                : 'طلب الاشتراك المدفوع يتطلب تدقيق ومراجعة الإدارة قبل التفعيل.'}
+            </AppText>
+
+            {hasTrial ? (
+              <View className="gap-2">
+                <AppText variant="label" className="font-tajawal-bold text-xs text-right">
+                  اختر الباقة المطلوبة
+                </AppText>
+                <View className="flex-row items-center gap-2">
+                  <Pressable
+                    onPress={() => setSelectedPlan('BASIC')}
+                    className="flex-1 p-3 rounded-xl border items-center"
+                    style={{
+                      backgroundColor: selectedPlan === 'BASIC' ? '#FEF9C3' : isDark ? '#18181B' : '#F8FAFC',
+                      borderColor: selectedPlan === 'BASIC' ? '#EAB308' : colors.border,
+                    }}
+                  >
+                    <AppText variant="label" className="font-tajawal-bold text-xs text-slate-900">
+                      الباقة الأساسية
+                    </AppText>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setSelectedPlan('ADVANCED')}
+                    className="flex-1 p-3 rounded-xl border items-center"
+                    style={{
+                      backgroundColor: selectedPlan === 'ADVANCED' ? '#FEF9C3' : isDark ? '#18181B' : '#F8FAFC',
+                      borderColor: selectedPlan === 'ADVANCED' ? '#EAB308' : colors.border,
+                    }}
+                  >
+                    <AppText variant="label" className="font-tajawal-bold text-xs text-slate-900">
+                      الباقة المتقدمة
+                    </AppText>
+                  </Pressable>
+                </View>
+
+                <View className="gap-1 mt-2">
+                  <AppText variant="label" className="font-tajawal-bold text-xs text-right">
+                    المرجع أو الحوالة (إن وجدت)
+                  </AppText>
+                  <TextInput
+                    value={paymentRef}
+                    onChangeText={setPaymentRef}
+                    placeholder="رقم مرجع الإيداع أو الحوالة للمطابقة..."
+                    placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
+                    className="w-full rounded-xl p-3 border text-right text-sm"
+                    style={{
+                      backgroundColor: isDark ? '#18181B' : '#F8FAFC',
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                    }}
+                  />
+                </View>
+              </View>
+            ) : null}
+
+            {actionSuccess ? (
+              <View className="p-3 rounded-xl bg-emerald-500/10 flex-row items-center gap-2">
+                <CheckCircle2 size={16} color="#16A34A" />
+                <AppText variant="caption" className="text-emerald-600 text-xs flex-1 text-right">
+                  {actionSuccess}
+                </AppText>
+              </View>
+            ) : null}
+
+            {actionError ? (
+              <View className="p-3 rounded-xl bg-rose-500/10 flex-row items-center gap-2">
+                <AlertCircle size={16} color="#E11D48" />
+                <AppText variant="caption" className="text-rose-600 text-xs flex-1 text-right">
+                  {actionError}
+                </AppText>
+              </View>
+            ) : null}
+
+            <View className="flex-row items-center gap-3 pt-2">
+              <View className="flex-1">
+                <AppButton
+                  title={submitting ? 'جارٍ المعالجة...' : !hasTrial ? 'بدء الفترة التجريبية' : 'إرسال الطلب'}
+                  variant="primary"
+                  size="lg"
+                  disabled={submitting}
+                  onPress={handleExecuteAction}
+                />
+              </View>
+
+              <View className="flex-1">
+                <AppButton
+                  title="إلغاء"
+                  variant="secondary"
+                  size="lg"
+                  disabled={submitting}
+                  onPress={() => setRequestModalOpen(false)}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </MerchantScaffold>
+  );
+}

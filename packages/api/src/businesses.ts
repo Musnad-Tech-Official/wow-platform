@@ -7,6 +7,9 @@ export interface Business {
   owner_user_id: string;
   status: string;
   description?: string | null;
+  contact_phone?: string | null;
+  logo_url?: string | null;
+  cover_url?: string | null;
   requested_category_id?: string | null;
 }
 

@@ -47,12 +47,12 @@ export function MerchantBottomNav({ currentTab }: MerchantBottomNavProps) {
     },
     {
       key: 'businesses',
-      label: 'الأنشطة',
+      label: 'الفروع',
       icon: Store,
       onPress: () => {
         if (currentTab !== 'businesses') {
-          router.push({
-            pathname: '/business/onboarding/branches',
+          router.replace({
+            pathname: '/business/branches',
             params: navParams,
           });
         }
@@ -72,13 +72,21 @@ export function MerchantBottomNav({ currentTab }: MerchantBottomNavProps) {
       key: 'complaints',
       label: 'الشكاوى',
       icon: MessageSquare,
-      onPress: () => {},
+      onPress: () => {
+        if (currentTab !== 'complaints') {
+          router.replace({ pathname: '/complaints', params: navParams });
+        }
+      },
     },
     {
       key: 'more',
       label: 'المزيد',
       icon: MoreHorizontal,
-      onPress: () => {},
+      onPress: () => {
+        if (currentTab !== 'more') {
+          router.replace({ pathname: '/business/account', params: navParams });
+        }
+      },
     },
   ];
 
@@ -100,8 +108,7 @@ export function MerchantBottomNav({ currentTab }: MerchantBottomNavProps) {
             accessibilityRole="tab"
             accessibilityLabel={tab.label}
             onPress={tab.onPress}
-            disabled={tab.key === 'complaints' || tab.key === 'more'}
-            accessibilityState={{ selected: isActive, disabled: tab.key === 'complaints' || tab.key === 'more' }}
+            accessibilityState={{ selected: isActive }}
             className="flex-1 items-center justify-center min-h-[48px] py-1 active:opacity-75"
           >
             {isActive ? (

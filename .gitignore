@@ -38,6 +38,8 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+rendered_screenshots/
+*.zip
 
 # Native signing and Expo-generated artifacts
 *.jks

@@ -10,6 +10,7 @@ export interface ActiveBusinessContextValue {
   setActiveBusinessId: (id: string | null) => void;
   isLoading: boolean;
   isSyntheticPreview: boolean;
+  isOwner: boolean;
 }
 
 const ActiveBusinessContext = createContext<ActiveBusinessContextValue | null>(null);
@@ -75,6 +76,12 @@ export function ActiveBusinessProvider({
     return businesses.find((b) => b.id === effectiveBusinessId) ?? null;
   }, [effectiveBusinessId, businesses]);
 
+  const isOwner = useMemo(() => {
+    if (isSyntheticPreview) return true;
+    if (!activeBusiness || !userId) return false;
+    return activeBusiness.owner_user_id === userId;
+  }, [isSyntheticPreview, activeBusiness, userId]);
+
   const value = useMemo<ActiveBusinessContextValue>(
     () => ({
       activeBusinessId: effectiveBusinessId,
@@ -83,8 +90,9 @@ export function ActiveBusinessProvider({
       setActiveBusinessId: setSelectedBusinessId,
       isLoading: !isSyntheticPreview && isServerLoading && Boolean(isSignedIn && userId),
       isSyntheticPreview,
+      isOwner,
     }),
-    [effectiveBusinessId, activeBusiness, businesses, isSyntheticPreview, isServerLoading, isSignedIn, userId]
+    [effectiveBusinessId, activeBusiness, businesses, isSyntheticPreview, isServerLoading, isSignedIn, userId, isOwner]
   );
 
   return <ActiveBusinessContext.Provider value={value}>{children}</ActiveBusinessContext.Provider>;
