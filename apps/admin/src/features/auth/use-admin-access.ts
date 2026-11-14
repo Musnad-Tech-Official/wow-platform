@@ -162,7 +162,7 @@ export function useAdminAccess(): UseAdminAccessResult {
   }
 
   // 2. Production auth and server authorization resolution
-  if (!isLoaded || (isQueryEnabled && isCheckingRpc)) {
+  if (!isLoaded || (isQueryEnabled && (isCheckingRpc || effectiveRoleQuery.isPending))) {
     return {
       status: 'loading',
       role: null,
