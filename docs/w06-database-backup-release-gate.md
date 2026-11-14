@@ -1,53 +1,44 @@
-# W06 — Primary database deployment gate (14 November 2026)
+# W06 — Backup and migration status (2026-11-14)
 
-## Confirmed environment
+## Original deployment gate
 
-- Supabase project: `wow-platform`.
-- Organization subscription: **Free**. Automatic daily database backups are **not included** on this plan.
-- Deployed database migration history: **17 versions**, latest `20261113204859_merchant_delegate_business_scope`.
-- The owner approved pre-launch testing against the primary database with isolated synthetic data.
-- The proposed W06 RPCs and employee-conflict fix **are not yet deployed**.
-- W06 API/schema rehearsals were carried out with explicit `BEGIN … ROLLBACK`, including a full replay of a synthetic active-employee conflict. The test left zero synthetic records and no new functions.
-- Targeted *schema rollback* for the newly proposed W06 functions is saved and rehearsed: `docs/sql/w06-admin-review-security-targeted-rollback.sql`. This is **not** a complete database backup.
+The project `wow-platform` uses Supabase Free and does not have automatic daily database backups. Previously W06 deployment was blocked pending a user-managed backup. This document reflects the **updated** status after that backup was created and the SQL migration deployed.
 
-## Why deployment is blocked
+## User-reported database archive
 
-Supabase Free plan does not provide automatic daily backups. The GitHub proposal, migration sources and targeted rollback cannot substitute for a verified full database backup.
+- Archive: `wow_20261114_231035.dump` (kept privately on the owner's Windows machine).
+- Size: **905,256 bytes**; custom-format `pg_dump` archive with **1,311 TOC entries**.
+- Source: PostgreSQL 17.11; dumped using `pg_dump` 18.6.
+- Owner reported `pg_restore --file NUL` returned **PASSED**.
+- The archive was not transferred here and has **not been restored** into a separate database; full data recoverability was not independently verified.
+- A normal database dump does not include binary Storage object contents or cluster-level custom role passwords; preserve related resources and credentials separately when needed.
+- Store the archive privately, not in GitHub or an exposed cloud directory.
 
-**Do not apply the proposal permanently or enable live Admin decisions before a usable database backup exists.**
+## Permanent W06 migration — applied
 
-## Backup path
+The owner explicitly authorized moving forward after the archive check. Supabase recorded migration:
 
-Use an authorized computer with a supported database dump tool. Official Supabase guides for CLI backups currently require **Supabase CLI and Docker Desktop**, and explain how to obtain the project's database connection information securely via Dashboard → Connect.
+`20261114202307_admin_w06_role_profile_context_employee_conflict`
 
-1. Confirm the project being backed up is `wow-platform` rather than another Supabase project.
-2. Export **schema, data and custom roles**, preferably as separately verifiable files following the official Supabase backup/restore guide. Verify file sizes and nonempty content.
-3. Account for storage objects separately: a database backup contains storage *metadata*, not the contents of files stored through Storage.
-4. Keep any backup **outside** the repository, outside project source folders, and outside public cloud links. Never commit it to Git or paste passwords, tokens, or connection strings in chat.
-5. Validate restoration to a disposable, isolated PostgreSQL/Supabase environment where practical. If a restore rehearsal cannot be performed, record that limitation; file presence alone is not proof of recoverability.
+Matching GitHub source:
+`supabase/migrations/20261114202307_admin_w06_role_profile_context_employee_conflict.sql`
 
-Supabase references:
-- https://supabase.com/docs/guides/platform/backups
-- https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore
-- https://supabase.com/docs/reference/cli/introduction
+Results:
+- Active-business-employee conflict blocked in verification decisions.
+- Minimal admin effective-role and published-profile revision context RPCs deployed.
+- Anonymous EXECUTE denied on the public RPCs; signed-in role still verified internally.
+- Full schema/grant catalog checks and rollback-only synthetic authorization cases passed.
+- All test records removed by `ROLLBACK`; no regular data changed by the migration.
+- The schema-only undo SQL was separately rehearsed and is at `docs/sql/w06-admin-review-security-targeted-rollback.sql`. Undoing W06 removes functions depended upon by Admin UI, so do not apply it casually.
 
-## Deployment sequence (only after backup validation)
+## Outstanding gates
 
-1. Reconcile repository migrations against all 17 deployed migration records; the admin feature branch currently contains unrelated historical changes and must be reconciled with current `main` prior to merge.
-2. Generate a new migration in the actual repo with a version-compatible `supabase migration new` command, and copy only the vetted W06 DDL from `docs/sql/w06-admin-review-security-staging-proposal.sql`.
-3. Review access checks for Clerk JWT / effective admin roles and SQL `SECURITY DEFINER` boundaries.
-4. Apply as a single tracked migration to the explicitly identified `wow-platform` project.
-5. Verify the resulting function definitions and `EXECUTE` grants, plus authenticated and unauthorized API behavior.
-6. Validate real Clerk-signed viewer/reviewer/super_admin accounts, owner, active employee, revoked admin and guest. Verify status and audit rows are unchanged on denied actions. Confirm private evidence links are short-lived and scoped.
-7. Review updated Supabase security advisors. Do not assume all linter warnings indicate vulnerabilities; confirm intended public discovery RPCs.
-8. Run mobile/web admin review UX checks and existing quality gates. Reconcile W06 branch with `main` before PR.
-9. Use the targeted rollback script **only** when reverting a faulty W06 deployment with dependencies reviewed. It removes the proposed RPCs, so Admin review UI will not function afterwards.
+- Real, signed Clerk session and application HTTP RPC tests (rather than synthetic database JWT claims).
+- Storage evidence signing permissions, independent payment decision and profile-revision decision tests.
+- Visual QA for ADM-03/04/10 and RTL across web/Android/iOS.
+- Rebase/reconcile W06 feature branch against current `main`, run CI, seek owner approval for merge.
+- Optional but recommended: independent full restore rehearsal of the local database backup before release.
 
-## Release state
+Full test record: `docs/w06-primary-db-live-migration-verification-2026-11-14.md`.
 
-- `W06_TRANSIENT_TESTS`: PASSED
-- `W06_TARGETED_ROLLBACK_REHEARSAL`: PASSED
-- `W06_FULL_RESTORABLE_DATABASE_BACKUP`: **NOT VERIFIED / BLOCKED**
-- `W06_PERMANENT_DATABASE_MIGRATION`: NOT APPLIED
-- `W06_LIVE_CLERK_ADMIN_END_TO_END`: NOT RUN
-- `W06_MERGE_APPROVAL`: NOT GRANTED
+**State:** SQL deployed; end-to-end feature acceptance and merge still pending.
