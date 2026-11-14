@@ -1,5 +1,7 @@
 # W06 — Primary Supabase transaction-only verification (2026-11-14)
 
+> **Historical pre-deployment snapshot.** W06 was subsequently deployed on the same date under migration `20261114202307`. For current status see `docs/w06-primary-db-live-migration-verification-2026-11-14.md`.
+
 ## Scope and boundary
 
 Target: **wow-platform** Supabase database. No persistent data, function or permission changes were deployed. All test DDL and test records were executed in a **single explicit transaction ending with ROLLBACK**. The user authorized isolated testing in the pre-launch primary database.
