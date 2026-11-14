@@ -233,3 +233,58 @@ jobs:
           cache: pnpm
       - name: Verify and install frozen workspace dependencies
         run: pnpm install --frozen-lockfile
+
+  admin-web-access:
+    name: Admin Expo Web hydration and production guest access gate
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      # Public development credentials, never a service-role key.
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Export development Admin Expo Web
+        run: pnpm --filter admin exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-admin-dev"
+      - name: Verify development Admin routes hydrate without errors
+        env:
+          WOW_ADMIN_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-admin-dev
+        run: node scripts/test-admin-browser-playwright.cjs
+      - name: Capture 16 verified Admin review screenshots
+        env:
+          WOW_ADMIN_CAPTURE_SKIP_EXPORT: '1'
+          WOW_ADMIN_CAPTURE_SKIP_ZIP: '1'
+          WOW_ADMIN_CAPTURE_EXPORT_DIR: ${{ runner.temp }}/wow-admin-dev
+        run: node scripts/capture-admin-batch01-screenshots.cjs
+      - name: Upload Admin visual-review screenshots and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-batch01-visual-review
+          path: artifacts/admin-batch01-review/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Export production Admin Expo Web
+        run: pnpm --filter admin exec expo export -p web --output-dir "$RUNNER_TEMP/wow-admin-prod"
+      - name: Verify production preview URLs cannot unlock Admin routes
+        env:
+          WOW_ADMIN_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-admin-prod
+          WOW_EXPECT_PRODUCTION_PREVIEW_DENIED: '1'
+        run: node scripts/test-admin-browser-playwright.cjs
