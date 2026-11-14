@@ -56,3 +56,16 @@ No new Storage policy, object, client-side service key, direct table write or bu
 5. Finish W07/W08 Admin workflows and W09 acceptance. Obtain owner authorization before PR #55 merge.
 
 **Status:** W06 payment decision SQL verification PASSED; private business-media access FIXED; actual Storage HTTP file signing remains UNVERIFIED; W06 not approved or merged.
+
+## D. Profile revision decision and audit — PASSED (rollback-only)
+
+Source: `docs/sql/w06-profile-revision-decision-transaction-smoke.sql`.
+
+- Constructed two approved synthetic businesses and two submitted business-profile revisions.
+- Owner, affiliated staff reviewer, viewer, and revoked reviewer were blocked by real `wow_admin_decide_profile_revision` authorization.
+- Invalid rejection reason was rejected.
+- Independent reviewer successfully rejected one revision with no published-profile change and approved the other, which updated the published business name.
+- Verified the resulting revision states and **two** matching records in `wow_private.merchant_operation_events`.
+- Explicit `ROLLBACK` removed all synthetic data, decisions and event rows. This proves the PostgreSQL review contract, not a real Clerk-signed Admin UI mutation.
+
+**Additional release note:** W06 function authorization has passed database-level checks for qualification, billing and profile revision decisions. Actual signed-URL Storage object access, real mobile session write UX and owner visual approval remain separate and unverified gates.
