@@ -120,6 +120,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
       EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
       WOW_E2E_ALLOW_FIXTURE_CREATION: 'false'
+      WOW_E2E_EXPECT_ADMIN_REVIEWER: ${{ github.head_ref == 'feat/admin-w06-main-sync-review-20261114' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
