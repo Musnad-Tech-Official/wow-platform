@@ -137,3 +137,15 @@ test('W06 billing review regression has independent role and audit checks', () =
   assert.match(s, /payment_rejected/);
   assert.match(s, /ROLLBACK;/);
 });
+
+
+test('Profile revision SQL regression checks role conflicts and audit writes', () => {
+  const sql = read('docs/sql/w06-profile-revision-decision-transaction-smoke.sql');
+  for (const role of ['owner', 'staff', 'viewer', 'revoked']) {
+    assert.match(sql, new RegExp('Unauthorized revision actor ' + role));
+  }
+  assert.match(sql, /Rejected without adequate reason/);
+  assert.match(sql, /profile_revision_approve/);
+  assert.match(sql, /profile_revision_reject/);
+  assert.match(sql, /ROLLBACK;/);
+});
