@@ -139,8 +139,19 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Export real merchant web application
         run: pnpm --filter merchant exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-merchant-web"
-      - name: Verify real Clerk sessions and Supabase RLS
-        run: WOW_MERCHANT_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-merchant-web" node scripts/test-merchant-live-auth-playwright.cjs
+      - name: Export real Admin web application for W06 live Clerk review
+        if: github.head_ref == 'feat/admin-w06-main-sync-review-20261114'
+        run: pnpm --filter admin exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-admin-web"
+      - name: Verify real Clerk sessions, Supabase RLS, and W06 reviewer UI
+        run: WOW_MERCHANT_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-merchant-web" WOW_ADMIN_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-admin-web" node scripts/test-merchant-live-auth-playwright.cjs
+      - name: Archive W06 signed-session screenshots
+        if: always() && github.head_ref == 'feat/admin-w06-main-sync-review-20261114'
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-w06-real-clerk-screenshots
+          path: artifacts/admin-w06-real-clerk-screenshots/
+          if-no-files-found: warn
+          retention-days: 7
   merchant-production-preview:
     name: Production Expo web rejects crafted preview guest links
     needs: verify
