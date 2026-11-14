@@ -1,7 +1,8 @@
--- W06 ADMIN BATCH 02 — PREPARED FOR REVIEW — REHEARSED WITH ROLLBACK, NOT YET DEPLOYED
+-- W06 ADMIN BATCH 02 — HISTORICAL REVIEW PROPOSAL; ALREADY DEPLOYED VIA TRACKED MIGRATION
 -- Source: read from deployed wow-platform Supabase catalog on 2026-11-13.
--- This file is deliberately under docs/sql and NOT in supabase/migrations:
--- do not apply automatically to an environment that may hold live data.
+-- This proposal is retained for audit. The deployable source is:
+-- supabase/migrations/20261114202307_admin_w06_role_profile_context_employee_conflict.sql
+-- DO NOT reapply the proposal to the connected database.
 --
 -- Purpose 1: provide a minimal authenticated, effective-role introspection RPC.
 -- Purpose 2: close the missing active-business-member conflict guard on
@@ -10,7 +11,7 @@
 -- Deployment requirements: verified backup/rollback plan and controlled migration,
 -- then live authenticated-role checks. On 2026-11-14 the transaction-only rehearsal
 -- reproduced and blocked the active-employee conflict, and was rolled back.
--- Permanent database deployment has NOT occurred.
+-- Permanent deployment occurred on 2026-11-14; real Clerk/HTTP app tests remain pending.
 --
 -- No service_role key is embedded, and the RPC returns the caller's own role only.
 
