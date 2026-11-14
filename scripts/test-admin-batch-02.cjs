@@ -111,3 +111,29 @@ test('W06 Storage reviewer helper restores signed-evidence RLS without public ex
   }
   assert.match(matrix, /ROLLBACK;/);
 });
+
+
+test('W06 private business-media signing remains owner/reviewer scoped', () => {
+  const migration = read('supabase/migrations/20261114223935_w06_private_business_media_read_role_guard.sql');
+  const probe = read('docs/sql/w06-private-business-media-role-smoke.sql');
+  assert.match(migration, /WHEN 'wow-business-media' THEN/);
+  assert.match(migration, /wow_private\.is_business_owner\(v_business\)/);
+  assert.match(migration, /v_is_reviewer AND NOT wow_private\.is_business_member\(v_business\)/);
+  assert.doesNotMatch(migration, /WHEN 'wow-business-media' THEN\s+RETURN true/);
+  for (const who of ['owner', 'reviewer', 'staff', 'viewer', 'guest']) {
+    assert.match(probe, new RegExp('Private business media ' + who));
+  }
+  assert.match(probe, /ROLLBACK;/);
+});
+
+test('W06 billing review regression has independent role and audit checks', () => {
+  const s = read('docs/sql/w06-billing-decision-transaction-smoke.sql');
+  for (const role of ['owner', 'staff', 'viewer', 'revoked']) {
+    assert.match(s, new RegExp('Unauthorized ' + role + ' approved payment'));
+  }
+  assert.match(s, /Invalid note accepted/);
+  assert.match(s, /Price mismatch was accepted/);
+  assert.match(s, /payment_verified/);
+  assert.match(s, /payment_rejected/);
+  assert.match(s, /ROLLBACK;/);
+});
