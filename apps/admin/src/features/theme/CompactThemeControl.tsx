@@ -36,7 +36,7 @@ export function CompactThemeControl({ className = '' }: CompactThemeControlProps
             accessibilityState={{ selected: isSelected }}
             hitSlop={8}
             style={{ minHeight: 40 }}
-            className={`flex-row items-center justify-center px-2.5 py-1 rounded-full transition-all ${
+            className={`flex-row items-center justify-center px-2 sm:px-2.5 py-1 rounded-full transition-all ${
               isSelected
                 ? 'bg-white dark:bg-[#18181B] shadow-sm border border-[#E2E8F0] dark:border-[#3F3F46]'
                 : 'opacity-70'
@@ -56,7 +56,7 @@ export function CompactThemeControl({ className = '' }: CompactThemeControlProps
               strokeWidth={2}
             />
             <AppText
-              className={`text-[11px] font-tajawal-medium mr-1.5 ${
+              className={`hidden sm:flex text-[11px] font-tajawal-medium mr-1.5 ${
                 isSelected
                   ? 'text-[#0F172D] dark:text-white font-tajawal-bold'
                   : 'text-[#64748B] dark:text-[#A1A1AA]'
