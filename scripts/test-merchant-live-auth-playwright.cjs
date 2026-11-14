@@ -171,7 +171,7 @@ async function verifyW06Reviewer(reviewerToken,nonAdminToken) {
  assert.equal(role.data,'reviewer','Dedicated E2E account must have reviewer role only.');
  const calls = [
    ['wow_admin_list_business_verifications',{p_status:'submitted',p_limit:25,p_offset:0}],
-   ['wow_admin_list_business_profile_revisions',{p_limit:25,p_offset:0}],
+   ['wow_admin_list_profile_revisions',{p_limit:25,p_offset:0}],
    ['wow_admin_list_subscription_payments',{p_status:'submitted',p_limit:25,p_offset:0}],
  ];
  for(const [name,args] of calls) {
