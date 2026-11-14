@@ -332,7 +332,7 @@ export function AdminShell({
             }`}
           >
             {/* Right: Breadcrumb & Mobile Menu */}
-            <View className="flex-row items-center gap-2 sm:gap-3 flex-shrink min-w-0">
+            <View className="flex-row items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <Pressable
                 onPress={() => setMobileMenuOpen(true)}
                 className="p-2 rounded-xl bg-surface flex lg:hidden"
@@ -341,12 +341,12 @@ export function AdminShell({
                 <Menu size={20} color={colors.foreground} />
               </Pressable>
 
-              <View className="flex-row items-center gap-1.5 sm:gap-2 flex-shrink truncate">
+              <View className="flex-row items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
                 <AppText variant="caption" muted className="font-tajawal-medium hidden sm:flex">
                   مساحة الإدارة
                 </AppText>
                 <ChevronLeft size={14} color={colors.mutedForeground} className="hidden sm:flex" />
-                <AppText numberOfLines={1} ellipsizeMode="tail" className="font-tajawal-bold text-[11px] sm:text-sm text-[#854D0E] dark:text-[#FACC15] max-w-[125px] sm:max-w-none">
+                <AppText numberOfLines={1} ellipsizeMode="tail" className="font-tajawal-bold text-[11px] sm:text-sm text-[#854D0E] dark:text-[#FACC15] flex-1 min-w-0">
                   {pageTitle}
                 </AppText>
               </View>
