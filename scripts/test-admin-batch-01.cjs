@@ -69,6 +69,11 @@ test('Dashboard does not emit fictitious production records or trends', () => {
   assert.doesNotMatch(s, /BIZ-028|OF-164|CMP-043|points="10,65/);
 });
 
+test('Admin waits for effective-role verification before rendering review controls', () => {
+  const s = read('apps/admin/src/features/auth/use-admin-access.ts');
+  assert.match(s, /isCheckingRpc \|\| effectiveRoleQuery\.isPending/);
+});
+
 test('Roles remain read-only and never fabricate the effective member role', () => {
   const s = read('apps/admin/src/features/screens/AdminRolesScreen.tsx');
   assert.match(s, /role: currentRole \?\? null/);
