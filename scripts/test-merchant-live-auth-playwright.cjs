@@ -163,6 +163,29 @@ async function verifyNoAdmin(token){
  if(response.status>=400&&['P0001','42501'].includes(String(d.code)))return;
  throw Error('Unprivileged account reached administrator RPC, HTTP '+response.status);
 }
+async function verifyW06Reviewer(reviewerToken,nonAdminToken) {
+ // These are REAL Clerk development JWTs; no synthetic database claims.
+ const role = await rpcResult(reviewerToken,'wow_admin_get_effective_role',{});
+ assert.equal(role.ok,true,'Dedicated reviewer rejected by role RPC; HTTP '+role.status);
+ assert.equal(role.data,'reviewer','Dedicated E2E account must have reviewer role only.');
+ const calls = [
+   ['wow_admin_list_business_verifications',{p_status:'submitted',p_limit:25,p_offset:0}],
+   ['wow_admin_list_business_profile_revisions',{p_limit:25,p_offset:0}],
+   ['wow_admin_list_subscription_payments',{p_status:'submitted',p_limit:25,p_offset:0}],
+ ];
+ for(const [name,args] of calls) {
+   const result = await rpcResult(reviewerToken,name,args);
+   assert.equal(result.ok,true,'Reviewer RPC '+name+' rejected HTTP '+result.status+' code '+result.code);
+   assert.ok(Array.isArray(result.data),'Reviewer list must return an array of records.');
+ }
+ await verifyNoAdmin(nonAdminToken);
+ const denied = await rpcResult(nonAdminToken,'wow_admin_get_effective_role',{});
+ assert.equal(denied.ok,false,'Merchant account unexpectedly obtained an admin role.');
+ assert.ok(['42501','P0001'].includes(String(denied.code)),
+   'Non-admin role RPC failed for unexpected reason: '+denied.code);
+ console.log('PASS: signed Clerk reviewer role and all three W06 read RPCs; non-admin access denied.');
+}
+
 test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:220000},async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const sessions=[];
@@ -192,7 +215,11 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:220
   for(const s of sessions)for(const [,otherId] of users)
     if(s.id!==otherId)assert.deepEqual(await rows(s.token,'users',{id:'eq.'+otherId}),[],'RLS profile leak.');
   await verifyIsolation(sessions[0],sessions[1],sessions[2],fixture);
-  await verifyNoAdmin(sessions[2].token);
+  if (process.env.WOW_E2E_EXPECT_ADMIN_REVIEWER === 'true') {
+    await verifyW06Reviewer(sessions[2].token,sessions[1].token);
+  } else {
+    await verifyNoAdmin(sessions[2].token);
+  }
   console.log('PASS: real OTP, profiles, actual business and branch RLS, denied unauthorized branch, evidence-required gate, and merchant UI.');
   console.log('DEDICATED_TEST_FIXTURE business='+fixture.businessId+' branch='+fixture.branchId);
  }finally{
