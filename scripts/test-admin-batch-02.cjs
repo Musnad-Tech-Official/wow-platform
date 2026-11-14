@@ -96,3 +96,18 @@ test('W06 shell has real navigation targets without replacing W07/W08 placeholde
   assert.match(s, /navTo\('\/payments'\)/);
   assert.match(s, /navTo\('\/roles'\)/);
 });
+
+test('W06 Storage reviewer helper restores signed-evidence RLS without public execution', () => {
+  const prior = read('supabase/migrations/20261113192750_merchant_final_8_revisions_complaints.sql');
+  const migration = read('supabase/migrations/20261114212527_w06_storage_reviewer_role_helper_restore.sql');
+  const matrix = read('docs/sql/w06-storage-reviewer-permission-smoke.sql');
+  assert.match(prior, /wow_private\\.is_catalog_reviewer\\(\\)/);
+  assert.match(migration, /CREATE OR REPLACE FUNCTION wow_private\\.is_catalog_reviewer\\(\\)/);
+  assert.match(migration, /SECURITY INVOKER/);
+  assert.match(migration, /wow_private\\.has_admin_permission\\(true\\)/);
+  assert.match(migration, /REVOKE ALL ON FUNCTION wow_private\\.is_catalog_reviewer\\(\\) FROM PUBLIC, anon, authenticated/);
+  for (const role of ['owner', 'reviewer', 'staff', 'viewer', 'guest', 'revoked']) {
+    assert.match(matrix, new RegExp('Unexpected Storage ACL for ' + role));
+  }
+  assert.match(matrix, /ROLLBACK;/);
+});
