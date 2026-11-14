@@ -104,11 +104,11 @@ jobs:
   merchant-live-clerk-auth:
     name: Real Clerk OTP and Supabase profile RLS (development only)
     needs: verify
-    # Run real Clerk OTP + Supabase RLS for each trusted merchant feature PR.
+    # Run real Clerk OTP + Supabase RLS for trusted merchant PRs and the W06 review PR.
     # No hard-coded PR numbers: future merchant batches must be tested too.
     # Only same-repository PRs can use the dedicated development test identities.
-    # Existing fixture only; no new business or branch is created.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'feat/merchant-')
+    # Existing fixture only; no new business or branch is created; no elevated admin identity.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'feat/merchant-') || github.head_ref == 'feat/admin-w06-main-sync-review-20261114')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
