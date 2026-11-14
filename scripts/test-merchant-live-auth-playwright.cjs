@@ -23,7 +23,8 @@ const users=[
  ['wow-merchant-b+clerk_test@example.com','user_3Lu62ldAYl5V6AI6ytTayeRzwyq'],
  ['wow-admin+clerk_test@example.com','user_3Lu69csg3PeHmXa5Y8bqXn0jyQ8'],
 ];
-const root=path.resolve(dir);
+const adminDir=process.env.WOW_ADMIN_WEB_EXPORT_DIR;
+let root=path.resolve(dir);
 if(!fs.existsSync(path.join(root,'index.html')))throw Error('Missing Expo web export.');
 const mime={'.html':'text/html','.js':'application/javascript','.css':'text/css','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ttf':'font/ttf','.woff2':'font/woff2','.ico':'image/x-icon'};
 const html='<!doctype html><html><head><meta charset="utf-8"></head><body><script async crossorigin="anonymous" data-clerk-publishable-key="'+pk+'" src="https://'+domain+'/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script></body></html>';
@@ -186,6 +187,50 @@ async function verifyW06Reviewer(reviewerToken,nonAdminToken) {
  console.log('PASS: signed Clerk reviewer role and all three W06 read RPCs; non-admin access denied.');
 }
 
+
+async function captureW06AdminViews(browser, adminIdentity) {
+  if (process.env.WOW_E2E_EXPECT_ADMIN_REVIEWER !== 'true') return;
+  if (!adminDir || !fs.existsSync(path.join(adminDir,'index.html'))) {
+    throw Error('Fresh Admin Expo export is required for W06 real-session screenshots.');
+  }
+  const priorRoot=root;
+  root=path.resolve(adminDir);
+  const context=await browser.newContext({viewport:{width:1440,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  try {
+    const signed=await login(page,adminIdentity[0]);
+    assert.equal(sub(signed),adminIdentity[1]);
+    const shots=[
+      ['/verifications','الأنشطة والفروع وطلبات المراجعة','01_adm03_verifications_desktop.png',1440],
+      ['/verification/76500000-0000-4000-8000-000000000006','مراجعة النشاط والفرع','02_adm04_details_desktop.png',1440],
+      ['/profile-revisions','مراجعة تغييرات الملف المعتمد','03_w06_profile_revisions_desktop.png',1440],
+      ['/payments','الاشتراكات وتأكيد الدفعات','04_adm10_payments_desktop.png',1440],
+      ['/verifications','الأنشطة والفروع وطلبات المراجعة','05_adm03_verifications_mobile.png',390],
+      ['/payments','الاشتراكات وتأكيد الدفعات','06_adm10_payments_mobile.png',390],
+    ];
+    const dest=path.resolve('artifacts/admin-w06-real-clerk-screenshots');
+    fs.mkdirSync(dest,{recursive:true});
+    for (const [route,title,name,width] of shots) {
+      await page.setViewportSize({width,height:width===390?844:900});
+      const response=await page.goto(origin()+route,{waitUntil:'domcontentloaded'});
+      assert.equal(response.status(),200,route+' failed to serve Admin app');
+      await page.getByText(title,{exact:false}).first().waitFor({timeout:35000});
+      assert.deepEqual(errors,[],route+' threw browser errors');
+      if(width===390) {
+        const over=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
+        assert.equal(over,false,route+' overflowed the mobile viewport');
+      }
+      await page.screenshot({path:path.join(dest,name),fullPage:true});
+    }
+    console.log('PASS: signed Clerk reviewer opened six real W06 Expo Web views.');
+  } finally {
+    root=priorRoot;
+    await context.close();
+  }
+}
+
 test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:220000},async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const sessions=[];
@@ -217,6 +262,7 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:220
   await verifyIsolation(sessions[0],sessions[1],sessions[2],fixture);
   if (process.env.WOW_E2E_EXPECT_ADMIN_REVIEWER === 'true') {
     await verifyW06Reviewer(sessions[2].token,sessions[1].token);
+    await captureW06AdminViews(browser, users[2]);
   } else {
     await verifyNoAdmin(sessions[2].token);
   }
