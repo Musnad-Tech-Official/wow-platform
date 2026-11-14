@@ -67,6 +67,11 @@ const tests = [
   ['/profile-revisions?preview=adm14', 'الدخول إلى منصة الإدارة', 1440],
   ['/payments?preview=adm02', 'الدخول إلى منصة الإدارة', 390],
   ['/verification/00000000-0000-0000-0000-000000000000?preview=adm14', 'الدخول إلى منصة الإدارة', 1440],
+  // Direct guest navigation must be denied too, even without forged preview parameters.
+  ['/verifications', 'الدخول إلى منصة الإدارة', 390],
+  ['/profile-revisions', 'الدخول إلى منصة الإدارة', 1440],
+  ['/payments', 'الدخول إلى منصة الإدارة', 390],
+  ['/verification/00000000-0000-0000-0000-000000000000', 'الدخول إلى منصة الإدارة', 1440],
 ];
 
 async function main() {
@@ -99,6 +104,18 @@ async function main() {
           const overflow = await page.evaluate(() =>
             document.documentElement.scrollWidth > window.innerWidth + 2);
           assert(!overflow, url + ' has horizontal overflow at 390px');
+          if (!production && url.startsWith('/roles?preview=adm14')) {
+            // A one-line breadcrumb can be truncated without changing document.scrollWidth.
+            const title = page.getByText('المشرفون والصلاحيات', { exact: true });
+            assert.equal(await title.count(), 1, 'ADM-14 mobile breadcrumb should be present once');
+            const textFits = await title.evaluate((element) =>
+              element.scrollWidth <= element.clientWidth + 2);
+            assert(textFits, 'ADM-14 mobile breadcrumb title was truncated at 390px');
+            for (const mode of ['فاتح', 'تلقائي', 'داكن']) {
+              const control = page.locator('[aria-label="المظهر: ' + mode + '"]');
+              assert.equal(await control.count(), 1, 'Mobile theme mode must remain accessible: ' + mode);
+            }
+          }
         }
         assert.deepEqual(errors, [], url + ' generated runtime/hydration errors');
         console.log('PASS', production ? 'production' : 'development', width, url);
