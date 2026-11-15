@@ -56,6 +56,14 @@ test('Private media keys remain strictly scoped to business and offer; URLs are 
   assert.doesNotMatch(api, /getPublicUrl|createPublicUrl/);
   assert.match(hook, /reviewerVerified/);
   assert.match(hook, /gcTime: 60_000/);
+  assert.match(hook, /assetScopeFingerprint\(businessId, imageKeys, evidenceKeys\)/);
+  assert.match(hook, /const parts = \[businessId/);
+  assert.match(hook, /Math\.imul/);
+  assert.doesNotMatch(hook, /queryKey:[^\n]*imageKeys|queryKey:[^\n]*evidenceKeys/);
+  const review = read('apps/admin/src/features/w07/OfferReview.tsx');
+  assert.match(review, /reviewedAssetReceipt\?\.versionId === id/);
+  assert.match(review, /reviewedAssetReceipt\.issuedAt === assetQuery\.dataUpdatedAt/);
+  assert.match(review, /!assetQuery\.isFetching/);
   assert.doesNotMatch(hook, /queryKey:.*imageKeys|queryKey:.*evidenceKeys/);
 });
 
