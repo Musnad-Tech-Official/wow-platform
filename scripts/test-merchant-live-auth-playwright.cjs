@@ -189,7 +189,7 @@ async function verifyW06Reviewer(reviewerToken,nonAdminToken) {
 
 
 async function captureW06AdminViews(browser, adminIdentity) {
-  if (process.env.WOW_E2E_EXPECT_ADMIN_REVIEWER !== 'true') return;
+  if (process.env.WOW_E2E_CAPTURE_ADMIN_VIEWS !== 'true') return;
   if (!adminDir || !fs.existsSync(path.join(adminDir,'index.html'))) {
     throw Error('Fresh Admin Expo export is required for W06 real-session screenshots.');
   }
@@ -231,7 +231,72 @@ async function captureW06AdminViews(browser, adminIdentity) {
   }
 }
 
-test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:220000},async()=>{
+// Opt-in one-object Storage E2E. Use ONLY in the pre-launch project while the
+// exact-object temporary DELETE policy and reviewer fixture are present.
+// Never log real bearer JWTs or signed URLs; no SDK service role key is used.
+async function verifyW06StorageHttp(owner,nonowner,reviewer,fixture) {
+  assert.equal(process.env.WOW_E2E_EXPECT_ADMIN_REVIEWER,'true','Reviewer must be scoped to temporary QA fixture.');
+  assert.equal(fixture.businessId,'ea9a5297-c677-4e61-84c9-94414fe8ec74','Unapproved E2E business.');
+  assert.equal(owner.id,users[0][1]);
+  assert.equal(reviewer.id,users[2][1]);
+  const bucket='wow-verification-evidence';
+  const objectKey='business-verifications/'+fixture.businessId+'/'+owner.id+'/'+'7a'.repeat(24)+'.pdf';
+  const doc=Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n');
+  const storageUrl=new URL('/storage/v1/object/'+bucket+'/'+objectKey,supabase);
+  const baseUrl=new URL('/storage/v1/object/'+bucket,supabase);
+  const keyHeaders=(token)=>({apikey:publicKey,Authorization:'Bearer '+token});
+  const signedRequest=async(token)=>{
+    const endpoint=new URL('/storage/v1/object/sign/'+bucket+'/'+objectKey,supabase);
+    const response=await fetch(endpoint,{method:'POST',headers:{...keyHeaders(token),'Content-Type':'application/json'},
+      body:JSON.stringify({expiresIn:60}),redirect:'error',signal:AbortSignal.timeout(20000)});
+    const data=await response.json().catch(()=>({}));
+    return {ok:response.ok,status:response.status,url:data?.signedURL||data?.signedUrl||null};
+  };
+  const cleanup=async()=>{
+    const response=await fetch(baseUrl,{method:'DELETE',
+      headers:{...keyHeaders(owner.token),'Content-Type':'application/json'},
+      body:JSON.stringify({prefixes:[objectKey]}),redirect:'error',signal:AbortSignal.timeout(22000)});
+    if(!response.ok) {
+      const err=await response.json().catch(()=>({}));
+      throw Error('Exact-key Storage API cleanup failed: HTTP '+response.status+' / '+String(err?.error||err?.message||'unknown'));
+    }
+    return response;
+  };
+  let uploadAttempted=false;
+  try {
+    uploadAttempted=true;
+    const upload=await fetch(storageUrl,{method:'POST',
+      headers:{...keyHeaders(owner.token),'Content-Type':'application/pdf','x-upsert':'false'},
+      body:doc,redirect:'error',signal:AbortSignal.timeout(22000)});
+    if(!upload.ok) {
+      const err=await upload.json().catch(()=>({}));
+      throw Error('Owner private evidence upload failed: HTTP '+upload.status+' / '+String(err?.error||err?.message||'unknown'));
+    }
+    const ownerSign=await signedRequest(owner.token);
+    assert.equal(ownerSign.ok,true,'Owner could not sign own real private file: HTTP '+ownerSign.status);
+    assert.ok(ownerSign.url,'Signed URL was absent for owner');
+    const [independent,unrelated]=await Promise.all([signedRequest(reviewer.token),signedRequest(nonowner.token)]);
+    assert.equal(independent.ok,true,'Independent reviewer could not sign private evidence: HTTP '+independent.status);
+    assert.ok(independent.url,'Signed URL absent for reviewer');
+    assert.equal(unrelated.ok,false,'SECURITY: unrelated authenticated merchant signed private evidence.');
+    const unsigned=await fetch(new URL('/storage/v1/object/authenticated/'+bucket+'/'+objectKey,supabase),{
+      method:'GET',headers:keyHeaders(nonowner.token),redirect:'error',signal:AbortSignal.timeout(18000)});
+    assert.equal(unsigned.ok,false,'SECURITY: unrelated merchant fetched private evidence.');
+    // A signed URL is a short-lived bearer credential. Prove it retrieves the
+    // exact uploaded bytes; do not serialize/log the URL itself.
+    const content=await fetch(new URL(independent.url,supabase),{redirect:'error',signal:AbortSignal.timeout(18000)});
+    assert.equal(content.ok,true,'Real signed URL download failed: HTTP '+content.status);
+    assert.deepEqual(Buffer.from(await content.arrayBuffer()),doc,'Signed URL returned different bytes.');
+    console.log('PASS: real Clerk owner upload + owner/reviewer signing + nonowner deny + signed read.');
+  } finally {
+    if(uploadAttempted){
+      await cleanup();
+      console.log('PASS: Storage API removed exact temporary evidence key.');
+    }
+  }
+}
+
+test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300000},async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const sessions=[];
  let fixture=null;
@@ -262,6 +327,9 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:220
   await verifyIsolation(sessions[0],sessions[1],sessions[2],fixture);
   if (process.env.WOW_E2E_EXPECT_ADMIN_REVIEWER === 'true') {
     await verifyW06Reviewer(sessions[2].token,sessions[1].token);
+    if (process.env.WOW_E2E_STORAGE_VERIFICATION === 'true') {
+      await verifyW06StorageHttp(sessions[0],sessions[1],sessions[2],fixture);
+    }
     await captureW06AdminViews(browser, users[2]);
   } else {
     await verifyNoAdmin(sessions[2].token);
