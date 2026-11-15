@@ -205,7 +205,7 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
               {assetQuery.isError && <W06Message title="تعذر توقيع المرفقات بأمان"
                 detail="لا يمكن اعتماد النسخة قبل استكمال التحقق من المرفقات."
                 kind="error" retry={() => { setReviewedAssetReceipt(null); void assetQuery.refetch(); }} />}
-              {assetQuery.isSuccess && assetQuery.data.map((item) => (
+              {viewerIsReviewer && assetQuery.isSuccess && assetQuery.data.map((item) => (
                 <AppButton key={item.kind + item.keyIndex} size="sm" variant="outline"
                   title={(item.kind === 'image' ? 'عرض صورة ' : 'فتح مستند ') + (item.keyIndex + 1)}
                   onPress={() => {
@@ -220,7 +220,7 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
               {viewerIsReviewer && expectedAssets > 0 &&
                 <AppButton title="تجديد الروابط المؤقتة" variant="outline" size="sm"
                   onPress={() => { setReviewedAssetReceipt(null); void assetQuery.refetch(); }} />}
-              {assetQuery.isSuccess && expectedAssets > 0 && (
+              {viewerIsReviewer && assetQuery.isSuccess && expectedAssets > 0 && (
                 <Pressable accessibilityRole="checkbox"
                   accessibilityState={{ checked: reviewed }}
                   onPress={() => setReviewedAssetReceipt(reviewed ? null :
