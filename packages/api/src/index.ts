@@ -108,6 +108,8 @@ export {
   usePublicSearchBusinesses,
   usePublicBusiness,
   usePublicOffer,
+  useAdminCategories,
+  useAdminBusinessCategories,
   useAdminUpsertCategory,
   useAdminSetBusinessCategories,
 } from './query/hooks/use-discovery';
