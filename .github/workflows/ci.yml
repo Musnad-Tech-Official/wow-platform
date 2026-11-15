@@ -41,6 +41,10 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check technical repository and app configuration
         run: node scripts/test-repository-integrity.cjs
+      - name: Validate browser test script syntax
+        run: |
+          node --check scripts/test-admin-browser-playwright.cjs
+          node --check scripts/test-merchant-live-auth-playwright.cjs
       - name: Verify approved brand/illustration asset hashes
         run: node scripts/test-design-foundation.cjs
       - name: TypeScript, lint, UI, Query and integration guards
