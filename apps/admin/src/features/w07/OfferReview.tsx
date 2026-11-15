@@ -45,7 +45,7 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
   const [decision, setDecision] = useState<Decision | null>(null);
   const [reason, setReason] = useState('');
   const [confirming, setConfirming] = useState(false);
-  const [assetsReviewed, setAssetsReviewed] = useState(false);
+  const [reviewedAssetReceipt, setReviewedAssetReceipt] = useState<{ versionId: string; issuedAt: number } | null>(null);
   const data = isRecord(review.data) ? review.data : null;
   const version = asRecord(data?.version);
   const business = asRecord(data?.business);
@@ -71,11 +71,15 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
     version.is_clearance === true;
   const expectedAssets = mediaKeys.length + evidenceKeys.length;
   const signedReady = expectedAssets === 0 ||
-    (assetQuery.isSuccess && assetQuery.data.length === expectedAssets);
+    (assetQuery.isSuccess && !assetQuery.isFetching && assetQuery.data.length === expectedAssets);
   const evidenceReady = !requiresEvidence ||
     (evidenceKeys.length > 0 && assetQuery.isSuccess &&
       assetQuery.data.filter((item) => item.kind === 'evidence').length === evidenceKeys.length);
-  const reviewed = expectedAssets === 0 || assetsReviewed;
+  const reviewed = expectedAssets === 0 ||
+    (assetQuery.isSuccess && !assetQuery.isFetching &&
+      reviewedAssetReceipt?.versionId === id &&
+      reviewedAssetReceipt.issuedAt === assetQuery.dataUpdatedAt &&
+      assetQuery.dataUpdatedAt > 0);
   const validAssets = signedReady && evidenceReady && reviewed;
   const trimmedReason = reason.trim();
   const reasonValid = (decision === 'approved' ? trimmedReason.length <= 2000 :
@@ -94,7 +98,7 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
     if (!validSubmission || !confirming || !decision) return;
     if (decision === 'approved' && expectedAssets > 0 &&
         Date.now() - assetQuery.dataUpdatedAt >= 45_000) {
-      setAssetsReviewed(false);
+      setReviewedAssetReceipt(null);
       setConfirming(false);
       void assetQuery.refetch();
       return;
@@ -200,13 +204,13 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
                 <W06Message title="جارٍ التحقق من صلاحيات فتح المرفقات…" kind="info" />}
               {assetQuery.isError && <W06Message title="تعذر توقيع المرفقات بأمان"
                 detail="لا يمكن اعتماد النسخة قبل استكمال التحقق من المرفقات."
-                kind="error" retry={() => { setAssetsReviewed(false); void assetQuery.refetch(); }} />}
+                kind="error" retry={() => { setReviewedAssetReceipt(null); void assetQuery.refetch(); }} />}
               {assetQuery.isSuccess && assetQuery.data.map((item) => (
                 <AppButton key={item.kind + item.keyIndex} size="sm" variant="outline"
                   title={(item.kind === 'image' ? 'عرض صورة ' : 'فتح مستند ') + (item.keyIndex + 1)}
                   onPress={() => {
                     if (Date.now() - assetQuery.dataUpdatedAt >= 45_000) {
-                      setAssetsReviewed(false);
+                      setReviewedAssetReceipt(null);
                       void assetQuery.refetch();
                       return;
                     }
@@ -215,14 +219,15 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
               ))}
               {viewerIsReviewer && expectedAssets > 0 &&
                 <AppButton title="تجديد الروابط المؤقتة" variant="outline" size="sm"
-                  onPress={() => { setAssetsReviewed(false); void assetQuery.refetch(); }} />}
+                  onPress={() => { setReviewedAssetReceipt(null); void assetQuery.refetch(); }} />}
               {assetQuery.isSuccess && expectedAssets > 0 && (
                 <Pressable accessibilityRole="checkbox"
-                  accessibilityState={{ checked: assetsReviewed }}
-                  onPress={() => setAssetsReviewed((value) => !value)}
+                  accessibilityState={{ checked: reviewed }}
+                  onPress={() => setReviewedAssetReceipt(reviewed ? null :
+                    { versionId: id, issuedAt: assetQuery.dataUpdatedAt })}
                   className="flex-row items-center gap-2 rounded-xl bg-[#FEFCE8] dark:bg-[#422E12] p-3">
                   <View className="rounded w-5 h-5 border border-[#A16207] items-center justify-center">
-                    {assetsReviewed && <ShieldCheck size={16} color="#A16207" />}
+                    {reviewed && <ShieldCheck size={16} color="#A16207" />}
                   </View>
                   <AppText className="flex-1 text-xs font-tajawal-bold text-[#854D0E] dark:text-[#FEF08A] text-right">
                     أؤكد أنني راجعت الصور والمستندات المتاحة فعلياً.
