@@ -120,10 +120,10 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
       EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
       WOW_E2E_ALLOW_FIXTURE_CREATION: 'false'
-      WOW_E2E_EXPECT_ADMIN_REVIEWER: 'true' # W07 ONE-OFF dedicated QA reviewer; remove role after run.
+      WOW_E2E_EXPECT_ADMIN_REVIEWER: 'false' # No standing reviewer grants; optional W07 QA is explicit.
       WOW_E2E_STORAGE_VERIFICATION: 'false' # Private evidence test requires explicit scoped cleanup setup.
       WOW_E2E_CAPTURE_ADMIN_VIEWS: 'false'
-      WOW_E2E_CAPTURE_W07: 'true' # W07 ONE-OFF authorized screenshots.
+      WOW_E2E_CAPTURE_W07: 'false' # Require separately prepared temporary role for authenticated screenshots.
     steps:
       - uses: actions/checkout@v4
         with:
