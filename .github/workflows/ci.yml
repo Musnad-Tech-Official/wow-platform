@@ -120,7 +120,9 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
       EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
       WOW_E2E_ALLOW_FIXTURE_CREATION: 'false'
-      WOW_E2E_EXPECT_ADMIN_REVIEWER: 'false' # One-time signed reviewer run #269 passed; temporary membership was removed.
+      WOW_E2E_EXPECT_ADMIN_REVIEWER: 'true' # ONE-OFF temporary QA reviewer grant; revoke immediately after run.
+      WOW_E2E_STORAGE_VERIFICATION: 'true' # ONE-OFF exact-object Storage test; restore false after run.
+      WOW_E2E_CAPTURE_ADMIN_VIEWS: 'false'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -140,7 +142,7 @@ jobs:
       - name: Export real merchant web application
         run: pnpm --filter merchant exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-merchant-web"
       - name: Export real Admin web application for W06 live Clerk review
-        if: env.WOW_E2E_EXPECT_ADMIN_REVIEWER == 'true'
+        if: env.WOW_E2E_CAPTURE_ADMIN_VIEWS == 'true'
         run: pnpm --filter admin exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-admin-web"
       - name: Verify real Clerk sessions, Supabase RLS, and W06 reviewer UI
         run: WOW_MERCHANT_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-merchant-web" WOW_ADMIN_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-admin-web" node scripts/test-merchant-live-auth-playwright.cjs
