@@ -71,8 +71,7 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
     version.is_clearance === true;
   const expectedAssets = mediaKeys.length + evidenceKeys.length;
   const signedReady = expectedAssets === 0 ||
-    (assetQuery.isSuccess && assetQuery.data.length === expectedAssets &&
-     Date.now() - assetQuery.dataUpdatedAt < 45_000);
+    (assetQuery.isSuccess && assetQuery.data.length === expectedAssets);
   const evidenceReady = !requiresEvidence ||
     (evidenceKeys.length > 0 && assetQuery.isSuccess &&
       assetQuery.data.filter((item) => item.kind === 'evidence').length === evidenceKeys.length);
