@@ -64,6 +64,8 @@ test('Private media keys remain strictly scoped to business and offer; URLs are 
   assert.match(review, /reviewedAssetReceipt\?\.versionId === id/);
   assert.match(review, /reviewedAssetReceipt\.issuedAt === assetQuery\.dataUpdatedAt/);
   assert.match(review, /!assetQuery\.isFetching/);
+  assert.match(review, /viewerIsReviewer && assetQuery\.isSuccess && assetQuery\.data\.map/);
+  assert.match(review, /viewerIsReviewer && assetQuery\.isSuccess && expectedAssets > 0/);
   assert.doesNotMatch(hook, /queryKey:.*imageKeys|queryKey:.*evidenceKeys/);
 });
 
