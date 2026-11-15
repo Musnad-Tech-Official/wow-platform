@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   adminSetBusinessCategories,
   adminUpsertCategory,
+  listAdminCategories,
+  searchAdminBusinessCategories,
   getPublicBusiness,
   getPublicOffer,
   listPublicCategories,
@@ -73,6 +75,27 @@ export function usePublicOffer(offerId?: string | null, config: WowPublicSupabas
   });
 }
 
+
+export function useAdminCategories() {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: ['admin', 'categories', context.userId],
+    enabled: !!context.userId,
+    queryFn: () => listAdminCategories(requireWowApiSession(context).client),
+  });
+}
+
+export function useAdminBusinessCategories(query: string, limit = 30) {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: ['admin', 'category-businesses', context.userId, query, limit],
+    enabled: !!context.userId,
+    queryFn: () => searchAdminBusinessCategories(
+      requireWowApiSession(context).client, query, limit,
+    ),
+  });
+}
+
 export function useAdminUpsertCategory() {
   const context = useWowApiContext();
   const queryClient = useQueryClient();
@@ -80,7 +103,10 @@ export function useAdminUpsertCategory() {
     mutationFn: (input: AdminUpsertCategoryInput) =>
       adminUpsertCategory(requireWowApiSession(context).client, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: wowQueryKeys.discovery.root() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: wowQueryKeys.discovery.root() }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'categories'] }),
+      ]);
     },
   });
 }
@@ -97,6 +123,7 @@ export function useAdminSetBusinessCategories() {
         queryClient.invalidateQueries({
           queryKey: wowQueryKeys.businesses.detail(input.businessId, context.userId),
         }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'category-businesses'] }),
       ]);
     },
   });
