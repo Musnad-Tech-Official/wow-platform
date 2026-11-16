@@ -65,7 +65,8 @@ export function AdminAccessScreen({
   return (
     <ScrollView
       {...(Platform.OS === 'web' ? { dir: 'rtl' as const } : {})}
-      className="flex-1 bg-[#F6F7F6] dark:bg-[#101014]"
+      testID="wow-admin-login-canvas"
+      className={isDark ? 'flex-1 bg-[#101014]' : 'flex-1 bg-[#F6F7F6]'}
       contentContainerClassName="flex-grow justify-center items-center p-4 sm:p-6 lg:p-10"
       keyboardShouldPersistTaps="handled"
     >
