@@ -18,6 +18,7 @@ import {
   FolderTree,
   UsersRound,
   FileClock,
+  Star,
   Search,
   LogOut,
   Menu,
@@ -185,13 +186,26 @@ export function AdminShell({
                 <Tag size={18} color={colors.mutedForeground} />
                 <AppText className="flex-1 text-sm text-right font-tajawal-medium">مراجعة العروض</AppText>
               </Pressable>
-              <View className="flex-row items-center gap-3 rounded-xl px-3 py-2 opacity-60">
+              <Pressable onPress={() => navTo('/complaints')}
+                accessibilityRole="button" accessibilityLabel="الشكاوى والبلاغات"
+                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname.startsWith('/complaints')
+                  ? (isDark ? 'bg-[#422E12]' : 'bg-[#FEFCE8]') + ' border-r-4 border-[#FACC15]'
+                  : 'hover:bg-surface'}`}>
                 <MessageSquareWarning size={18} color={colors.mutedForeground} />
-                <AppText className="flex-1 text-sm text-right font-tajawal-medium" muted>
+                <AppText className="flex-1 text-sm text-right font-tajawal-medium">
                   الشكاوى والبلاغات
                 </AppText>
-                <Badge label="قريباً" variant="secondary" />
-              </View>
+              </Pressable>
+              <Pressable onPress={() => navTo('/ratings')}
+                accessibilityRole="button" accessibilityLabel="مراجعة التقييمات"
+                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname === '/ratings'
+                  ? (isDark ? 'bg-[#422E12]' : 'bg-[#FEFCE8]') + ' border-r-4 border-[#FACC15]'
+                  : 'hover:bg-surface'}`}>
+                <Star size={18} color={colors.mutedForeground} />
+                <AppText className="flex-1 text-sm text-right font-tajawal-medium">
+                  مراجعة التقييمات
+                </AppText>
+              </Pressable>
             </View>
           </View>
 
