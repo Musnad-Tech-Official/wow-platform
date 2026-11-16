@@ -3,7 +3,7 @@ import { Linking, Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FileCheck2, ImageIcon, ShieldCheck } from 'lucide-react-native';
 import { useAdminOfferReview, useAdminDecideOffer, useAdminOfferAssets } from '@wow/api';
-import { useWowColors } from '@wow/theme';
+import { useTheme, useWowColors } from '@wow/theme';
 import { AppButton, AppText, Badge, Card } from '@wow/ui';
 import type { AdminRole } from '../auth/admin-access';
 import {
@@ -40,6 +40,8 @@ function InfoTile({ label, value }: { label: string; value: unknown }) {
 export function OfferReview({ id, role }: { id: string; role: AdminRole | null }) {
   const router = useRouter();
   const colors = useWowColors();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const review = useAdminOfferReview(id);
   const mutation = useAdminDecideOffer();
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -225,11 +227,13 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
                   accessibilityState={{ checked: reviewed }}
                   onPress={() => setReviewedAssetReceipt(reviewed ? null :
                     { versionId: id, issuedAt: assetQuery.dataUpdatedAt })}
-                  className="flex-row items-center gap-2 rounded-xl bg-[#FEFCE8] dark:bg-[#422E12] p-3">
+                  className={'flex-row items-center gap-2 rounded-xl p-3 ' +
+                    (isDark ? 'bg-[#422E12]' : 'bg-[#FEFCE8]')}>
                   <View className="rounded w-5 h-5 border border-[#A16207] items-center justify-center">
                     {reviewed && <ShieldCheck size={16} color="#A16207" />}
                   </View>
-                  <AppText className="flex-1 text-xs font-tajawal-bold text-[#854D0E] dark:text-[#FEF08A] text-right">
+                  <AppText className={'flex-1 text-xs font-tajawal-bold text-right ' +
+                      (isDark ? 'text-[#FEF08A]' : 'text-[#854D0E]')}>
                     أؤكد أنني راجعت الصور والمستندات المتاحة فعلياً.
                   </AppText>
                 </Pressable>
@@ -266,7 +270,7 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
                         onPress={() => changeDecision(item.value)}
                         className={'rounded-xl border px-3 py-2 ' +
                           (decision === item.value
-                            ? 'bg-[#FEF3C7] dark:bg-[#422E12] border-[#FACC15]'
+                            ? (isDark ? 'bg-[#422E12] border-[#FACC15]' : 'bg-[#FEF3C7] border-[#FACC15]')
                             : 'bg-background border-border')}>
                         <AppText className="text-xs font-tajawal-bold text-right">{item.title}</AppText>
                       </Pressable>
