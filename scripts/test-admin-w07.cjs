@@ -79,6 +79,21 @@ test('Category read RPCs enforce real server admin and revoke anonymous executio
   assert.doesNotMatch(sql, /GRANT SELECT ON public\.categories TO authenticated/);
 });
 
+test('Category save confirmation is gated in UI and handler without implicit writes', () => {
+  const s = read('apps/admin/src/features/w07/CategoryManagement.tsx');
+  const save = s.split('  async function saveCategory() {')[1]
+    ?.split('  async function saveAssignment() {')[0];
+  assert.ok(save, 'Category submit handler must exist');
+  assert.match(save, /if \(!validCategory \|\| !confirmCategory\) return;/);
+  assert.match(s, /disabled=\{!validCategory \|\| !confirmCategory\}/);
+  assert.match(s, /disabled=\{!validCategory\}/);
+  assert.match(save, /await edit\.mutateAsync\(/);
+  assert.ok(save.indexOf('await edit.mutateAsync(') < save.indexOf('beginEdit(null)'),
+    'Resetting to Create must occur only after a successful mutation');
+  assert.ok(save.indexOf('beginEdit(null)') < save.indexOf('} catch {'),
+    'The edit form must not reset after a failed mutation');
+});
+
 test('W07 category writes use existing server-guarded RPCs and explicit approval', () => {
   const s = read('apps/admin/src/features/w07/CategoryManagement.tsx');
   assert.match(s, /role === 'super_admin'/);
