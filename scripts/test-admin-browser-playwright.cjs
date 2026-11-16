@@ -131,6 +131,39 @@ async function main() {
         await page.close();
       }
     }
+    // NativeWind v5 web dark: utilities track the OS preference. The WOW theme
+    // switch must not leave a dark canvas behind after selecting manual Light.
+    if (!production) {
+      const page = await browser.newPage({
+        viewport: { width: 1440, height: 900 },
+        colorScheme: 'dark',
+      });
+      try {
+        const verifyCanvas = async (testId, expectedColor) => {
+          await page.waitForFunction(({ testId, expectedColor }) => {
+            const canvas = document.querySelector('[data-testid="' + testId + '"]');
+            return canvas && getComputedStyle(canvas).backgroundColor === expectedColor;
+          }, { testId, expectedColor }, { timeout: 15000 });
+        };
+        await page.goto(base + '/?preview=adm02', { waitUntil: 'networkidle' });
+        await page.getByText('نظرة واضحة على ما يحتاج إجراء', { exact: true }).waitFor();
+        await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
+        await page.getByRole('button', { name: 'المظهر: فاتح' }).click();
+        await verifyCanvas('wow-admin-canvas', 'rgb(246, 247, 246)');
+        await page.getByRole('button', { name: 'المظهر: داكن' }).click();
+        await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
+        console.log('PASS development: manual theme overrides dark system preference on Admin canvas');
+
+        await page.goto(base + '/?preview=adm01', { waitUntil: 'networkidle' });
+        await page.getByText('الدخول إلى منصة الإدارة', { exact: true }).waitFor();
+        await verifyCanvas('wow-admin-login-canvas', 'rgb(16, 16, 20)');
+        await page.getByRole('button', { name: 'المظهر: فاتح' }).click();
+        await verifyCanvas('wow-admin-login-canvas', 'rgb(246, 247, 246)');
+        console.log('PASS development: manual Light overrides dark system preference on login canvas');
+      } finally {
+        await page.close();
+      }
+    }
   } finally {
     await browser.close();
     await new Promise((resolve) => server.close(resolve));
