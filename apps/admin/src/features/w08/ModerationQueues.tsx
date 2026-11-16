@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ClipboardList, Star, ChevronLeft } from 'lucide-react-native';
+import { Star, ChevronLeft } from 'lucide-react-native';
 import {
   useAdminComplaints, useAdminRatings,
   type ComplaintStatus, type RatingModerationStatus,
