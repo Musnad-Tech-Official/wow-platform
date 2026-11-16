@@ -7,6 +7,7 @@ const fs=require('node:fs');
 const http=require('node:http');
 const path=require('node:path');
 const {chromium}=require('playwright');
+const {resolveStorageSignedUrl}=require('./lib/resolve-storage-signed-url.cjs');
 const pk=process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const supabase=process.env.EXPO_PUBLIC_SUPABASE_URL;
 const publicKey=process.env.EXPO_PUBLIC_SUPABASE_KEY;
@@ -284,7 +285,7 @@ async function verifyW06StorageHttp(owner,nonowner,reviewer,fixture) {
     assert.equal(unsigned.ok,false,'SECURITY: unrelated merchant fetched private evidence.');
     // A signed URL is a short-lived bearer credential. Prove it retrieves the
     // exact uploaded bytes; do not serialize/log the URL itself.
-    const content=await fetch(new URL(independent.url,supabase),{redirect:'error',signal:AbortSignal.timeout(18000)});
+    const content=await fetch(resolveStorageSignedUrl(independent.url,supabase,bucket,objectKey),{redirect:'error',signal:AbortSignal.timeout(18000)});
     assert.equal(content.ok,true,'Real signed URL download failed: HTTP '+content.status);
     assert.deepEqual(Buffer.from(await content.arrayBuffer()),doc,'Signed URL returned different bytes.');
     console.log('PASS: real Clerk owner upload + owner/reviewer signing + nonowner deny + signed read.');
