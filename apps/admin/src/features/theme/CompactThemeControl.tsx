@@ -20,7 +20,7 @@ export function CompactThemeControl({ className = '' }: CompactThemeControlProps
 
   return (
     <View
-      className={`flex-row items-center bg-[#F1F5F9] dark:bg-[#27272A] p-1 rounded-full border border-[#E2E8F0] dark:border-[#3F3F46] ${className}`}
+      className={`flex-row items-center p-1 rounded-full border ${isDark ? 'bg-[#27272A] border-[#3F3F46]' : 'bg-[#F1F5F9] border-[#E2E8F0]'} ${className}`}
       style={{ alignSelf: 'flex-start' }}
     >
       {options.map((item) => {
@@ -38,7 +38,7 @@ export function CompactThemeControl({ className = '' }: CompactThemeControlProps
             style={{ minHeight: 40 }}
             className={`flex-row items-center justify-center px-2 sm:px-2.5 py-1 rounded-full transition-all ${
               isSelected
-                ? 'bg-white dark:bg-[#18181B] shadow-sm border border-[#E2E8F0] dark:border-[#3F3F46]'
+                ? (isDark ? 'bg-[#18181B] shadow-sm border border-[#3F3F46]' : 'bg-white shadow-sm border border-[#E2E8F0]')
                 : 'opacity-70'
             }`}
           >
@@ -58,8 +58,8 @@ export function CompactThemeControl({ className = '' }: CompactThemeControlProps
             <AppText
               className={`hidden sm:flex text-[11px] font-tajawal-medium mr-1.5 ${
                 isSelected
-                  ? 'text-[#0F172D] dark:text-white font-tajawal-bold'
-                  : 'text-[#64748B] dark:text-[#A1A1AA]'
+                  ? (isDark ? 'text-white font-tajawal-bold' : 'text-[#0F172D] font-tajawal-bold')
+                  : (isDark ? 'text-[#A1A1AA]' : 'text-[#64748B]')
               }`}
             >
               {item.label}
