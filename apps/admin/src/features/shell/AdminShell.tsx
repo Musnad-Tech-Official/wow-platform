@@ -169,13 +169,13 @@ export function AdminShell({
             <View className="gap-1">
               <Pressable onPress={() => navTo('/verifications')}
                 accessibilityRole="button" accessibilityLabel="تأهيل الأنشطة والفروع"
-                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname.startsWith('/verif') ? 'bg-[#FEFCE8] dark:bg-[#422E12] border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
+                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname.startsWith('/verif') ? (isDark ? 'bg-[#422E12]' : 'bg-[#FEFCE8]') + ' border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
                 <Store size={18} color={colors.mutedForeground} />
                 <AppText className="flex-1 text-sm text-right font-tajawal-medium">الأنشطة والفروع</AppText>
               </Pressable>
               <Pressable onPress={() => navTo('/profile-revisions')}
                 accessibilityRole="button" accessibilityLabel="تعديلات ملفات التجار"
-                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname === '/profile-revisions' ? 'bg-[#FEFCE8] dark:bg-[#422E12] border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
+                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname === '/profile-revisions' ? (isDark ? 'bg-[#422E12]' : 'bg-[#FEFCE8]') + ' border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
                 <FileClock size={18} color={colors.mutedForeground} />
                 <AppText className="flex-1 text-sm text-right font-tajawal-medium">تعديلات ملفات التجار</AppText>
               </Pressable>
@@ -207,7 +207,7 @@ export function AdminShell({
             <View className="gap-1">
               <Pressable onPress={() => navTo('/payments')}
                 accessibilityRole="button" accessibilityLabel="الاشتراكات وتأكيد الدفعات"
-                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname === '/payments' ? 'bg-[#FEFCE8] dark:bg-[#422E12] border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
+                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname === '/payments' ? (isDark ? 'bg-[#422E12]' : 'bg-[#FEFCE8]') + ' border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
                 <CreditCard size={18} color={colors.mutedForeground} />
                 <AppText className="flex-1 text-sm text-right font-tajawal-medium">الاشتراكات والدفعات</AppText>
               </Pressable>
@@ -302,7 +302,8 @@ export function AdminShell({
   return (
     <View
       {...(Platform.OS === 'web' ? { dir: 'rtl' as const } : {})}
-      className="flex-1 bg-[#F6F7F6] dark:bg-[#101014]"
+      testID="wow-admin-canvas"
+      className={isDark ? 'flex-1 bg-[#101014]' : 'flex-1 bg-[#F6F7F6]'}
     >
       <View className="flex-1 flex-row">
         {/* Persistent Desktop Sidebar */}
