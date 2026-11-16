@@ -7,7 +7,7 @@ import {
   type AdminCategory, type AdminBusinessCategoryRow,
 } from '@wow/api';
 import { AppButton, AppText, Badge, Card } from '@wow/ui';
-import { useWowColors } from '@wow/theme';
+import { useTheme, useWowColors } from '@wow/theme';
 import type { AdminRole } from '../auth/admin-access';
 import {
   canSubmitW06Decision, W06Header, W06Message, w06ErrorMessage,
@@ -23,11 +23,13 @@ function ToggleRow({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   return (
     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked, disabled }}
       disabled={disabled} onPress={onPress}
       className={'flex-row gap-2 items-center rounded-xl border p-3 ' +
-        (checked ? 'border-[#FACC15] bg-[#FEFCE8] dark:bg-[#422E12]' : 'border-border bg-background')}>
+        (checked ? (isDark ? 'border-[#FACC15] bg-[#422E12]' : 'border-[#FACC15] bg-[#FEFCE8]') : 'border-border bg-background')}>
       <View className="h-5 w-5 rounded border border-[#A16207] items-center justify-center">
         {checked && <ShieldCheck size={15} color="#A16207" />}
       </View>
@@ -38,6 +40,8 @@ function ToggleRow({
 
 export function CategoryManagement({ role }: { role: AdminRole | null }) {
   const colors = useWowColors();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const categoriesQuery = useAdminCategories();
   const [businessSearch, setBusinessSearch] = useState('');
   const businessesQuery = useAdminBusinessCategories(businessSearch.trim().slice(0, 100), 30);
@@ -215,7 +219,7 @@ export function CategoryManagement({ role }: { role: AdminRole | null }) {
                           accessibilityState={{ selected: parentId === parent.id }}
                           onPress={() => { setParentId(parent.id); setConfirmCategory(false); }}
                           className={'rounded-xl border px-3 py-2 ' +
-                            (parentId === parent.id ? 'border-[#FACC15] bg-[#FEF3C7] dark:bg-[#422E12]' : 'border-border')}>
+                            (parentId === parent.id ? (isDark ? 'border-[#FACC15] bg-[#422E12]' : 'border-[#FACC15] bg-[#FEF3C7]') : 'border-border')}>
                           <AppText className="font-tajawal-medium text-xs text-right">{parent.name_ar}</AppText>
                         </Pressable>
                       ))}
@@ -265,7 +269,7 @@ export function CategoryManagement({ role }: { role: AdminRole | null }) {
                 onPress={() => chooseBusiness(business)}
                 className={'rounded-xl border p-3 gap-1 ' +
                   (selectedBusiness?.business_id === business.business_id
-                    ? 'border-[#FACC15] bg-[#FEFCE8] dark:bg-[#422E12]' : 'border-border')}>
+                    ? (isDark ? 'border-[#FACC15] bg-[#422E12]' : 'border-[#FACC15] bg-[#FEFCE8]') : 'border-border')}>
                 <AppText className="text-sm font-tajawal-bold text-right">{business.business_name}</AppText>
                 <AppText variant="caption" muted className="text-xs text-right">
                   {business.business_status} • {business.category_ids.length} تصنيفات معتمدة
@@ -295,7 +299,7 @@ export function CategoryManagement({ role }: { role: AdminRole | null }) {
                   disabled={!canAssign}
                   onPress={() => { setPrimaryId(category.id); setConfirmAssign(false); }}
                   className={'rounded-xl border px-3 py-2 ' +
-                    (primaryId === category.id ? 'border-[#FACC15] bg-[#FEF3C7] dark:bg-[#422E12]' : 'border-border')}>
+                    (primaryId === category.id ? (isDark ? 'border-[#FACC15] bg-[#422E12]' : 'border-[#FACC15] bg-[#FEF3C7]') : 'border-border')}>
                   <AppText className="text-xs font-tajawal-bold text-right">{category.name_ar}</AppText>
                 </Pressable>
               ))}
