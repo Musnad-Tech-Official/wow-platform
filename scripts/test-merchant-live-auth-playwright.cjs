@@ -165,6 +165,22 @@ async function verifyNoAdmin(token){
  if(response.status>=400&&['P0001','42501'].includes(String(d.code)))return;
  throw Error('Unprivileged account reached administrator RPC, HTTP '+response.status);
 }
+// W07 routine ACL check uses signed, non-admin Clerk JWTs. Read-only only.
+async function verifyW07NonAdmin(token) {
+  const calls=[
+    ['wow_admin_list_pending_offers',{p_limit:1,p_offset:0}],
+    ['wow_admin_list_categories',{}],
+    ['wow_admin_search_business_categories',{p_query:'',p_limit:1}],
+  ];
+  for(const [name,args] of calls){
+    const result=await rpcResult(token,name,args);
+    assert.equal(result.ok,false,'SECURITY: non-admin Clerk account accessed W07 RPC '+name);
+    assert.ok(['42501','P0001'].includes(String(result.code)),
+      'W07 '+name+' denied for unexpected reason: HTTP '+result.status+' / '+String(result.code));
+  }
+  console.log('PASS: signed non-admin Clerk account denied all three W07 read RPCs.');
+}
+
 async function verifyW06Reviewer(reviewerToken,nonAdminToken) {
  // These are REAL Clerk development JWTs; no synthetic database claims.
  const role = await rpcResult(reviewerToken,'wow_admin_get_effective_role',{});
@@ -304,8 +320,9 @@ async function captureW07AdminViews(browser, reviewerToken, nonAdminToken) {
       !adminDir || !fs.existsSync(path.join(adminDir,'index.html'))) {
     throw Error('W07 real-session QA requires an authorized reviewer and fresh Admin export.');
   }
-  for (const rpcName of ['wow_admin_list_categories','wow_admin_search_business_categories']) {
-    const args=rpcName==='wow_admin_list_categories'?{}:{p_query:'',p_limit:10};
+  for (const rpcName of ['wow_admin_list_pending_offers','wow_admin_list_categories','wow_admin_search_business_categories']) {
+    const args=rpcName==='wow_admin_list_pending_offers'?{p_limit:10,p_offset:0}:
+      rpcName==='wow_admin_list_categories'?{}:{p_query:'',p_limit:10};
     const allowed=await rpcResult(reviewerToken,rpcName,args);
     assert.equal(allowed.ok,true,'W07 reviewer RPC failed '+rpcName+': '+allowed.status);
     assert(Array.isArray(allowed.data),'W07 reviewer read returned invalid JSON: '+rpcName);
@@ -384,6 +401,7 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300
     await captureW07AdminViews(browser, sessions[2].token, sessions[1].token);
   } else {
     await verifyNoAdmin(sessions[2].token);
+    await verifyW07NonAdmin(sessions[2].token);
   }
   console.log('PASS: real OTP, profiles, actual business and branch RLS, denied unauthorized branch, evidence-required gate, and merchant UI.');
   console.log('DEDICATED_TEST_FIXTURE business='+fixture.businessId+' branch='+fixture.branchId);
