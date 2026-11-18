@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { useAdminModerateRating, type RatingModerationStatus } from '@wow/api';
 import { AppButton, AppText } from '@wow/ui';
@@ -23,14 +23,6 @@ export function RatingDecision({ ratingId, currentStatus, role }: {
   const [choice, setChoice] = useState<RatingModerationStatus | null>(null);
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
-  useEffect(() => {
-    setChoice(null);
-    setReason('');
-    setConfirmed(false);
-    mutation.reset();
-    // Reset pending selection if the server changes the rating being reviewed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ratingId, currentStatus]);
   if (!canSubmitW06Decision(role)) {
     return <W06AuthorityNotice role={role} action="قرار الإشراف على التقييم" />;
   }
