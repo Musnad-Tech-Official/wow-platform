@@ -1,8 +1,10 @@
 import React from 'react';
 import { View } from 'react-native';
-import { useAdminComplaint } from '@wow/api';
+import { useAdminComplaint, type ComplaintStatus } from '@wow/api';
 import { AppText, Card } from '@wow/ui';
 import { W06Header, W06Message } from '../w06/W06Shared';
+import type { AdminRole } from '../auth/admin-access';
+import { ComplaintActions } from './ComplaintActions';
 
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ?
@@ -23,10 +25,12 @@ function Field({ label, value }: { label: string; value: unknown }) {
 }
 
 /** Admin-only allowlisted details: do not echo the unrestricted RPC JSON verbatim. */
-export function AdminComplaintDetail({ id }: { id: string }) {
+export function AdminComplaintDetail({ id, role }: { id: string; role: AdminRole | null }) {
   const query = useAdminComplaint(id);
   const item = record(query.data?.complaint);
   const updates = Array.isArray(query.data?.updates) ? query.data.updates : [];
+  const status = ['new', 'investigating', 'waiting', 'closed'].includes(String(item.status))
+    ? item.status as ComplaintStatus : null;
   return (
     <View className="gap-6">
       <W06Header section="الشكاوى والبلاغات" title="تفاصيل الشكوى"
@@ -71,6 +75,9 @@ export function AdminComplaintDetail({ id }: { id: string }) {
               );
             })}
           </Card>
+          {status ? <ComplaintActions key={id + ':' + status}
+            complaintId={id} status={status} role={role} /> :
+            <W06Message kind="error" title="حالة الشكوى غير صالحة لاتخاذ قرار" />}
         </>
       )}
     </View>
