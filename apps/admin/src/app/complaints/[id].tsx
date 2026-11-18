@@ -9,7 +9,7 @@ export default function AdminComplaintDetailsPage() {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   return (
     <W06GuardedPage title="تفاصيل الشكوى">
-      {() => valid ? <AdminComplaintDetail id={id} /> :
+      {(role) => valid ? <AdminComplaintDetail id={id} role={role} /> :
         <W06Message title="معرّف الشكوى غير صالح" kind="error" />}
     </W06GuardedPage>
   );
