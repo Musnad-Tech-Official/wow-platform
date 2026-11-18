@@ -42,11 +42,43 @@ test('W08 complaint details render allowlisted fields without disclosing raw RPC
   assert.doesNotMatch(s, /JSON\.stringify\(query\.data|private_evidence_keys|storage_key|signedURL|publicUrl/);
 });
 
-test('W08 first tranche never exposes write actions without review confirmation', () => {
+test('W08 rating moderation requires verified reviewer, reason and independent confirmation', () => {
+  const route = read('apps/admin/src/app/ratings.tsx');
   const queue = read('apps/admin/src/features/w08/ModerationQueues.tsx');
+  const editor = read('apps/admin/src/features/w08/RatingDecision.tsx');
+  assert.match(route, /<AdminRatingsQueue role=\{role\}/);
+  assert.match(queue, /<RatingDecision key=\{item\.id/);
+  assert.match(editor, /canSubmitW06Decision\(role\)/);
+  assert.match(editor, /useAdminModerateRating\(\)/);
+  assert.match(editor, /choice !== currentStatus/);
+  assert.match(editor, /note\.length >= 5 && note\.length <= 2000/);
+  assert.match(editor, /confirmed && !mutation\.isPending/);
+  assert.match(editor, /if \(!valid \|\| !choice\) return/);
+  assert.match(editor, /await mutation\.mutateAsync\(\{ ratingId, status: choice, reason: note \}\)/);
+  assert.match(editor, /disabled=\{!valid\}/);
+  assert.doesNotMatch(editor, /service_role|getPublicUrl|\.from\(/);
+});
+
+test('W08 complaint decisions require role, validated notes and explicit confirmation', () => {
+  const route = read('apps/admin/src/app/complaints/[id].tsx');
   const detail = read('apps/admin/src/features/w08/ComplaintDetail.tsx');
-  for (const s of [queue, detail]) {
-    assert.doesNotMatch(s, /useAdminModerateRating|useAdminUpdateComplaint|useAdminRequestMerchantResponse/);
-    assert.doesNotMatch(s, /mutateAsync|\.mutate\(/);
-  }
+  const action = read('apps/admin/src/features/w08/ComplaintActions.tsx');
+  assert.match(route, /<AdminComplaintDetail id=\{id\} role=\{role\}/);
+  assert.match(detail, /<ComplaintActions key=\{id \+ ':' \+ status\}/);
+  assert.match(action, /canSubmitW06Decision\(role\)/);
+  assert.match(action, /status !== 'closed'/);
+  assert.match(action, /useAdminRequestMerchantResponse\(\)/);
+  assert.match(action, /useAdminUpdateComplaint\(\)/);
+  assert.match(action, /normalizedNote\.length >= 5 && normalizedNote\.length <= 3000/);
+  assert.match(action, /normalizedOutcome\.length >= 5 && normalizedOutcome\.length <= 2000/);
+  assert.match(action, /normalizedRequest\.length >= 5 && normalizedRequest\.length <= 3000/);
+  assert.match(action, /confirmUpdate && !busy/);
+  assert.match(action, /confirmRequest && !busy/);
+  assert.match(action, /if \(!readyUpdate \|\| !selected\) return/);
+  assert.match(action, /if \(!readyRequest\) return/);
+  assert.match(action, /await update\.mutateAsync\(/);
+  assert.match(action, /await request\.mutateAsync\(/);
+  assert.match(action, /disabled=\{!readyUpdate\}/);
+  assert.match(action, /disabled=\{!readyRequest\}/);
+  assert.doesNotMatch(action, /service_role|getPublicUrl|\.from\(/);
 });
