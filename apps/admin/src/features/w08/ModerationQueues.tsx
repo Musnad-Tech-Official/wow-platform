@@ -9,6 +9,8 @@ import {
 import { AppText, Card, Badge, AppButton } from '@wow/ui';
 import { useWowColors } from '@wow/theme';
 import { W06Header, W06Message, W06Paging } from '../w06/W06Shared';
+import type { AdminRole } from '../auth/admin-access';
+import { RatingDecision } from './RatingDecision';
 
 const PAGE_SIZE = 25;
 const statuses: { value: ComplaintStatus | null; label: string }[] = [
@@ -120,7 +122,7 @@ export function AdminComplaintsQueue() {
   );
 }
 
-export function AdminRatingsQueue() {
+export function AdminRatingsQueue({ role }: { role: AdminRole | null }) {
   const colors = useWowColors();
   const [status, setStatus] = useState<RatingModerationStatus | null>(null);
   const [offset, setOffset] = useState(0);
@@ -160,6 +162,8 @@ export function AdminRatingsQueue() {
             <AppText variant="caption" muted className="text-xs text-right">
               {'معرّف التقييم: ' + item.id}
             </AppText>
+            <RatingDecision key={item.id + ':' + item.moderation_status}
+              ratingId={item.id} currentStatus={item.moderation_status} role={role} />
           </View>
         ))}
         {query.isSuccess && <W06Paging offset={offset} count={entries.length}
