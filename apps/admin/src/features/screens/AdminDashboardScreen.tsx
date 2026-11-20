@@ -42,7 +42,8 @@ export function AdminDashboardScreen({
   const verifications = useAdminBusinessVerifications({ status: 'submitted', limit: 50 });
   const offers = useAdminPendingOffers({ limit: 50 });
   const complaints = useAdminComplaints({ limit: 50 });
-  const payments = useAdminSubscriptionPayments({ limit: 50 });
+  const canReviewBilling = currentRole === 'reviewer' || currentRole === 'super_admin';
+  const payments = useAdminSubscriptionPayments({ limit: 50 }, canReviewBilling);
 
   const previewCounts = isEmptyPreview ? [0, 0, 0, 0] : [2, 3, 2, 3];
   const countOf = (query: { isSuccess: boolean; data?: unknown[] }, fixtureIndex: number) =>
@@ -55,11 +56,11 @@ export function AdminDashboardScreen({
       note: 'القائمة الحالية، بحد أقصى 50', color: '#3B82F6', Icon: Tag },
     { key: 'complaints', label: 'الشكاوى المسجلة', count: countOf(complaints, 2),
       note: 'لا يمثل الرقم الشكاوى المفتوحة فقط', color: '#F59E0B', Icon: MessageSquareWarning },
-    { key: 'payments', label: 'سجلات مدفوعات الاشتراكات', count: countOf(payments, 3),
+    { key: 'payments', label: 'سجلات مدفوعات الاشتراكات', count: canReviewBilling ? countOf(payments, 3) : null,
       note: 'القائمة الحالية، بحد أقصى 50', color: '#A855F7', Icon: CreditCard },
   ];
 
-  const queries = [verifications, offers, complaints, payments];
+  const queries = canReviewBilling ? [verifications, offers, complaints, payments] : [verifications, offers, complaints];
   const anyFailure = !isFixture && queries.some((q) => q.isError);
   const isLoading = !isFixture && queries.some((q) => q.isPending);
   const allAvailable = isFixture || queries.every((q) => q.isSuccess);
@@ -69,7 +70,7 @@ export function AdminDashboardScreen({
   const verificationRows = Array.isArray(verifications.data) ? verifications.data : [];
   const offerRows = Array.isArray(offers.data) ? offers.data : [];
   const complaintRows = Array.isArray(complaints.data) ? complaints.data : [];
-  const paymentRows = Array.isArray(payments.data) ? payments.data : [];
+  const paymentRows = canReviewBilling && Array.isArray(payments.data) ? payments.data : [];
 
   const liveQueue: QueueEntry[] = [
     ...verificationRows.slice(0, 2).map((record) => ({
@@ -165,7 +166,7 @@ export function AdminDashboardScreen({
               {count === null ? (isLoading ? '…' : '—') : count >= 50 && !isFixture ? '50+' : String(count).padStart(2, '0')}
             </AppText>
             <AppText variant="caption" muted className="text-xs text-right">
-              {count === null ? 'لم يتأكد توفر بيانات هذا المصدر' : isFixture ? 'بيانات عرض تجريبية' : note}
+              {count === null ? (key === 'payments' && !canReviewBilling ? 'غير متاح لصلاحية المشاهدة' : 'لم يتأكد توفر بيانات هذا المصدر') : isFixture ? 'بيانات عرض تجريبية' : note}
             </AppText>
           </Card>
         ))}
