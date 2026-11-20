@@ -25,6 +25,8 @@
     "test:merchant-batch-02-playwright": "node scripts/test-merchant-batch-02-playwright.cjs",
     "test:merchant-final-8": "node scripts/test-merchant-final-8.cjs",
     "test:merchant-final-8-playwright": "node scripts/test-merchant-final-8-playwright.cjs",
-    "validate:routes": "node scripts/validate-integration-routes.cjs"
+    "validate:routes": "node scripts/validate-integration-routes.cjs",
+    "test:admin-batch-01": "node --experimental-strip-types scripts/test-admin-batch-01.cjs",
+    "test:admin-batch-02": "node --experimental-strip-types scripts/test-admin-batch-02.cjs"
   }
 }

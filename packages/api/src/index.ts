@@ -22,6 +22,9 @@ export { createWowQueryClient } from './query/query-client';
 export { wowQueryKeys } from './query/query-keys';
 export { useWowSupabaseClient, type WowSupabaseOptions } from './query/use-wow-supabase-client';
 export { useCurrentUser } from './query/hooks/use-current-user';
+export { useAdminEffectiveRole, type EffectiveAdminRole } from './query/hooks/use-admin-effective-role';
+export { useAdminVerificationEvidence } from './query/hooks/use-admin-review-evidence';
+export { useAdminProfileRevisionContext, type AdminProfileRevisionContext } from './query/hooks/use-admin-profile-revision-context';
 export {
   useMyBusinesses,
   useAccessibleMerchantBusinesses,

@@ -104,11 +104,11 @@ jobs:
   merchant-live-clerk-auth:
     name: Real Clerk OTP and Supabase profile RLS (development only)
     needs: verify
-    # Run real Clerk OTP + Supabase RLS for each trusted merchant feature PR.
+    # Run real Clerk OTP + Supabase RLS for trusted merchant PRs and the W06 review PR.
     # No hard-coded PR numbers: future merchant batches must be tested too.
     # Only same-repository PRs can use the dedicated development test identities.
-    # Existing fixture only; no new business or branch is created.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'feat/merchant-')
+    # Existing fixture only; no new business or branch is created; no elevated admin identity.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'feat/merchant-') || github.head_ref == 'feat/admin-w06-main-sync-review-20261114')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -120,6 +120,9 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
       EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
       WOW_E2E_ALLOW_FIXTURE_CREATION: 'false'
+      WOW_E2E_EXPECT_ADMIN_REVIEWER: 'false' # No standing reviewer fixture.
+      WOW_E2E_STORAGE_VERIFICATION: 'false' # Private evidence test requires explicit scoped cleanup setup.
+      WOW_E2E_CAPTURE_ADMIN_VIEWS: 'false'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -138,8 +141,19 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Export real merchant web application
         run: pnpm --filter merchant exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-merchant-web"
-      - name: Verify real Clerk sessions and Supabase RLS
-        run: WOW_MERCHANT_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-merchant-web" node scripts/test-merchant-live-auth-playwright.cjs
+      - name: Export real Admin web application for W06 live Clerk review
+        if: env.WOW_E2E_CAPTURE_ADMIN_VIEWS == 'true'
+        run: pnpm --filter admin exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-admin-web"
+      - name: Verify real Clerk sessions, Supabase RLS, and W06 reviewer UI
+        run: WOW_MERCHANT_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-merchant-web" WOW_ADMIN_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-admin-web" node scripts/test-merchant-live-auth-playwright.cjs
+      - name: Archive W06 signed-session screenshots
+        if: always() && env.WOW_E2E_EXPECT_ADMIN_REVIEWER == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-w06-real-clerk-screenshots
+          path: artifacts/admin-w06-real-clerk-screenshots/
+          if-no-files-found: warn
+          retention-days: 7
   merchant-production-preview:
     name: Production Expo web rejects crafted preview guest links
     needs: verify
@@ -233,3 +247,95 @@ jobs:
           cache: pnpm
       - name: Verify and install frozen workspace dependencies
         run: pnpm install --frozen-lockfile
+
+  admin-web-access:
+    name: Admin Expo Web hydration and production guest access gate
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      # Public development credentials, never a service-role key.
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Export development Admin Expo Web
+        run: pnpm --filter admin exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-admin-dev"
+      - name: Verify development Admin routes hydrate without errors
+        env:
+          WOW_ADMIN_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-admin-dev
+        run: node scripts/test-admin-browser-playwright.cjs
+      - name: Capture 16 verified Admin review screenshots
+        env:
+          WOW_ADMIN_CAPTURE_SKIP_EXPORT: '1'
+          WOW_ADMIN_CAPTURE_SKIP_ZIP: '1'
+          WOW_ADMIN_CAPTURE_EXPORT_DIR: ${{ runner.temp }}/wow-admin-dev
+        run: node scripts/capture-admin-batch01-screenshots.cjs
+      - name: Upload Admin visual-review screenshots and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-batch01-visual-review
+          path: artifacts/admin-batch01-review/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Export production Admin Expo Web
+        run: pnpm --filter admin exec expo export -p web --output-dir "$RUNNER_TEMP/wow-admin-prod"
+      - name: Verify production preview URLs cannot unlock Admin routes
+        env:
+          WOW_ADMIN_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-admin-prod
+          WOW_EXPECT_PRODUCTION_PREVIEW_DENIED: '1'
+        run: node scripts/test-admin-browser-playwright.cjs
+
+  customer-admin-native-bundles:
+    name: Customer and Admin Android/iOS production JS exports
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      # Public development configuration for bundle validation, not release credentials.
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cG9saXNoZWQtYmFzaWxpc2stNzExNC5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_SUPABASE_URL: https://jfqmdnffqwkqevdhmtfi.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_pgfkQko0jzdH9WJKj4geMQ_9Nnibz0K
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Export customer Android JavaScript bundle
+        run: pnpm --filter customer exec expo export --platform android --output-dir "$RUNNER_TEMP/wow-customer-android"
+      - name: Export customer iOS JavaScript bundle
+        run: pnpm --filter customer exec expo export --platform ios --output-dir "$RUNNER_TEMP/wow-customer-ios"
+      - name: Export admin Android JavaScript bundle
+        run: pnpm --filter admin exec expo export --platform android --output-dir "$RUNNER_TEMP/wow-admin-android"
+      - name: Export admin iOS JavaScript bundle
+        run: pnpm --filter admin exec expo export --platform ios --output-dir "$RUNNER_TEMP/wow-admin-ios"
