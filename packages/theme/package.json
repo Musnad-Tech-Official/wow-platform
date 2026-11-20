@@ -12,14 +12,14 @@
     "./theme.css": "./theme.css"
   },
   "peerDependencies": {
-    "react": "19.2.3",
-    "react-native": "0.86.3",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
     "nativewind": "5.0.0-rc.0"
   },
   "devDependencies": {
-    "react": "19.2.3",
-    "react-native": "0.86.3",
-    "@types/react": "~19.2.2",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   }
 }
