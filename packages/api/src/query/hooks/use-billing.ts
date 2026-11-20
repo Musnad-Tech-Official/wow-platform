@@ -85,12 +85,12 @@ export function useSubmitSubscriptionPayment() {
   });
 }
 
-export function useAdminSubscriptionPayments(options: AdminPaymentListOptions = {}) {
+export function useAdminSubscriptionPayments(options: AdminPaymentListOptions = {}, canQuery = true) {
   const context = useWowApiContext();
   const { status = null, limit = 50, offset = 0 } = options;
   return useQuery({
     queryKey: wowQueryKeys.billing.adminPayments(context.userId, status, limit, offset),
-    enabled: !!context.userId,
+    enabled: !!context.userId && canQuery,
     queryFn: () => adminListSubscriptionPayments(
       requireWowApiSession(context).client, { status, limit, offset },
     ),
