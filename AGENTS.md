@@ -4,7 +4,7 @@ These instructions apply to all three Expo applications and shared packages.
 
 ## Project contracts
 
-- Expo SDK 57, React Native 0.86, TypeScript, pnpm workspaces; use `pnpm install --frozen-lockfile` from the repository root.
+- Expo SDK 58, React Native 0.88, TypeScript, pnpm workspaces; use `pnpm install --frozen-lockfile` from the repository root.
 - Follow the approved Customer, Merchant and Admin UI reference and `docs/design-system.md`. Arabic-first RTL, Tajawal, responsive Expo/native/web, accessible semantics and 48pt minimum touch targets. Test light, dark and system modes.
 - Prefer existing `@wow/ui`, `@wow/theme`, `@wow/assets`, `@wow/api` and `@wow/auth` contracts. Use Expo-version-compatible packages and current SDK documentation.
 - New features may introduce purposeful reusable UI components, without changing approved business behavior. Do not use browser-only DOM component libraries in native-shared code.

@@ -12,7 +12,7 @@ The current scope is local offer discovery, merchant operations, subscriptions a
 
 ## Stack and folders
 
-Expo SDK 57 / React Native 0.86 / React 19 / TypeScript / Expo Router / NativeWind 5 RC / TanStack Query / Clerk / Supabase / pnpm 10.
+Expo SDK 58 / React Native 0.88 / React 19 / TypeScript / Expo Router / NativeWind 5 RC / TanStack Query / Clerk / Supabase / pnpm 10.
 
 - `packages/api`: typed Supabase RPCs, Clerk-aware query hooks and Storage helpers.
 - `packages/auth`: Clerk provider and session integration.

@@ -1,4 +1,4 @@
-// SDK 57's own declaration generator; no dev server or hosted CI required.
+// Expo Router's declaration generator; no dev server or hosted CI required.
 const { createRequire } = require('node:module');
 const { mkdirSync, readFileSync } = require('node:fs');
 const { resolve, dirname } = require('node:path');
