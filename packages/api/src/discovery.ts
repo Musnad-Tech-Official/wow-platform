@@ -244,3 +244,39 @@ export async function adminSetBusinessCategories(
   if (error) throw error;
   return requireUuid(data, 'wow_admin_set_business_categories');
 }
+
+
+/** Includes inactive categories for authorized platform administration only. */
+export interface AdminCategory extends PublicCategory {
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface AdminBusinessCategoryRow {
+  business_id: string;
+  business_name: string;
+  business_status: string;
+  category_ids: string[];
+  primary_category_id: string | null;
+}
+
+/** Admin-only read model; no direct table grants for categories. */
+export async function listAdminCategories(client: WowSupabaseClient): Promise<AdminCategory[]> {
+  const { data, error } = await client.rpc('wow_admin_list_categories');
+  if (error) throw error;
+  return requireArray<AdminCategory>(data, 'wow_admin_list_categories');
+}
+
+/** Search admin business records and approved assignments, bounded to 30 by default. */
+export async function searchAdminBusinessCategories(
+  client: WowSupabaseClient,
+  query = '',
+  limit = 30,
+): Promise<AdminBusinessCategoryRow[]> {
+  const { data, error } = await client.rpc('wow_admin_search_business_categories', {
+    p_query: query,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return requireArray<AdminBusinessCategoryRow>(data, 'wow_admin_search_business_categories');
+}

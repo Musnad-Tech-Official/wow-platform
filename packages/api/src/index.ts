@@ -5,6 +5,7 @@ export * from './businesses';
 export * from './branches';
 export * from './verifications';
 export * from './offers';
+export * from './admin-offer-assets';
 export * from './customer-interactions';
 export * from './billing';
 export * from './discovery';
@@ -24,6 +25,7 @@ export { useWowSupabaseClient, type WowSupabaseOptions } from './query/use-wow-s
 export { useCurrentUser } from './query/hooks/use-current-user';
 export { useAdminEffectiveRole, type EffectiveAdminRole } from './query/hooks/use-admin-effective-role';
 export { useAdminVerificationEvidence } from './query/hooks/use-admin-review-evidence';
+export { useAdminOfferAssets } from './query/hooks/use-admin-offer-assets';
 export { useAdminProfileRevisionContext, type AdminProfileRevisionContext } from './query/hooks/use-admin-profile-revision-context';
 export {
   useMyBusinesses,
@@ -106,6 +108,8 @@ export {
   usePublicSearchBusinesses,
   usePublicBusiness,
   usePublicOffer,
+  useAdminCategories,
+  useAdminBusinessCategories,
   useAdminUpsertCategory,
   useAdminSetBusinessCategories,
 } from './query/hooks/use-discovery';

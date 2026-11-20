@@ -179,13 +179,12 @@ export function AdminShell({
                 <FileClock size={18} color={colors.mutedForeground} />
                 <AppText className="flex-1 text-sm text-right font-tajawal-medium">تعديلات ملفات التجار</AppText>
               </Pressable>
-              <View className="flex-row items-center gap-3 rounded-xl px-3 py-2 opacity-60">
+              <Pressable onPress={() => navTo('/offer-review')}
+                accessibilityRole="button" accessibilityLabel="مراجعة العروض"
+                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname.startsWith('/offer-review') ? (isDark ? 'bg-[#422E12]' : 'bg-[#FEFCE8]') + ' border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
                 <Tag size={18} color={colors.mutedForeground} />
-                <AppText className="flex-1 text-sm text-right font-tajawal-medium" muted>
-                  مراجعة العروض
-                </AppText>
-                <Badge label="قريباً" variant="secondary" />
-              </View>
+                <AppText className="flex-1 text-sm text-right font-tajawal-medium">مراجعة العروض</AppText>
+              </Pressable>
               <View className="flex-row items-center gap-3 rounded-xl px-3 py-2 opacity-60">
                 <MessageSquareWarning size={18} color={colors.mutedForeground} />
                 <AppText className="flex-1 text-sm text-right font-tajawal-medium" muted>
@@ -230,13 +229,12 @@ export function AdminShell({
               الإعدادات
             </AppText>
             <View className="gap-1">
-              <View className="flex-row items-center gap-3 rounded-xl px-3 py-2 opacity-60">
+              <Pressable onPress={() => navTo('/categories')}
+                accessibilityRole="button" accessibilityLabel="إدارة التصنيفات"
+                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname === '/categories' ? (isDark ? 'bg-[#422E12]' : 'bg-[#FEFCE8]') + ' border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
                 <FolderTree size={18} color={colors.mutedForeground} />
-                <AppText className="flex-1 text-sm text-right font-tajawal-medium" muted>
-                  التصنيفات
-                </AppText>
-                <Badge label="قريباً" variant="secondary" />
-              </View>
+                <AppText className="flex-1 text-sm text-right font-tajawal-medium">التصنيفات</AppText>
+              </Pressable>
 
               <Pressable
                 onPress={() => navTo('/roles')}

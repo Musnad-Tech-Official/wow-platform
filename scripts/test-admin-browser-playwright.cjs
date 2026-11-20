@@ -42,7 +42,8 @@ const server = http.createServer((req, res) => {
       pathname += '.html';
     } else if (fs.existsSync(path.join(pathname, 'index.html'))) {
       pathname = path.join(pathname, 'index.html');
-    } else if (new RegExp('^/verification/[0-9a-f-]{36}$', 'i').test(route)) {
+    } else if (new RegExp('^/verification/[0-9a-f-]{36}$', 'i').test(route) ||
+               new RegExp('^/offer-review/[0-9a-f-]{36}$', 'i').test(route)) {
       // Expo static HTML cannot preregister an arbitrary verification UUID;
       // the actual client router still enforces the protected route guard.
       pathname = path.join(rootPath, 'index.html');
@@ -67,6 +68,13 @@ const tests = [
   ['/profile-revisions?preview=adm14', 'الدخول إلى منصة الإدارة', 1440],
   ['/payments?preview=adm02', 'الدخول إلى منصة الإدارة', 390],
   ['/verification/00000000-0000-0000-0000-000000000000?preview=adm14', 'الدخول إلى منصة الإدارة', 1440],
+  // W07 routes must stay fail-closed, including development preview query parameters.
+  ['/offer-review?preview=adm02', 'الدخول إلى منصة الإدارة', 1440],
+  ['/categories?preview=adm14', 'الدخول إلى منصة الإدارة', 390],
+  ['/offer-review/00000000-0000-0000-0000-000000000000?preview=adm02', 'الدخول إلى منصة الإدارة', 390],
+  ['/offer-review', 'الدخول إلى منصة الإدارة', 390],
+  ['/categories', 'الدخول إلى منصة الإدارة', 1440],
+  ['/offer-review/00000000-0000-0000-0000-000000000000', 'الدخول إلى منصة الإدارة', 1440],
   // Direct guest navigation must be denied too, even without forged preview parameters.
   ['/verifications', 'الدخول إلى منصة الإدارة', 390],
   ['/profile-revisions', 'الدخول إلى منصة الإدارة', 1440],

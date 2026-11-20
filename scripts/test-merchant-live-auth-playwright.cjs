@@ -165,6 +165,22 @@ async function verifyNoAdmin(token){
  if(response.status>=400&&['P0001','42501'].includes(String(d.code)))return;
  throw Error('Unprivileged account reached administrator RPC, HTTP '+response.status);
 }
+// W07 routine ACL check uses signed, non-admin Clerk JWTs. Read-only only.
+async function verifyW07NonAdmin(token) {
+  const calls=[
+    ['wow_admin_list_pending_offers',{p_limit:1,p_offset:0}],
+    ['wow_admin_list_categories',{}],
+    ['wow_admin_search_business_categories',{p_query:'',p_limit:1}],
+  ];
+  for(const [name,args] of calls){
+    const result=await rpcResult(token,name,args);
+    assert.equal(result.ok,false,'SECURITY: non-admin Clerk account accessed W07 RPC '+name);
+    assert.ok(['42501','P0001'].includes(String(result.code)),
+      'W07 '+name+' denied for unexpected reason: HTTP '+result.status+' / '+String(result.code));
+  }
+  console.log('PASS: signed non-admin Clerk account denied all three W07 read RPCs.');
+}
+
 async function verifyW06Reviewer(reviewerToken,nonAdminToken) {
  // These are REAL Clerk development JWTs; no synthetic database claims.
  const role = await rpcResult(reviewerToken,'wow_admin_get_effective_role',{});
@@ -297,6 +313,56 @@ async function verifyW06StorageHttp(owner,nonowner,reviewer,fixture) {
   }
 }
 
+
+async function captureW07AdminViews(browser, reviewerToken, nonAdminToken) {
+  if (process.env.WOW_E2E_CAPTURE_W07 !== 'true') return;
+  if (process.env.WOW_E2E_EXPECT_ADMIN_REVIEWER !== 'true' ||
+      !adminDir || !fs.existsSync(path.join(adminDir,'index.html'))) {
+    throw Error('W07 real-session QA requires an authorized reviewer and fresh Admin export.');
+  }
+  for (const rpcName of ['wow_admin_list_pending_offers','wow_admin_list_categories','wow_admin_search_business_categories']) {
+    const args=rpcName==='wow_admin_list_pending_offers'?{p_limit:10,p_offset:0}:
+      rpcName==='wow_admin_list_categories'?{}:{p_query:'',p_limit:10};
+    const allowed=await rpcResult(reviewerToken,rpcName,args);
+    assert.equal(allowed.ok,true,'W07 reviewer RPC failed '+rpcName+': '+allowed.status);
+    assert(Array.isArray(allowed.data),'W07 reviewer read returned invalid JSON: '+rpcName);
+    const denied=await rpcResult(nonAdminToken,rpcName,args);
+    assert.equal(denied.ok,false,'W07 API unexpectedly exposed '+rpcName+' to non-admin.');
+  }
+  const previousRoot=root;
+  root=path.resolve(adminDir);
+  const context=await browser.newContext({viewport:{width:1440,height:900}});
+  const page=await context.newPage();
+  const issues=[];
+  page.on('pageerror',e=>issues.push(e.message));
+  try {
+    const loginToken=await login(page,users[2][0]);
+    assert.equal(sub(loginToken),users[2][1]);
+    const shots=[
+      ['/offer-review','قائمة انتظار العروض','01_w07_offers_desktop.png',1440],
+      ['/categories','شجرة التصنيفات','02_w07_categories_desktop.png',1440],
+      ['/offer-review','قائمة انتظار العروض','03_w07_offers_mobile.png',390],
+      ['/categories','شجرة التصنيفات','04_w07_categories_mobile.png',390],
+    ];
+    const dir=path.resolve('artifacts/admin-w07-real-clerk-screenshots');
+    fs.mkdirSync(dir,{recursive:true});
+    for(const [route,label,filename,width] of shots){
+      await page.setViewportSize({width,height:width===390?844:900});
+      const response=await page.goto(origin()+route,{waitUntil:'domcontentloaded'});
+      assert.equal(response.status(),200,'W07 Admin route did not serve '+route);
+      await page.getByText(label,{exact:false}).first().waitFor({timeout:35000});
+      assert.deepEqual(issues,[],'W07 route caused runtime errors '+route);
+      const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2);
+      assert.equal(overflow,false,'W07 horizontal overflow '+route+' / '+width);
+      await page.screenshot({path:path.join(dir,filename),fullPage:true});
+    }
+    console.log('PASS: real Clerk reviewer opens W07 offer/category routes on desktop and mobile; non-admin W07 RPCs denied.');
+  }finally{
+    root=previousRoot;
+    await context.close();
+  }
+}
+
 test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300000},async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const sessions=[];
@@ -332,8 +398,10 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300
       await verifyW06StorageHttp(sessions[0],sessions[1],sessions[2],fixture);
     }
     await captureW06AdminViews(browser, users[2]);
+    await captureW07AdminViews(browser, sessions[2].token, sessions[1].token);
   } else {
     await verifyNoAdmin(sessions[2].token);
+    await verifyW07NonAdmin(sessions[2].token);
   }
   console.log('PASS: real OTP, profiles, actual business and branch RLS, denied unauthorized branch, evidence-required gate, and merchant UI.');
   console.log('DEDICATED_TEST_FIXTURE business='+fixture.businessId+' branch='+fixture.branchId);
