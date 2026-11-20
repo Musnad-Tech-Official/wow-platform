@@ -69,6 +69,17 @@ test('Dashboard does not emit fictitious production records or trends', () => {
   assert.doesNotMatch(s, /BIZ-028|OF-164|CMP-043|points="10,65/);
 });
 
+test('Viewer dashboard excludes forbidden billing queries and cached payment rows', () => {
+  const dashboard = read('apps/admin/src/features/screens/AdminDashboardScreen.tsx');
+  const billingHooks = read('packages/api/src/query/hooks/use-billing.ts');
+  assert.match(dashboard, /currentRole === 'reviewer' \|\| currentRole === 'super_admin'/);
+  assert.match(dashboard, /useAdminSubscriptionPayments\(\{ limit: 50 \}, canReviewBilling\)/);
+  assert.match(dashboard, /const queries = canReviewBilling \?/);
+  assert.match(dashboard, /const paymentRows = canReviewBilling && Array\.isArray\(payments\.data\)/);
+  assert.match(billingHooks, /useAdminSubscriptionPayments\(options: AdminPaymentListOptions = \{\}, canQuery = true\)/);
+  assert.match(billingHooks, /enabled: !!context\.userId && canQuery/);
+});
+
 test('Admin waits for effective-role verification before rendering review controls', () => {
   const s = read('apps/admin/src/features/auth/use-admin-access.ts');
   assert.match(s, /isCheckingRpc \|\| effectiveRoleQuery\.isPending/);
