@@ -43,7 +43,8 @@ const server = http.createServer((req, res) => {
     } else if (fs.existsSync(path.join(pathname, 'index.html'))) {
       pathname = path.join(pathname, 'index.html');
     } else if (new RegExp('^/verification/[0-9a-f-]{36}$', 'i').test(route) ||
-               new RegExp('^/offer-review/[0-9a-f-]{36}$', 'i').test(route)) {
+               new RegExp('^/offer-review/[0-9a-f-]{36}$', 'i').test(route) ||
+               new RegExp('^/complaints/[0-9a-f-]{36}$', 'i').test(route)) {
       // Expo static HTML cannot preregister an arbitrary verification UUID;
       // the actual client router still enforces the protected route guard.
       pathname = path.join(rootPath, 'index.html');
@@ -75,6 +76,10 @@ const tests = [
   ['/offer-review', 'الدخول إلى منصة الإدارة', 390],
   ['/categories', 'الدخول إلى منصة الإدارة', 1440],
   ['/offer-review/00000000-0000-0000-0000-000000000000', 'الدخول إلى منصة الإدارة', 1440],
+  // W08 complaint and rating routes must deny unsigned guests.
+  ['/complaints', 'الدخول إلى منصة الإدارة', 1440],
+  ['/ratings', 'الدخول إلى منصة الإدارة', 390],
+  ['/complaints/00000000-0000-0000-0000-000000000000', 'الدخول إلى منصة الإدارة', 1440],
   // Direct guest navigation must be denied too, even without forged preview parameters.
   ['/verifications', 'الدخول إلى منصة الإدارة', 390],
   ['/profile-revisions', 'الدخول إلى منصة الإدارة', 1440],
