@@ -38,7 +38,7 @@ test('workspace dependencies and declared package entry points actually exist', 
   const apps=['customer','merchant','admin'];
   for(const app of apps){
     const pkg=JSON.parse(read('apps/'+app+'/package.json'));
-    assert.match(pkg.dependencies.expo,/57\.0\./);
+    assert.match(pkg.dependencies.expo,/58\.0\./);
     assert.equal(pkg.scripts['reset-project'],undefined);
     assert(!pkg.dependencies['@wow/types']&&!pkg.dependencies['@wow/utils']);
     for(const [name,version] of Object.entries(pkg.dependencies)){
@@ -66,8 +66,8 @@ test('lockfile registry tarball entries have verified integrity', () => {
       'Tarball entry must include a verifiable integrity checksum: ' + resolution
     );
   }
-  const picker = lock.match(/^  expo-document-picker@57\.0\.3:\n    resolution: \{([^}\n]+)\}/m);
-  assert(picker, 'Missing pinned expo-document-picker@57.0.3');
+  const picker = lock.match(/^  expo-document-picker@58\.0\.5:\n    resolution: \{([^}\n]+)\}/m);
+  assert(picker, 'Missing pinned expo-document-picker@58.0.5');
   assert.match(picker[1], /integrity: sha512-[A-Za-z0-9+/]+={0,2}/);
 });
 

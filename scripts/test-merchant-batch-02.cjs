@@ -352,8 +352,8 @@ test('BATCH-02: Native evidence picker is present for Android/iOS and stays priv
   const picker = read('apps/merchant/src/features/business/components/EvidencePicker.tsx');
   const packageJson = JSON.parse(read('apps/merchant/package.json'));
   const lockfile = read('pnpm-lock.yaml');
-  assert.equal(packageJson.dependencies['expo-document-picker'], '~57.0.3');
-  assert(lockfile.includes('expo-document-picker@57.0.3'));
+  assert.equal(packageJson.dependencies['expo-document-picker'], '~58.0.5');
+  assert(lockfile.includes('expo-document-picker@58.0.5'));
   assert(picker.includes('Platform.OS === \'ios\' || Platform.OS === \'android\''));
   assert(picker.includes('DocumentPicker.getDocumentAsync'));
   assert(picker.includes('copyToCacheDirectory: true'));

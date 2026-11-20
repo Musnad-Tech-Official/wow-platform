@@ -109,3 +109,11 @@ test('W07 category writes use existing server-guarded RPCs and explicit approval
   assert.match(hooks, /useAdminBusinessCategories/);
   assert.match(hooks, /\['admin', 'category-businesses'\]/);
 });
+
+
+test('W07 blocks saving when inactive business category assignments would be silently lost', () => {
+  const source = read('apps/admin/src/features/w07/CategoryManagement.tsx');
+  assert.match(source, /hiddenAssignmentIds = \(selectedBusiness\?\.category_ids \?\? \[\]\)\.filter/);
+  assert.match(source, /canAssign && hiddenAssignmentIds\.length === 0/);
+  assert.match(source, /توجد تعيينات تصنيفات غير ظاهرة/);
+});
