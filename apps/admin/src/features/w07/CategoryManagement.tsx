@@ -75,7 +75,11 @@ export function CategoryManagement({ role }: { role: AdminRole | null }) {
   const validCategory = canEditCategories && isSlug(slug.trim()) &&
     nameAr.trim().length >= 2 && Number.isInteger(parsedSortOrder) &&
     Math.abs(parsedSortOrder) <= 100000 && !edit.isPending;
-  const validAssignment = canAssign && Boolean(selectedBusiness) && assigned.length > 0 &&
+  // Do not silently delete assignments omitted from the active-category picker.
+  const hiddenAssignmentIds = (selectedBusiness?.category_ids ?? []).filter((id) =>
+    !selectableCategories.some((category) => category.id === id));
+  const validAssignment = canAssign && hiddenAssignmentIds.length === 0 &&
+    Boolean(selectedBusiness) && assigned.length > 0 &&
     assigned.length <= 12 && primaryId !== null && assigned.includes(primaryId) &&
     reason.trim().length >= 10 && reason.trim().length <= 1000 && !assign.isPending;
 
@@ -284,6 +288,10 @@ export function CategoryManagement({ role }: { role: AdminRole | null }) {
               التعيينات المعتمدة للنشاط: {selectedBusiness.business_name}
             </AppText>
             {!canAssign && <W06Message kind="info" title="تغيير التعيينات يتطلب دور مراجع أو مسؤول أعلى" />}
+            {hiddenAssignmentIds.length > 0 && (
+              <W06Message kind="error" title="توجد تعيينات تصنيفات غير ظاهرة في الخيارات"
+                detail="لا يمكن حفظ استبدال التصنيفات بينما توجد تعيينات متوقفة أو غير متاحة؛ قد يؤدي الحفظ إلى حذفها دون قصد. يجب معالجة التصنيفات أولًا." />
+            )}
             <View className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {selectableCategories.map((category) => (
                 <ToggleRow key={category.id} label={category.name_ar}
