@@ -122,7 +122,7 @@ export function OfferBranchesScreen() {
   };
 
   return (
-    <MerchantScaffold currentTab="offers">
+    <MerchantScaffold currentTab="offers" contentMaxWidth={880}>
       <OfferBusinessConflictModal
         visible={businessConflict}
         draftBusinessName={draftBusinessName}
