@@ -25,6 +25,11 @@ BEGIN
     VALUES (cat,root_cat,slug_child,'فئة اختبار فرعية',true);
   INSERT INTO public.businesses(id,owner_user_id,name,status,approved_at)
     VALUES (b,owner,'نشاط اختبار التصنيف','approved',now());
+  INSERT INTO public.business_members(business_id,user_id,role,status,can_draft,can_submit,can_pause,can_monitor)
+    VALUES (b,owner,'owner','active',true,true,true,true);
+  -- Offer submission is additionally guarded by the live Clerk JWT actor.
+  PERFORM set_config('request.jwt.claims',
+    jsonb_build_object('sub',owner,'role','authenticated')::text,true);
   INSERT INTO public.business_categories(business_id,category_id,is_primary,approved_by_user_id)
     VALUES(b,cat,true,owner);
   INSERT INTO public.business_branches(id,business_id,name,city,address_line,status,approved_at)
