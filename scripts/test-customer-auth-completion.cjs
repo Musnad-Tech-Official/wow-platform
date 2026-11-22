@@ -165,8 +165,12 @@ test('4. CUS-05-03: Provider-Based Account Recovery Help Route & Official Extern
 
   // Content fidelity: honest provider explanation without fake password recovery
   assert.match(recoveryScreenSrc, /مساعدة في استعادة الوصول/, 'Screen title matches specification');
-  assert.match(recoveryScreenSrc, /المصادقة الآمنة والمباشرة عبر حسابك المعتمد لدى Google أو Facebook/, 'Transparent provider explanation');
-  assert.match(recoveryScreenSrc, /لا نخزن كلمات مرور لحسابك ولا نرسل رموز تحقق عبر الرسائل القصيرة/, 'Explicit rejection of passwords & OTP');
+  assert.match(recoveryScreenSrc, /تتيح واجهات تطبيق WOW الحالية تسجيل الدخول عبر Google أو Facebook/,
+    'Recovery must describe the actual exposed sign-in buttons, not every Clerk strategy');
+  assert.match(recoveryScreenSrc, /قد تكون بعض الحسابات السابقة مسجّلة بوسائل دخول أخرى/,
+    'Legacy Clerk accounts must not be misrepresented as OAuth accounts');
+  assert.doesNotMatch(recoveryScreenSrc, /نحن لا نخزن كلمات مرور/,
+    'Do not assert no passwords while Clerk Development password sign-in is enabled');
 
   // Official verified recovery URLs
   assert.match(recoveryScreenSrc, /https:\/\/accounts\.google\.com\/signin\/recovery/, 'Official Google recovery URL');
