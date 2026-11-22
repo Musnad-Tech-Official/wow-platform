@@ -1,3 +1,7 @@
+/* Tailwind v4/NativeWind v5: web manual dark mode uses the html.dark class.
+   Native theme changes are also propagated through Appearance.setColorScheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Match wowResponsiveTokens: compact 600px, desktop 1024px, wide 1440px.
      Tailwind v4 uses rem breakpoints; 1rem = 16 CSS px at default root size.
@@ -32,4 +36,14 @@
   --color-foreground: #0f172d;
   --color-muted-foreground: #5c6b80;
   --color-border: #e8ebf0;
+}
+
+:root.dark {
+  --color-primary: #facc15;
+  --color-primary-foreground: #0f172d;
+  --color-background: #101014;
+  --color-surface: #202024;
+  --color-foreground: #fafafa;
+  --color-muted-foreground: #a1a1aa;
+  --color-border: #3f3f46;
 }
