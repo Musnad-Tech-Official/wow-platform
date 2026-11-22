@@ -74,12 +74,12 @@ export function CategoryManagement({ role }: { role: AdminRole | null }) {
   const parsedSortOrder = Number(sortOrder);
   const validCategory = canEditCategories && isSlug(slug.trim()) &&
     nameAr.trim().length >= 2 && Number.isInteger(parsedSortOrder) &&
-    Math.abs(parsedSortOrder) <= 100000 && !edit.isPending;
+    parsedSortOrder >= 0 && parsedSortOrder <= 100000 && !edit.isPending;
   // Do not silently delete assignments omitted from the active-category picker.
   const hiddenAssignmentIds = (selectedBusiness?.category_ids ?? []).filter((id) =>
     !selectableCategories.some((category) => category.id === id));
   const validAssignment = canAssign && hiddenAssignmentIds.length === 0 &&
-    Boolean(selectedBusiness) && assigned.length > 0 &&
+    selectedBusiness?.business_status === 'approved' && assigned.length > 0 &&
     assigned.length <= 12 && primaryId !== null && assigned.includes(primaryId) &&
     reason.trim().length >= 10 && reason.trim().length <= 1000 && !assign.isPending;
 
