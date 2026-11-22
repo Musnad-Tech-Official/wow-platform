@@ -48,6 +48,8 @@ jobs:
           node --check scripts/test-stage4-offer-scope-staging.cjs
       - name: Verify approved brand/illustration asset hashes
         run: node scripts/test-design-foundation.cjs
+      - name: Verify stage 4 UI navigation, OAuth errors and responsive shell
+        run: node scripts/test-stage4-ui-foundations.cjs
       - name: TypeScript, lint, UI, Query and integration guards
         run: bash scripts/verify-ui-v08.sh
   merchant-web-guest:

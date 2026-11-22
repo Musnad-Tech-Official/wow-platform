@@ -460,6 +460,7 @@ export function MerchantBranchEditorScreen() {
       title="بيانات الفرع"
       subtitle="بيانات موقع الفرع التشغيلي وعنوانه المعتمد"
       showBusinessSelector={false}
+      contentMaxWidth={760}
     >
       {!isOwner ? (
         <View className="rounded-2xl border border-border p-5 gap-3">

@@ -14,7 +14,6 @@ import {
   Tag,
   MessageSquareWarning,
   CreditCard,
-  TrendingUp,
   FolderTree,
   UsersRound,
   FileClock,
@@ -62,9 +61,12 @@ export function AdminShell({
 
   const navTo = (path: string) => {
     setMobileMenuOpen(false);
+    // Do not append a second copy of the current section to browser history.
+    const activePath = pathname === '/index' ? '/' : pathname;
+    if (activePath === path) return;
     const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
     const target = isDev && params.preview ? `${path}?preview=${encodeURIComponent(params.preview)}` : path;
-    router.push(target as any);
+    router.navigate(target as any);
   };
 
   const roleLabel = getRoleArabicLabel(currentRole);
@@ -224,13 +226,6 @@ export function AdminShell({
                 <CreditCard size={18} color={colors.mutedForeground} />
                 <AppText className="flex-1 text-sm text-right font-tajawal-medium">الاشتراكات والدفعات</AppText>
               </Pressable>
-              <View className="flex-row items-center gap-3 rounded-xl px-3 py-2 opacity-60">
-                <TrendingUp size={18} color={colors.mutedForeground} />
-                <AppText className="flex-1 text-sm text-right font-tajawal-medium" muted>
-                  الترويج
-                </AppText>
-                <Badge label="قريباً" variant="secondary" />
-              </View>
             </View>
           </View>
 
@@ -275,13 +270,6 @@ export function AdminShell({
                 </AppText>
               </Pressable>
 
-              <View className="flex-row items-center gap-3 rounded-xl px-3 py-2 opacity-60">
-                <FileClock size={18} color={colors.mutedForeground} />
-                <AppText className="flex-1 text-sm text-right font-tajawal-medium" muted>
-                  سجل التدقيق
-                </AppText>
-                <Badge label="قريباً" variant="secondary" />
-              </View>
             </View>
           </View>
         </View>

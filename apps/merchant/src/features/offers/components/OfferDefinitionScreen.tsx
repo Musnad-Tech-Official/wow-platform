@@ -73,7 +73,7 @@ export function OfferDefinitionScreen() {
   };
 
   return (
-    <MerchantScaffold currentTab="offers">
+    <MerchantScaffold currentTab="offers" contentMaxWidth={880}>
       {/* Safeguard Modal against silent cross-business migration */}
       <OfferBusinessConflictModal
         visible={businessConflict}
