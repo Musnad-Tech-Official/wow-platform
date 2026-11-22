@@ -122,3 +122,13 @@ test('Actual screenshot capture fails on browser errors, hydration and overflow'
   assert.match(s, /fs\.rmSync\(distDir/);
   assert.doesNotMatch(s, /hideLogBox|dismiss.*overlay/i);
 });
+
+test('AUD-011: effective role failures remain retryable, never impersonate a denied membership', () => {
+  const s = read('apps/admin/src/features/auth/use-admin-access.ts');
+  assert.match(s, /const roleFailure = isQueryEnabled \? effectiveRoleQuery\.error : null;/);
+  assert.match(s, /const effectiveError = manualError \|\| rpcFailure \|\| roleFailure;/);
+  assert.match(s, /effectiveError === rpcFailure &&/);
+  assert.match(s, /Promise\.all\(\[refetch\(\), refetchRole\(\)\]\)/);
+  assert.match(s, /if \(!isQueryEnabled \|\| !isRpcSuccess\)/);
+  assert.match(s, /role: effectiveRoleQuery\.isSuccess \? \(effectiveRoleQuery\.data \?\? null\) : null/);
+});
