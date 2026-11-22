@@ -9,6 +9,7 @@ import { useActiveBusiness } from '../business/context/ActiveBusinessContext';
 export interface MerchantScaffoldProps extends PropsWithChildren, MerchantAppHeaderProps {
   currentTab: MerchantTab;
   maxWidth?: number;
+  contentMaxWidth?: number;
   initialBusinessId?: string | null;
   scrollable?: boolean;
 }
@@ -16,7 +17,8 @@ export interface MerchantScaffoldProps extends PropsWithChildren, MerchantAppHea
 export function MerchantScaffold({
   children,
   currentTab,
-  maxWidth = 640,
+  maxWidth = 1440,
+  contentMaxWidth,
   scrollable = true,
   title,
   subtitle,
@@ -66,6 +68,9 @@ export function MerchantScaffold({
                 paddingHorizontal: 16,
                 paddingVertical: 16,
                 paddingBottom: 24,
+                width: '100%',
+                maxWidth: contentMaxWidth,
+                alignSelf: 'center',
               }}
               showsVerticalScrollIndicator={false}
             >
@@ -74,7 +79,9 @@ export function MerchantScaffold({
               {children}
             </ScrollView>
           ) : (
-            <View className="flex-1 w-full p-4">{pageHeading}{businessLoadErrorPanel}{children}</View>
+            <View className="flex-1 w-full p-4 self-center" style={{ maxWidth: contentMaxWidth }}>
+              {pageHeading}{businessLoadErrorPanel}{children}
+            </View>
           )}
 
           {/* Shared Merchant Bottom Navigation */}
