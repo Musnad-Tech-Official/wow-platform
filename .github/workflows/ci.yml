@@ -45,6 +45,7 @@ jobs:
         run: |
           node --check scripts/test-admin-browser-playwright.cjs
           node --check scripts/test-merchant-live-auth-playwright.cjs
+          node --check scripts/test-stage4-offer-scope-staging.cjs
       - name: Verify approved brand/illustration asset hashes
         run: node scripts/test-design-foundation.cjs
       - name: TypeScript, lint, UI, Query and integration guards
