@@ -61,7 +61,7 @@ export function useBusiness(businessId?: string | null) {
 export function useBusinessDraftDetails(businessId?: string | null) {
   const context = useWowApiContext();
   return useQuery<BusinessDraftDetails | null>({
-    queryKey: wowQueryKeys.businesses.detail(businessId ?? null, context.userId),
+    queryKey: wowQueryKeys.businesses.draftDetails(businessId ?? null, context.userId),
     enabled: !!context.userId && !!businessId,
     queryFn: ({ signal }) => {
       const { client } = requireWowApiSession(context);
@@ -79,7 +79,7 @@ export function useCreateBusiness() {
     onSuccess: async businessId => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.mine(context.userId), exact: true }),
-        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(businessId, context.userId), exact: true }),
+        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(businessId, context.userId) }),
       ]);
     },
   });
@@ -94,7 +94,7 @@ export function useCreateBusinessWithCategory() {
     onSuccess: async businessId => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.mine(context.userId), exact: true }),
-        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(businessId, context.userId), exact: true }),
+        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(businessId, context.userId) }),
       ]);
     },
   });
@@ -109,7 +109,7 @@ export function useUpdateBusinessDraft() {
     onSuccess: async (_data, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.mine(context.userId), exact: true }),
-        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(variables.businessId, context.userId), exact: true }),
+        queryClient.invalidateQueries({ queryKey: wowQueryKeys.businesses.detail(variables.businessId, context.userId) }),
       ]);
     },
   });
@@ -143,7 +143,6 @@ export function useSaveBusinessRepresentativeDraft() {
         }),
         queryClient.invalidateQueries({
           queryKey: wowQueryKeys.businesses.detail(variables.businessId, context.userId),
-          exact: true,
         }),
       ]);
     },
