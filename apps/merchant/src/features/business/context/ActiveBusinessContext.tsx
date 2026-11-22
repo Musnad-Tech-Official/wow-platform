@@ -40,7 +40,10 @@ export function ActiveBusinessProvider({
   children,
   initialBusinessId,
 }: PropsWithChildren<{ initialBusinessId?: string | null }>) {
-  const { isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId, sessionId } = useAuth();
+  const sessionScopeKey = isSignedIn && userId && sessionId
+    ? JSON.stringify([userId, sessionId])
+    : null;
   const router = useRouter();
   const searchParams = useLocalSearchParams<{ businessId?: string; preview?: string }>();
 
@@ -64,8 +67,8 @@ export function ActiveBusinessProvider({
   // The URL controls deep links/back/refresh. Local selection is only valid for
   // its authenticated user; an old session must never supply a new user's scope.
   const routeBusinessId = searchParams.businessId ?? initialBusinessId ?? null;
-  const [selection, setSelection] = useState<{ userId: string | null; businessId: string | null }>({
-    userId,
+  const [selection, setSelection] = useState<{ sessionScopeKey: string | null; businessId: string | null }>({
+    sessionScopeKey,
     businessId: null,
   });
 
@@ -74,23 +77,23 @@ export function ActiveBusinessProvider({
       allowedBusinessIds: businesses.map((business) => business.id),
       routeBusinessId,
       selectedBusinessId: selection.businessId,
-      selectionBelongsToSession: selection.userId === userId,
+      selectionBelongsToSession: selection.sessionScopeKey === sessionScopeKey,
       isSignedIn: Boolean(isSignedIn),
       isSyntheticPreview,
     }),
-    [businesses, routeBusinessId, selection, userId, isSignedIn, isSyntheticPreview]
+    [businesses, routeBusinessId, selection, sessionScopeKey, isSignedIn, isSyntheticPreview]
   );
 
   const setActiveBusinessId = useCallback((id: string | null) => {
     // A stale or fabricated ID cannot be installed as the active merchant.
     if (id && !businesses.some((business) => business.id === id)) return;
-    setSelection({ userId, businessId: id });
+    setSelection({ sessionScopeKey, businessId: id });
     // Persist the authorized choice in the URL so refresh/back/deep links have
     // one authoritative source rather than diverging from local React state.
     if (id && routeBusinessId !== id) {
       router.setParams({ businessId: id });
     }
-  }, [businesses, routeBusinessId, router, userId]);
+  }, [businesses, routeBusinessId, router, sessionScopeKey]);
 
   const activeBusiness = useMemo(() => {
     if (!effectiveBusinessId) return null;
