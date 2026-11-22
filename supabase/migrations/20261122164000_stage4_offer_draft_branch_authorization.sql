@@ -5,6 +5,33 @@
 -- This migration only tightens authorized private-object reads and draft writes.
 -- Public live offer imagery remains governed by the separate is_public_offer_object Storage policy.
 
+-- Fail closed if any baseline function changed since the 2026-11-22 read-only audit.
+-- Prevents an old CREATE OR REPLACE definition overwriting another maintainer's changes.
+DO $stage4_drift_guard$
+BEGIN
+  IF md5(pg_get_functiondef(to_regprocedure('wow_private.can_read_wow_object(text,text)')::oid))
+      IS DISTINCT FROM '85c99e204788800863a27f9058138205' THEN
+    RAISE EXCEPTION 'Stage4 authorization baseline drift: %', 'wow_private.can_read_wow_object(text,text)'
+      USING ERRCODE = '55000';
+  END IF;
+  IF md5(pg_get_functiondef(to_regprocedure('wow_private.get_offer_evidence_draft_internal(uuid)')::oid))
+      IS DISTINCT FROM '15a97f77933faef7b99db61f424b86b8' THEN
+    RAISE EXCEPTION 'Stage4 authorization baseline drift: %', 'wow_private.get_offer_evidence_draft_internal(uuid)'
+      USING ERRCODE = '55000';
+  END IF;
+  IF md5(pg_get_functiondef(to_regprocedure('wow_private.save_offer_draft_internal(uuid,jsonb)')::oid))
+      IS DISTINCT FROM 'a9bf640701d9d461073da178cf087889' THEN
+    RAISE EXCEPTION 'Stage4 authorization baseline drift: %', 'wow_private.save_offer_draft_internal(uuid,jsonb)'
+      USING ERRCODE = '55000';
+  END IF;
+  IF md5(pg_get_functiondef(to_regprocedure('wow_private.save_offer_evidence_draft_internal(uuid,jsonb)')::oid))
+      IS DISTINCT FROM '58882a8fc841d477f413a472200998b2' THEN
+    RAISE EXCEPTION 'Stage4 authorization baseline drift: %', 'wow_private.save_offer_evidence_draft_internal(uuid,jsonb)'
+      USING ERRCODE = '55000';
+  END IF;
+END;
+$stage4_drift_guard$;
+
 CREATE OR REPLACE FUNCTION wow_private.can_edit_offer_draft_version(p_offer_version_id uuid)
 RETURNS boolean
 LANGUAGE sql
