@@ -45,9 +45,11 @@ BEGIN
   INSERT INTO public.offer_branches(business_id,offer_version_id,branch_id)
     VALUES(b,v,br);
   -- Content is attached only while the version is still a draft.
+  -- Respect the enforced draft -> pending -> approved state machine.
+  UPDATE public.offer_versions SET review_status='pending',
+    submitted_at=now()-interval '2 hours' WHERE id=v;
   UPDATE public.offer_versions SET review_status='approved',
-    submitted_at=now()-interval '2 hours',approved_at=now()-interval '1 hour'
-    WHERE id=v;
+    approved_at=now()-interval '1 hour' WHERE id=v;
   UPDATE public.offers SET current_version_id=v,status='active' WHERE id=o;
   INSERT INTO aud034_ids VALUES(b,o,v,root_cat,cat,owner);
 END;
