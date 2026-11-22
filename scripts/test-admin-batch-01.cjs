@@ -122,3 +122,12 @@ test('Actual screenshot capture fails on browser errors, hydration and overflow'
   assert.match(s, /fs\.rmSync\(distDir/);
   assert.doesNotMatch(s, /hideLogBox|dismiss.*overlay/i);
 });
+
+test('AUD-054: admin OAuth callback completes the web popup before navigation', () => {
+  const callback = read('apps/admin/src/app/oauth-callback.tsx');
+  assert.match(callback, /WebBrowser\.maybeCompleteAuthSession\(\)/);
+  assert.match(callback, /Platform\.OS !== 'web'/);
+  assert.match(callback, /router\.replace\('\/'\)/);
+  assert.match(callback, /!isLoaded \|\| !isSignedIn/);
+  assert.doesNotMatch(callback, /<Redirect href="\/"\s*\/>/);
+});
