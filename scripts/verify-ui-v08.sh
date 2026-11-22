@@ -26,5 +26,14 @@ pnpm lint
 pnpm test:query
 pnpm test:integration
 node scripts/test-customer-auth-completion.cjs
+node scripts/test-customer-navigation-onboarding.cjs
+node scripts/test-customer-account.cjs
+node scripts/test-customer-business-details.cjs
+node scripts/test-customer-offer-details.cjs
+node scripts/test-customer-complaint.cjs
+node scripts/test-customer-my-complaints.cjs
+node scripts/test-customer-complaint-details.cjs
+node scripts/test-customer-favorites.cjs
+node scripts/test-customer-discovery.cjs
 node scripts/test-customer-offer-ratings.cjs
 printf '\nStatic tests passed. Web/native visual, keyboard, screen-reader, and physical-device acceptance are separate gates.\n'
