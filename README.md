@@ -38,10 +38,15 @@ Create an ignored `.env.local` in each app that needs backend access using its `
 ## Verification
 
 ```bash
+# Existing source/type/lint/API gates
 bash scripts/verify-ui-v08.sh
+
+# No-cost end-to-end local quality harness, on a clean committed revision
+bash scripts/verify-local-quality.sh static
+bash scripts/verify-local-quality.sh all
 ```
 
-This runs UI regression checks, workspace TypeScript and lint, Query and mocked integration checks. GitHub Actions runs the same gate on Pull Requests. These tests are not substitutes for Android/iOS acceptance, rendered accessibility or live Supabase authorization testing.
+The local harness runs the repository quality gates and, in `all` mode, real browser/Expo exports without paid GitHub-hosted runners. It records a PASS/FAIL report tied to the exact commit. GitHub Actions currently has a **private-repository runner admission blocker**, so failed/unstarted GitHub checks are **not** evidence that these tests have run. Until hosted CI is restored, follow [manual quality verification and approval](docs/local-quality-gates.md). Neither local nor GitHub static checks replace authenticated Storage/RLS, physical-device, accessibility or final release acceptance.
 
 ## Technical references
 
