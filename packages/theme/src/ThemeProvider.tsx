@@ -104,7 +104,7 @@ export function ThemeProvider({
         // Storage may be blocked/private; retain the system preference.
       }
       if (!active) return;
-      applyPlatformTheme(restored, systemTheme);
+      applyPlatformTheme(restored, Appearance.getColorScheme());
       setModeValue(restored);
       setHasHydrated(true);
     }
