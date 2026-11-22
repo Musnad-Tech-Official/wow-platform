@@ -55,8 +55,9 @@ export function AdminAccessScreen({
       } else {
         setSsoError('لم تكتمل المصادقة. لم تُفعّل جلسة دخول جديدة.');
       }
-    } catch (err) {
-      setSsoError(err instanceof Error ? err.message : 'تعذر إتمام تسجيل الدخول عبر مزود الهوية.');
+    } catch {
+      // Do not expose raw OAuth, provider, or session diagnostics in the UI.
+      setSsoError('تعذر إتمام تسجيل الدخول عبر مزود الهوية. يرجى إعادة المحاولة.');
     } finally {
       setSsoLoading(false);
     }
