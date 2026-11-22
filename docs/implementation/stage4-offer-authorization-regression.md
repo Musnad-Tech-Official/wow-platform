@@ -2,8 +2,8 @@
 
 **Source baseline:** `main` `75c095929b19bac3259fd51a7bdb3a323e7ca0eb` (verified 2026-11-22).  
 **Code branch:** `fix/stage4-security-offer-scope-20261122`.  
-**Environment:** The connected Supabase project `jfqmdnffqwkqevdhmtfi` remains unchanged; no staging database or disposable fixtures have been provisioned.  
-**Status:** CODE PREPARED, STATICALLY CHECKED; DB / HTTP / Storage / CI verification **NOT_RUN**. No finding is CLOSED.
+**Environment:** Authorized deployment completed to the connected Supabase project `jfqmdnffqwkqevdhmtfi` (migration version `20261122175254`); 21 transaction-scoped SQL regression assertions passed before deployment, and all temporary fixture rows rolled back. No separate staging project was used.  
+**Status:** SQL migration applied; 21 transactional role/branch authorization assertions PASS; post-apply function, grants and anonymous denial checks PASS. HTTP / signed Storage objects / CI / full E2E remain **NOT_RUN**; findings are not fully closed.
 
 ## Test setup (isolated staging only)
 
@@ -34,13 +34,13 @@ Provision a dedicated isolated Supabase database and Clerk development test iden
 
 ## Evidence required before merge
 
-1. A dedicated staging reference, migration transaction/DDL success, plus verification that the definitions and `EXECUTE` grants match the reviewed branch.
+1. **Completed:** Original database migration `20261122175254`, drift preflight, 21 rollback-protected SQL behavioral assertions and post-apply grant/definition checks. Future test runs should use separate disposable fixtures, if available.
 2. Positive and negative JWT/RPC and Storage tests with HTTP status, request identity/branch, and SQL assertions of unchanged records after each denied mutation.
 3. Re-run of migration-dependent regressions on customer public media, merchant offer editor, reviewer evidence, and role changes.
 4. CI pass on exact head SHA, actual logs, and reviewer approval; `main` currently fails before steps, and the root cause has not been confirmed.
-5. Backup/rollback instructions, cleanup results, and explicit approval before any change to the connected production database.
+5. **Completed:** Owner authorized the original database change on 2026-11-22. Previous function sources are preserved in `docs/implementation/rollbacks/stage4-offer-auth-prechange-rollback.sql`; transactional fixtures were rolled back with zero residual rows. This is not a full database backup.
 
-**Do not classify passing string/source checks as proof of access isolation.** Public launch stays NO-GO until the full stage 6/7/8 gates pass.
+**Do not classify SQL pass as proof of end-to-end access isolation.** External authenticated Storage/API and app tests are still pending. Public launch stays NO-GO until the full stage 6/7/8 gates pass.
 
 ## Executable staging HTTP regression (not yet run)
 
