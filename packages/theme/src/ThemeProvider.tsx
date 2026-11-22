@@ -12,11 +12,14 @@ import {
 import { Appearance, Platform, View, useColorScheme } from 'react-native';
 import { VariableContextProvider } from 'nativewind';
 import { wowColorSchemes } from './tokens';
-
-export type ThemeMode = 'system' | 'light' | 'dark';
-type ResolvedTheme = 'light' | 'dark';
-
-export const WOW_THEME_STORAGE_KEY = 'wow.theme.mode.v1';
+import {
+  WOW_THEME_STORAGE_KEY,
+  parseThemePreference,
+  resolveThemePreference,
+  type ThemeMode,
+  type ResolvedTheme,
+} from './theme-preference';
+export type { ThemeMode } from './theme-preference';
 
 /**
  * Storage is injected by each app rather than importing app-owned native
@@ -26,12 +29,6 @@ export const WOW_THEME_STORAGE_KEY = 'wow.theme.mode.v1';
 export interface ThemePreferenceStorage {
   getItemAsync: (key: string) => Promise<string | null>;
   setItemAsync: (key: string, value: string) => Promise<void>;
-}
-
-export function parseThemePreference(value: string | null | undefined): ThemeMode {
-  return value === 'light' || value === 'dark' || value === 'system'
-    ? value
-    : 'system';
 }
 
 const themes = {
@@ -135,12 +132,10 @@ export function ThemeProvider({
     }
   }, [storage]);
 
-  const resolvedTheme: ResolvedTheme =
-    mode === 'system'
-      ? (Platform.OS === 'web' && !isClient)
-        ? 'light'
-        : systemTheme === 'dark' ? 'dark' : 'light'
-      : mode;
+  const resolvedTheme: ResolvedTheme = resolveThemePreference(
+    mode,
+    Platform.OS === 'web' && !isClient ? 'light' : systemTheme
+  );
 
   useEffect(() => {
     if (hasHydrated) applyPlatformTheme(mode, systemTheme);
