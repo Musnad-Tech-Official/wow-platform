@@ -1,7 +1,9 @@
 -- MUSNAD-WOW stage 4A: AUD-015, AUD-021, AUD-022.
 -- Prepared from live pg_get_functiondef on 2026-11-22, reference main 75c095929b19bac3259fd51a7bdb3a323e7ca0eb.
--- REVIEW REQUIRED: code-only; NOT applied to the connected Supabase database.
--- Apply only to isolated staging with test role/branch fixtures and a rollback plan.
+-- Authorized by project owner for original database deployment on 2026-11-22.
+-- Predeployment SQL verification: 21 transactional JWT/branch tests passed; the transaction
+-- was rolled back and original definitions/row counts were rechecked.
+-- This does not establish HTTP/Storage/E2E acceptance; keep those gates open.
 -- This migration only tightens authorized private-object reads and draft writes.
 -- Public live offer imagery remains governed by the separate is_public_offer_object Storage policy.
 
