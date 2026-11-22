@@ -62,8 +62,9 @@ test('development diagnostic route is not routable in production', () => {
 
 test('merchant switching respects an authenticated business list', () => {
   const ctx = src('apps/merchant/src/features/business/context/ActiveBusinessContext.tsx');
-  assert.match(ctx, /businesses\.some\(\(b\) => b\.id === selectedBusinessId\)/);
-  assert.match(ctx, /businesses\.some\(\(b\) => b\.id === searchParams\.businessId\)/);
+  assert.match(ctx, /resolveMerchantBusinessId\(/);
+  assert.match(ctx, /allowedBusinessIds: businesses\.map/);
+  assert.match(ctx, /router\.setParams\(\{ businessId: id \}\)/);
   const data = src('packages/api/src/query/hooks/use-businesses.ts');
   assert.match(data, /enabled: !!context\.userId/);
 });

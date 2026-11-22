@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useMemo, type PropsWithChildren } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import React, { createContext, useContext, useState, useMemo, useCallback, type PropsWithChildren } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAccessibleMerchantBusinesses, type Business } from '@wow/api';
 import { useAuth } from '@wow/auth';
+import { resolveMerchantBusinessId } from './merchant-business-selection';
 
 export interface ActiveBusinessContextValue {
   activeBusinessId: string | null;
@@ -39,7 +40,11 @@ export function ActiveBusinessProvider({
   children,
   initialBusinessId,
 }: PropsWithChildren<{ initialBusinessId?: string | null }>) {
-  const { isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId, sessionId } = useAuth();
+  const sessionScopeKey = isSignedIn && userId && sessionId
+    ? JSON.stringify([userId, sessionId])
+    : null;
+  const router = useRouter();
   const searchParams = useLocalSearchParams<{ businessId?: string; preview?: string }>();
 
   const isSyntheticPreview =
@@ -59,22 +64,36 @@ export function ActiveBusinessProvider({
     return serverBusinesses;
   }, [isSyntheticPreview, serverBusinesses]);
 
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(
-    initialBusinessId ?? searchParams.businessId ?? null
+  // The URL controls deep links/back/refresh. Local selection is only valid for
+  // its authenticated user; an old session must never supply a new user's scope.
+  const routeBusinessId = searchParams.businessId ?? initialBusinessId ?? null;
+  const [selection, setSelection] = useState<{ sessionScopeKey: string | null; businessId: string | null }>({
+    sessionScopeKey,
+    businessId: null,
+  });
+
+  const effectiveBusinessId = useMemo(
+    () => resolveMerchantBusinessId({
+      allowedBusinessIds: businesses.map((business) => business.id),
+      routeBusinessId,
+      selectedBusinessId: selection.businessId,
+      selectionBelongsToSession: selection.sessionScopeKey === sessionScopeKey,
+      isSignedIn: Boolean(isSignedIn),
+      isSyntheticPreview,
+    }),
+    [businesses, routeBusinessId, selection, sessionScopeKey, isSignedIn, isSyntheticPreview]
   );
 
-  const effectiveBusinessId = useMemo(() => {
-    if (isSyntheticPreview) {
-      return selectedBusinessId || PREVIEW_BUSINESS_FIXTURE.id;
+  const setActiveBusinessId = useCallback((id: string | null) => {
+    // A stale or fabricated ID cannot be installed as the active merchant.
+    if (id && !businesses.some((business) => business.id === id)) return;
+    setSelection({ sessionScopeKey, businessId: id });
+    // Persist the authorized choice in the URL so refresh/back/deep links have
+    // one authoritative source rather than diverging from local React state.
+    if (id && routeBusinessId !== id) {
+      router.setParams({ businessId: id });
     }
-    if (selectedBusinessId && businesses.some((b) => b.id === selectedBusinessId)) {
-      return selectedBusinessId;
-    }
-    if (searchParams.businessId && businesses.some((b) => b.id === searchParams.businessId)) {
-      return searchParams.businessId;
-    }
-    return businesses.length > 0 ? businesses[0].id : null;
-  }, [isSyntheticPreview, selectedBusinessId, searchParams.businessId, businesses]);
+  }, [businesses, routeBusinessId, router, sessionScopeKey]);
 
   const activeBusiness = useMemo(() => {
     if (!effectiveBusinessId) return null;
@@ -92,14 +111,14 @@ export function ActiveBusinessProvider({
       activeBusinessId: effectiveBusinessId,
       activeBusiness,
       businesses,
-      setActiveBusinessId: setSelectedBusinessId,
+      setActiveBusinessId,
       isLoading: !isSyntheticPreview && isServerLoading && Boolean(isSignedIn && userId),
       isSyntheticPreview,
       isOwner,
       businessesError: !isSyntheticPreview && !!serverBusinessesError,
       refetchBusinesses: () => { void refetchAccessibleBusinesses(); },
     }),
-    [effectiveBusinessId, activeBusiness, businesses, isSyntheticPreview, isServerLoading, isSignedIn, userId, isOwner, serverBusinessesError, refetchAccessibleBusinesses]
+    [effectiveBusinessId, activeBusiness, businesses, setActiveBusinessId, isSyntheticPreview, isServerLoading, isSignedIn, userId, isOwner, serverBusinessesError, refetchAccessibleBusinesses]
   );
 
   return <ActiveBusinessContext.Provider value={value}>{children}</ActiveBusinessContext.Provider>;
