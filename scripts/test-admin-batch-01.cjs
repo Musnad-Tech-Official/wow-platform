@@ -130,4 +130,6 @@ test('AUD-054: admin OAuth callback completes the web popup before navigation', 
   assert.match(callback, /router\.replace\('\/'\)/);
   assert.match(callback, /!isLoaded \|\| !isSignedIn/);
   assert.doesNotMatch(callback, /<Redirect href="\/"\s*\/>/);
+  assert.match(callback, /العودة إلى تسجيل الدخول/);
+  assert.match(callback, /onPress=\{\(\) => router\.replace\('\/'\)\}/);
 });
