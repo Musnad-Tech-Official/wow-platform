@@ -1,0 +1,30 @@
+name: Diagnose hosted runner allocation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu-latest:
+    name: Broker smoke on ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm runner assigned
+        run: |
+          echo "RUNNER_ASSIGNED=ubuntu-latest"
+          uname -a
+
+  ubuntu-2204:
+    name: Broker smoke on ubuntu-22.04
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Confirm runner assigned
+        run: |
+          echo "RUNNER_ASSIGNED=ubuntu-22.04"
+          uname -a
