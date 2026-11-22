@@ -1,4 +1,12 @@
 @theme {
+  /* Match wowResponsiveTokens: compact 600px, desktop 1024px, wide 1440px.
+     Tailwind v4 uses rem breakpoints; 1rem = 16 CSS px at default root size.
+     Keep xl/2xl > lg to preserve sorted, monotonic breakpoint ranges. */
+  --breakpoint-sm: 37.5rem;
+  --breakpoint-md: 64rem;
+  --breakpoint-lg: 90rem;
+  --breakpoint-xl: 100rem;
+  --breakpoint-2xl: 120rem;
   --color-primary: #facc15;
   --color-primary-foreground: #0f172d;
   --color-background: #ffffff;

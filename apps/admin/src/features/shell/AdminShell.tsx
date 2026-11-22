@@ -307,13 +307,13 @@ export function AdminShell({
     >
       <View className="flex-1 flex-row">
         {/* Persistent Desktop Sidebar */}
-        <View className="hidden lg:flex">
+        <View className="hidden md:flex">
           {renderSidebar(false)}
         </View>
 
         {/* Mobile/Tablet Slide-in Overlay */}
         {mobileMenuOpen && (
-          <View className="absolute inset-0 z-50 flex-row lg:hidden">
+          <View className="absolute inset-0 z-50 flex-row md:hidden">
             <Pressable
               onPress={() => setMobileMenuOpen(false)}
               className="absolute inset-0 bg-black/50"
@@ -336,7 +336,7 @@ export function AdminShell({
             <View className="flex-row items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <Pressable
                 onPress={() => setMobileMenuOpen(true)}
-                className="p-2 rounded-xl bg-surface flex lg:hidden"
+                className="p-2 rounded-xl bg-surface flex md:hidden"
                 accessibilityLabel="فتح القائمة"
               >
                 <Menu size={20} color={colors.foreground} />
@@ -356,7 +356,7 @@ export function AdminShell({
             {/* Left: Compact Theme Control & Avatar */}
             <View className="flex-row items-center gap-2 sm:gap-3 flex-shrink-0">
               <View
-                className={`hidden md:flex flex-row items-center gap-2 rounded-full px-3 py-1.5 border w-52 lg:w-64 ${
+                className={`hidden md:flex flex-row items-center gap-2 rounded-full px-3 py-1.5 border w-52 md:w-64 ${
                   isDark ? 'bg-[#27272A] border-[#3F3F46]' : 'bg-[#F8FAFC] border-[#E2E8F0]'
                 }`}
               >
