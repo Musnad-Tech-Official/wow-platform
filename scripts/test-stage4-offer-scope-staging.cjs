@@ -66,11 +66,17 @@ function signedMedia(token) {
 }
 function denied(r, name) {
   assert.ok(!r.ok, name + ': unexpectedly succeeded');
-  assert.ok([400, 401, 403, 404].includes(r.status), name + ': unexpected status ' + r.status);
-  // 400/404 from Storage can hide a forbidden existing object. We first prove
-  // the *same key* is accessible to the owner, so this is not a missing object.
-  if (r.status === 400 && !name.startsWith('media-')) {
-    assert.equal(r.data?.code, '42501', name + ': rejection must be an authorization failure');
+  if (name.startsWith('media-')) {
+    // Storage may mask unauthorized objects as missing; owner signed the very
+    // same key earlier, ruling out a genuinely missing fixture.
+    assert.ok([400, 401, 403, 404].includes(r.status),
+      name + ': unexpected Storage status ' + r.status);
+  } else {
+    // A 404 for a missing RPC or a 400 for invalid input is not an auth PASS.
+    assert.ok([400, 401, 403].includes(r.status),
+      name + ': unexpected RPC status ' + r.status);
+    assert.equal(r.data?.code, '42501',
+      name + ': expected SQLSTATE 42501, not a generic request failure');
   }
 }
 async function run(name, fn) {
