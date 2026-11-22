@@ -1370,6 +1370,9 @@ test('P0 pre-migration regression: existing business queries use baseline projec
       return response({ code: '42703', message: 'column businesses.requested_category_id does not exist' }, 400);
     }
 
+    if (parsed.pathname.endsWith('/rpc/wow_merchant_list_accessible_businesses')) {
+      return response([{ id, name: 'Shop', owner_user_id: 'user_a', status: 'draft' }]);
+    }
     if (parsed.pathname.endsWith('/businesses')) {
       return response([{ id, name: 'Shop', owner_user_id: 'user_a', status: 'draft', description: 'Sample Description' }]);
     }
@@ -1384,10 +1387,12 @@ test('P0 pre-migration regression: existing business queries use baseline projec
   assert.equal(myBusinesses[0].name, 'Shop');
   assert(!requests[0].search.includes('requested_category_id'), 'Existing getMyBusinesses must NOT query requested_category_id');
 
-  // 2. Existing getBusiness selects only baseline columns and succeeds
+  // 2. General business detail is served through the server-sanitized RPC,
+  // rather than granting employees direct SELECT over private business columns.
   const single = await api.getBusiness(client, id);
   assert.equal(single?.name, 'Shop');
-  assert(!requests[1].search.includes('requested_category_id'), 'Existing getBusiness must NOT query requested_category_id');
+  assert(requests[1].pathname.endsWith('/rpc/wow_merchant_list_accessible_businesses'));
+  assert.equal(await api.getBusiness(client, otherId), null, 'Unlisted business is not visible');
 
   // 3. getBusinessDraftDetails detects missing column error and falls back gracefully to baseline projection
   const draftDetails = await api.getBusinessDraftDetails(client, id);

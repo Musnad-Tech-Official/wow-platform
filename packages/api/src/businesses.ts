@@ -80,13 +80,20 @@ export async function getMyBusinesses(client: WowSupabaseClient, userId: string,
   return data ?? [];
 }
 
-/** Existing business detail query; preserves baseline schema projection without requiring new migrations. */
+/**
+ * Owner and authorized employee business details share the server's sanitized
+ * projection. Never query public.businesses directly for an employee: the
+ * direct-table SELECT policy is restricted to active owners (AUD-016).
+ */
 export async function getBusiness(client: WowSupabaseClient, businessId: string, signal?: AbortSignal): Promise<Business | null> {
-  let request = client.from('businesses').select('id,name,owner_user_id,status').eq('id', businessId);
+  let request = client.rpc('wow_merchant_list_accessible_businesses');
   if (signal) request = request.abortSignal(signal);
-  const { data, error } = await request.maybeSingle<Business>();
+  const { data, error } = await request;
   if (error) throw error;
-  return data;
+  if (!Array.isArray(data)) {
+    throw new Error('wow_merchant_list_accessible_businesses did not return an array.');
+  }
+  return (data as Business[]).find((business) => business.id === businessId) ?? null;
 }
 
 /** Scoped onboarding/draft detail reader that handles pre-migration databases gracefully. */

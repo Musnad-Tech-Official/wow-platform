@@ -197,9 +197,12 @@ test('W03.1 P0 pre-migration API safety: existing getMyBusinesses and getBusines
   assert(getMyBusinessesMatch, 'getMyBusinesses must have a select projection');
   assert(!getMyBusinessesMatch[1].includes('requested_category_id'), 'getMyBusinesses must NOT query requested_category_id on pre-migration database');
 
-  const getBusinessMatch = apiCode.match(/function getBusiness\([\s\S]*?\.select\('([^']+)'\)/);
-  assert(getBusinessMatch, 'getBusiness must have a select projection');
-  assert(!getBusinessMatch[1].includes('requested_category_id'), 'getBusiness must NOT query requested_category_id on pre-migration database');
+  const getBusinessBlock = apiCode.split('export async function getBusiness(')[1]?.split('/** Scoped onboarding/draft detail reader')[0];
+  assert(getBusinessBlock, 'getBusiness implementation must exist');
+  assert.match(getBusinessBlock, /client\.rpc\('wow_merchant_list_accessible_businesses'\)/,
+    'Employee-visible business details must use a server-sanitized projection');
+  assert.doesNotMatch(getBusinessBlock, /\.from\('businesses'\)/,
+    'Employee business detail must never read the full business row directly');
 
   assert(apiCode.includes('getBusinessDraftDetails'), 'Dedicated getBusinessDraftDetails must exist for onboarding draft loading');
 });
