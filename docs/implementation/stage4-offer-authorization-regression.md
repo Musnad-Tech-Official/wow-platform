@@ -41,3 +41,39 @@ Provision a dedicated isolated Supabase database and Clerk development test iden
 5. Backup/rollback instructions, cleanup results, and explicit approval before any change to the connected production database.
 
 **Do not classify passing string/source checks as proof of access isolation.** Public launch stays NO-GO until the full stage 6/7/8 gates pass.
+
+## Executable staging HTTP regression (not yet run)
+
+A guarded Node.js runner is committed as `scripts/test-stage4-offer-scope-staging.cjs` (Node 22, native `fetch`; no new dependencies). It **refuses** the known connected production project `jfqmdnffqwkqevdhmtfi` and requires an explicit disposable-staging confirmation.
+
+Provision separate, disposable staging accounts and fixtures **before** setting these environment variables:
+
+| Variable | Required fixture |
+|---|---|
+| `WOW_STAGE4_SUPABASE_URL`, `WOW_STAGE4_PUBLISHABLE_KEY` | **Isolated** Supabase project (never the connected production project) and its public API key |
+| `WOW_STAGE4_ISOLATED_STAGING` | Exact value `I_CONFIRM_DISPOSABLE_STAGING` |
+| `WOW_STAGE4_OWNER_JWT` | Valid short-lived JWT for the owner of business B |
+| `WOW_STAGE4_EMPLOYEE_A_JWT` | JWT for employee A, assigned only to branch A and allowed to draft |
+| `WOW_STAGE4_EMPLOYEE_B_JWT` | JWT for employee B, assigned only to branch B |
+| `WOW_STAGE4_OFFER_A_ID` | Offer having a readable evidence draft belonging to A |
+| `WOW_STAGE4_OFFER_B_ID` | Offer having a readable evidence draft belonging to B (not A) |
+| `WOW_STAGE4_OFFER_B_WITH_DRAFT_ID` | Offer with an existing editable draft created by B |
+| `WOW_STAGE4_PRIVATE_B_MEDIA_KEY` | **Existing** private media object under branch B's offer version; owner can sign this key |
+| `WOW_STAGE4_EMP_A_DRAFT_ID` | Existing editable offer draft created by A |
+| `WOW_STAGE4_FOREIGN_BRANCH_ID` | Branch B ID, *not* assigned to employee A |
+| `WOW_STAGE4_VALID_DRAFT_JSON` | Complete, schema-valid draft payload containing at least one valid item and a branches array |
+
+Run manually from the repo root on the staging machine after migration and fixture setup:
+
+```bash
+node --check scripts/test-stage4-offer-scope-staging.cjs
+node scripts/test-stage4-offer-scope-staging.cjs
+```
+
+All test cases must report `PASS`, with `failed=0` and `notRun=0`. Any missing fixture blocks the suite; no unauthorized HTTP request is treated as successful merely because a non-auth SQL validation failed. The test asserts SQLSTATE `42501` on denied RPC operations, and verifies unchanged evidence after a denied write. It first confirms an existing object can be signed by its owner before interpreting a denied Storage sign request. **Do not save JWTs in GitHub, job logs, or artifacts.**
+
+This runner covers part of the acceptance matrix only; it is **not** a replacement for actual Storage GET/LIST, direct SQL/RLS checks, concurrency, positive owner/reviewer operations, app E2E or rollback. Record all as `NOT_RUN` until individually executed.
+
+## Change-control / migration drift
+
+The migration contains a preflight `stage4_drift_guard` with exact baseline hashes of four inspected functions. Any source drift causes a hard failure rather than silently overwriting concurrent changes. Only rerun a reviewed migration against a matching baseline; never remove the guard to bypass an unexpected failure. A fresh reconciliation of branch code and database function definitions is required if drift is detected.
