@@ -193,9 +193,9 @@ export function OfferReview({ id, role }: { id: string; role: AdminRole | null }
                 </AppText>
               </View>
               <AppText variant="caption" muted className="text-xs text-right">
-                {mediaKeys.length} صور • {evidenceKeys.length} مستندات
+                {media.length} صور • {evidence.length} مستندات
               </AppText>
-              {requiresEvidence && evidenceKeys.length === 0 && (
+              {requiresEvidence && evidence.length === 0 && (
                 <W06Message kind="info" title="أدلة السعر السابق أو التصفية غير متاحة"
                   detail="يبقى الاعتماد معطلاً حتى يرفق التاجر الأدلة المطلوبة ويتحقق منها الخادم." />
               )}
