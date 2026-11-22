@@ -77,12 +77,12 @@ export function AdminAccessScreen({
       </View>
 
       <View
-        className={`w-full max-w-5xl rounded-3xl overflow-hidden shadow-xl border flex-col lg:flex-row lg:min-h-[580px] ${
+        className={`w-full max-w-5xl rounded-3xl overflow-hidden shadow-xl border flex-col md:flex-row md:min-h-[580px] ${
           isDark ? 'bg-[#18181B] border-[#27272A]' : 'bg-white border-[#E2E8F0]'
         }`}
       >
         {/* Brand Card (Golden Yellow Panel) */}
-        <View className="bg-[#FACC15] justify-between p-6 sm:p-10 lg:p-12 w-full lg:w-5/12 py-8 lg:py-12">
+        <View className="bg-[#FACC15] justify-between p-6 sm:p-10 lg:p-12 w-full md:w-5/12 py-8 lg:py-12">
           <View className="items-start">
             {/* Official WOW Navy Logo on Yellow */}
             <Image
@@ -111,7 +111,7 @@ export function AdminAccessScreen({
         </View>
 
         {/* Access Form / Status Card */}
-        <View className="justify-between p-6 sm:p-10 lg:p-12 w-full lg:w-7/12">
+        <View className="justify-between p-6 sm:p-10 lg:p-12 w-full md:w-7/12">
           <View>
             {/* Top Logo & Restricted Badge */}
             <View className="flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-8 pb-4 border-b border-[#E2E8F0] dark:border-[#27272A]">
