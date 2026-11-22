@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@wow/auth';
@@ -29,10 +29,22 @@ export default function AdminOAuthCallback() {
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
-      <ActivityIndicator accessibilityLabel="جارٍ استكمال تسجيل الدخول" />
+      {(Platform.OS === 'web' || !isLoaded || isSignedIn) && (
+        <ActivityIndicator accessibilityLabel="جارٍ استكمال تسجيل الدخول" />
+      )}
       <Text style={{ textAlign: 'center' }}>
         جارٍ إكمال تسجيل الدخول... إذا لم تُغلق النافذة تلقائيًا، أغلقها وحاول مرة أخرى.
       </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="العودة إلى تسجيل الدخول"
+        onPress={() => router.replace('/')}
+        style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 12 }}
+      >
+        <Text style={{ textAlign: 'center', textDecorationLine: 'underline' }}>
+          العودة إلى تسجيل الدخول
+        </Text>
+      </Pressable>
     </View>
   );
 }
