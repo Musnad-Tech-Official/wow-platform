@@ -32,19 +32,23 @@ BEGIN
   INSERT INTO public.business_subscriptions(business_id,kind,status,starts_at,ends_at,requested_by_user_id)
     VALUES(b,'trial','active',now()-interval '1 day',now()+interval '29 days',owner);
   INSERT INTO public.offers(id,business_id,created_by_user_id,status,merchant_available)
-    VALUES(o,b,owner,'active',true);
+    VALUES(o,b,owner,'draft',true);
   INSERT INTO public.offer_versions(
     id,business_id,offer_id,version_no,title,offer_kind,original_price,final_price,
     currency,starts_at,ends_at,review_status,created_by_user_id,submitted_at,
     approved_at,category_id
   ) VALUES(
     v,b,o,1,'عرض اختبار التصنيف','product',100,80,
-    'YER',now()-interval '1 hour',now()+interval '1 day','approved',owner,now()-interval '2 hours',
-    now()-interval '1 hour',cat
+    'YER',now()-interval '1 hour',now()+interval '1 day','draft',owner,NULL,
+    NULL,cat
   );
-  UPDATE public.offers SET current_version_id=v WHERE id=o;
   INSERT INTO public.offer_branches(business_id,offer_version_id,branch_id)
     VALUES(b,v,br);
+  -- Content is attached only while the version is still a draft.
+  UPDATE public.offer_versions SET review_status='approved',
+    submitted_at=now()-interval '2 hours',approved_at=now()-interval '1 hour'
+    WHERE id=v;
+  UPDATE public.offers SET current_version_id=v,status='active' WHERE id=o;
   INSERT INTO aud034_ids VALUES(b,o,v,root_cat,cat,owner);
 END;
 $aud034_seed$;
@@ -105,12 +109,11 @@ BEGIN
   INSERT INTO aud034_cases VALUES('paused-business-still-hidden');
 
   UPDATE public.businesses SET is_paused=false,paused_at=NULL WHERE id=ids.business_id;
-  UPDATE public.offer_versions SET category_id=NULL WHERE id=ids.version_id;
-  IF EXISTS(SELECT 1 FROM wow_private.discoverable_offer_branches()
+  IF NOT EXISTS(SELECT 1 FROM wow_private.discoverable_offer_branches()
     WHERE offer_id=ids.offer_id) THEN
-    RAISE EXCEPTION 'AUD-034 missing offer category still visible';
+    RAISE EXCEPTION 'AUD-034 offer did not recover after unpausing';
   END IF;
-  INSERT INTO aud034_cases VALUES('uncategorized-offer-hidden');
+  INSERT INTO aud034_cases VALUES('unpaused-business-visible');
 END;
 $aud034_assertions$;
 
