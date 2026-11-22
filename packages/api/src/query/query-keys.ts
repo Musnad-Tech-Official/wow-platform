@@ -6,6 +6,9 @@ export const wowQueryKeys = {
     mine: (userId: string | null) => ['businesses', 'mine', userId] as const,
     accessible: (userId: string | null) => ['businesses', 'accessible', userId] as const,
     detail: (businessId: string | null, userId: string | null) => ['businesses', 'detail', businessId, userId] as const,
+    // Separate response schemas; descendant key preserves targeted prefix invalidation.
+    draftDetails: (businessId: string | null, userId: string | null) =>
+      ['businesses', 'detail', businessId, userId, 'draft'] as const,
     representativeDraft: (businessId: string | null, userId: string | null) =>
       ['businesses', 'representative', businessId, userId] as const,
   },
