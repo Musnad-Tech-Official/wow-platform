@@ -132,3 +132,14 @@ test('AUD-011: effective role failures remain retryable, never impersonate a den
   assert.match(s, /if \(!isQueryEnabled \|\| !isRpcSuccess\)/);
   assert.match(s, /role: effectiveRoleQuery\.isSuccess \? \(effectiveRoleQuery\.data \?\? null\) : null/);
 });
+
+test('AUD-054: admin OAuth callback completes the web popup before navigation', () => {
+  const callback = read('apps/admin/src/app/oauth-callback.tsx');
+  assert.match(callback, /WebBrowser\.maybeCompleteAuthSession\(\)/);
+  assert.match(callback, /Platform\.OS !== 'web'/);
+  assert.match(callback, /router\.replace\('\/'\)/);
+  assert.match(callback, /!isLoaded \|\| !isSignedIn/);
+  assert.doesNotMatch(callback, /<Redirect href="\/"\s*\/>/);
+  assert.match(callback, /العودة إلى تسجيل الدخول/);
+  assert.match(callback, /onPress=\{\(\) => router\.replace\('\/'\)\}/);
+});

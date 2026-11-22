@@ -94,7 +94,11 @@ test('Clerk OAuth has a native deep-link callback instead of a dead-end', () => 
   assert.match(gate, /path: 'oauth-callback'/);
   assert.match(gate, /WebBrowser\.maybeCompleteAuthSession/);
   const callback = src('apps/merchant/src/app/oauth-callback.tsx');
-  assert.match(callback, /<Redirect href="\/"\s*\/>/);
+  assert.match(callback, /WebBrowser\.maybeCompleteAuthSession\(\)/);
+  assert.match(callback, /Platform\.OS !== 'web'/);
+  assert.match(callback, /router\.replace\('\/'\)/);
+  assert.doesNotMatch(callback, /<Redirect href="\/"\s*\/>/);
+  assert.match(callback, /العودة إلى تسجيل الدخول/);
 });
 
 test('merchant integration diagnostics read the existing branch table', () => {
