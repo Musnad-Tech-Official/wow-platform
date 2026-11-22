@@ -5,6 +5,7 @@ import { I18nManager, Platform, View } from 'react-native';
 import { Stack, usePathname, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SecureStore from 'expo-secure-store';
 
 import { ThemeProvider, wowFonts } from '@wow/theme';
 import { WowAuthProvider, useAuth } from '@wow/auth';
@@ -34,7 +35,7 @@ export default function RootLayout() {
   return (
     <WowAuthProvider publishableKey={publishableKey}>
       <AppQueryProvider>
-        <ThemeProvider>
+        <ThemeProvider storage={SecureStore}>
           <RootLayoutContent fontsReady={Boolean(fontsLoaded || fontError)} fontError={fontError} />
         </ThemeProvider>
       </AppQueryProvider>
