@@ -10,9 +10,10 @@ import type { AdminRole } from '../auth/admin-access';
 import { canSubmitW06Decision, W06AuthorityNotice, W06Message, w06ErrorMessage } from '../w06/W06Shared';
 
 type NextStatus = Exclude<ComplaintStatus, 'new'>;
+// Setting "waiting" requires an actual proprietor-visible request_info entry.
+ // The independent "Request merchant response" action performs both writes.
 const statuses: { value: NextStatus; label: string }[] = [
   { value: 'investigating', label: 'قيد التحقيق' },
-  { value: 'waiting', label: 'بانتظار الرد' },
   { value: 'closed', label: 'إغلاق الشكوى' },
 ];
 
