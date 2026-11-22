@@ -182,6 +182,30 @@ test('4. CUS-05-03: Provider-Based Account Recovery Help Route & Official Extern
 });
 
 // =============================================================================
+// AUD-046: Recovery guest navigation must update persisted access state first
+// =============================================================================
+test('4b. Recovery guest action sets access state before navigating to discovery', () => {
+  assert.match(recoveryScreenSrc, /const enterGuest = useGuestStore\(\(state\) => state\.enterGuest\)/);
+  assert.match(
+    recoveryScreenSrc,
+    /function handleContinueAsGuest\(\)\s*\{[^}]*enterGuest\(\);\s*router\.replace\('\/discover'\);/s,
+    'The guest choice must be committed before the navigation action',
+  );
+  assert.match(recoveryScreenSrc, /onPress=\{handleContinueAsGuest\}/);
+
+  const decision = accessDecision.resolveAccessDecision({
+    isHydrated: true,
+    isAuthLoaded: true,
+    isSignedIn: false,
+    hasCompletedOnboarding: true,
+    hasChosenGuest: true,
+    currentPath: '/discover',
+  });
+  assert.equal(decision.needsRedirect, false, 'Guest discovery is permitted by the root gate');
+  assert.equal(decision.isGuest, true);
+});
+
+// =============================================================================
 // Suite 5: Honest Arabic Error Formatting for Provider SSO
 // =============================================================================
 test('5. Error Handling: Honest User-Facing Arabic Messages Without Token/Stack Leakage', () => {
