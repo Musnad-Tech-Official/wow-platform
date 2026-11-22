@@ -111,6 +111,8 @@ test('exports, v5 defaults, query keys and workspace React instances are consist
   assert.deepEqual(keys.users.current('a'), ['users', 'current', 'a']);
   assert.deepEqual(keys.businesses.mine('a'), ['businesses', 'mine', 'a']);
   assert.deepEqual(keys.businesses.detail(id, 'a'), ['businesses', 'detail', id, 'a']);
+  assert.deepEqual(keys.businesses.draftDetails(id, 'a'), ['businesses', 'detail', id, 'a', 'draft']);
+  assert.notDeepEqual(keys.businesses.detail(id, 'a'), keys.businesses.draftDetails(id, 'a'));
   assert.deepEqual(keys.branches.business(id, 'a'), ['branches', 'business', id, 'a']);
   const queryRequire = createRequire(apiRequire.resolve('@tanstack/react-query'));
   for (const app of ['customer', 'merchant', 'admin']) {
@@ -121,6 +123,25 @@ test('exports, v5 defaults, query keys and workspace React instances are consist
     assert.equal(appApiRequire.resolve('@tanstack/react-query'), apiRequire.resolve('@tanstack/react-query'));
   }
   assert.equal(apiRequire('@tanstack/react-query/package.json').version, '5.105.0');
+});
+
+test('business detail and onboarding draft hold separate cache data and invalidate together', async () => {
+  const queryClient = api.createWowQueryClient();
+  const keys = api.wowQueryKeys.businesses;
+  const detail = keys.detail(id, 'user_a');
+  const draft = keys.draftDetails(id, 'user_a');
+  const otherUserDraft = keys.draftDetails(id, 'user_b');
+  queryClient.setQueryData(detail, { id, name: 'Current business' });
+  queryClient.setQueryData(draft, { id, name: 'Unapproved draft', draft: true });
+  queryClient.setQueryData(otherUserDraft, { id, name: 'Other user draft' });
+  assert.equal(queryClient.getQueryData(detail).name, 'Current business');
+  assert.equal(queryClient.getQueryData(draft).name, 'Unapproved draft');
+  assert.equal(queryClient.getQueryData(otherUserDraft).name, 'Other user draft');
+  await queryClient.invalidateQueries({ queryKey: detail, refetchType: 'none' });
+  assert.equal(queryClient.getQueryState(detail).isInvalidated, true);
+  assert.equal(queryClient.getQueryState(draft).isInvalidated, true);
+  assert.equal(queryClient.getQueryState(otherUserDraft).isInvalidated, false);
+  queryClient.clear();
 });
 
 test('Clerk clients remain safe in React development prop logging while Supabase Auth stays disabled', async () => {

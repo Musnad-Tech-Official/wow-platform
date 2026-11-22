@@ -118,9 +118,12 @@ Native reconnect detection needs that separate setup later.
 | `useCurrentUser()` | `['users', 'current', userId]` |
 | `useMyBusinesses()` | `['businesses', 'mine', userId]` |
 | `useBusiness(businessId)` | `['businesses', 'detail', businessId, userId]` |
+| `useBusinessDraftDetails(businessId)` | `['businesses', 'detail', businessId, userId, 'draft']` (separate data shape) |
 | `useBusinessBranches(businessId)` | `['branches', 'business', businessId, userId]` |
 | `useCreateBusiness()` | Calls `wow_create_business`; invalidates the user's list and returned business detail |
 | `useCreateBranch()` | Calls `wow_create_branch`; invalidates only that business's branches for the user |
+
+Detail and draft-detail queries deliberately use different cache entries, because their response types differ. The draft key is a descendant of the detail key, so prefix invalidation (`exact: false`) refreshes both after shared business mutations, while unrelated users/businesses remain isolated.
 
 All keys come from `wowQueryKeys`. Reads are disabled without a ready session;
 business-specific reads additionally require a business ID. Query AbortSignals
