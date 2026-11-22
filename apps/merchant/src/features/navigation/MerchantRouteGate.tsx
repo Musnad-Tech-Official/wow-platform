@@ -42,8 +42,9 @@ export function MerchantRouteGate({ children }: PropsWithChildren) {
         throw new Error('لم تكتمل المصادقة. أعد المحاولة بعد إكمال خطوات تسجيل الدخول.');
       }
       await setActive({ session: createdSessionId });
-    } catch (error) {
-      setSignInError(error instanceof Error ? error.message : 'تعذر إكمال تسجيل الدخول.');
+    } catch {
+      // Never display raw provider/Clerk error details or transient credentials.
+      setSignInError('تعذر إكمال تسجيل الدخول عبر مزود الهوية. يرجى إعادة المحاولة.');
     } finally {
       setSignInBusy(false);
     }
