@@ -524,6 +524,7 @@ export function MerchantTeamEditorScreen() {
       title={isEditMode ? "تعديل صلاحيات الموظف" : "إضافة موظف مفوض"}
       subtitle="تحديد الفروع والصلاحيات المصرحة للموظف"
       showBusinessSelector={false}
+      contentMaxWidth={760}
     >
       {!isOwner || (isEditMode && !isSyntheticPreview &&
           (!currentMember || currentMember.status !== 'active')) ? (
