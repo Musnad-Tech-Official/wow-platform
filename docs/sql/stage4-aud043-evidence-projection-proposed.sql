@@ -129,7 +129,7 @@ BEGIN
       )
     ) THEN
     v_result := jsonb_set(v_result, '{complaint}',
-      (v_result -> 'complaint' - 'private_evidence_keys') ||
+      ((v_result -> 'complaint') - 'private_evidence_keys'::text) ||
         jsonb_build_object('private_evidence_count',
           CASE WHEN jsonb_typeof(v_result #> '{complaint,private_evidence_keys}') = 'array'
             THEN jsonb_array_length(v_result #> '{complaint,private_evidence_keys}')
