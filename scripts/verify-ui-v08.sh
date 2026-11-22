@@ -18,6 +18,7 @@ node scripts/test-storage-signed-url.cjs
 node scripts/test-admin-w07.cjs
 node scripts/test-admin-w08.cjs
 node --experimental-strip-types scripts/test-merchant-access-boundary.cjs
+node --experimental-strip-types scripts/test-merchant-business-selection.cjs
 node scripts/test-stage4-ui-foundations.cjs
 echo '== Workspace type, lint, API and integration checks =='
 pnpm --filter @wow/ui exec tsc --noEmit
