@@ -11,7 +11,8 @@ const required = [
   'WOW_STAGE4_OWNER_JWT', 'WOW_STAGE4_EMPLOYEE_A_JWT',
   'WOW_STAGE4_EMPLOYEE_B_JWT', 'WOW_STAGE4_OFFER_B_ID',
   'WOW_STAGE4_OFFER_A_ID', 'WOW_STAGE4_PRIVATE_B_MEDIA_KEY',
-  'WOW_STAGE4_OFFER_B_WITH_DRAFT_ID'
+  'WOW_STAGE4_OFFER_B_WITH_DRAFT_ID', 'WOW_STAGE4_VALID_DRAFT_JSON',
+  'WOW_STAGE4_EMP_A_DRAFT_ID', 'WOW_STAGE4_FOREIGN_BRANCH_ID'
 ];
 if (process.env.WOW_STAGE4_ISOLATED_STAGING !== 'I_CONFIRM_DISPOSABLE_STAGING') {
   throw new Error('Refusing to run: confirm disposable staging explicitly.');
@@ -103,13 +104,21 @@ async function run(name, fn) {
     denied(await rpc('wow_get_offer_evidence_draft', empA, { p_offer_id: offerB }),
       'evidence-other-branch-denied');
   });
+  let evidenceBefore;
+  await run('evidence-employee-B-before-denied-write', async () => {
+    const r = await rpc('wow_get_offer_evidence_draft', empB, { p_offer_id: offerB });
+    assert.ok(r.ok, 'employee B should retain access: ' + r.status);
+    evidenceBefore = r.data;
+  });
   await run('evidence-other-branch-write-denied', async () => {
     denied(await rpc('wow_save_offer_evidence_draft', empA,
       { p_offer_id: offerB, p_documents: [] }), 'evidence-other-branch-write-denied');
   });
-  await run('evidence-employee-B-own-readable', async () => {
+  await run('evidence-other-branch-write-unchanged', async () => {
+    assert.notEqual(evidenceBefore, undefined, 'missing evidence snapshot');
     const r = await rpc('wow_get_offer_evidence_draft', empB, { p_offer_id: offerB });
-    assert.ok(r.ok, 'employee B should retain access: ' + r.status);
+    assert.ok(r.ok, 'employee B should still read evidence: ' + r.status);
+    assert.deepEqual(r.data, evidenceBefore, 'denied mutation unexpectedly altered evidence');
   });
   await run('draft-other-employee-edit-denied', async () => {
     const validPayload = JSON.parse(process.env.WOW_STAGE4_VALID_DRAFT_JSON || 'null');
@@ -120,23 +129,15 @@ async function run(name, fn) {
     denied(await rpc('wow_save_offer_draft', empA,
       { p_offer_id: draftB, p_payload: validPayload }), 'draft-other-employee-edit-denied');
   });
-  // Optional case: a disposable employee-A draft with one unauthorized branch;
-  // branch checks must fire before any commit, even though the function changes
-  // rows before validating the last branch. PostgREST rolls back the statement.
-  if (process.env.WOW_STAGE4_EMP_A_DRAFT_ID &&
-      process.env.WOW_STAGE4_FOREIGN_BRANCH_ID &&
-      process.env.WOW_STAGE4_VALID_DRAFT_JSON) {
-    await run('draft-unassigned-branch-denied-atomically', async () => {
-      const payload = JSON.parse(process.env.WOW_STAGE4_VALID_DRAFT_JSON);
-      payload.branches = [process.env.WOW_STAGE4_FOREIGN_BRANCH_ID];
-      denied(await rpc('wow_save_offer_draft', empA,
-        { p_offer_id: process.env.WOW_STAGE4_EMP_A_DRAFT_ID, p_payload: payload }),
-        'draft-unassigned-branch-denied-atomically');
-    });
-  } else {
-    results.push({ name: 'draft-unassigned-branch-denied-atomically', result: 'NOT_RUN' });
-    console.log('NOT_RUN draft-unassigned-branch-denied-atomically (fixture missing)');
-  }
+  // This case uses a disposable employee-A draft and must reject the branch
+  // after the RPC has entered the transactional save path.
+  await run('draft-unassigned-branch-denied-atomically', async () => {
+    const payload = JSON.parse(process.env.WOW_STAGE4_VALID_DRAFT_JSON);
+    payload.branches = [process.env.WOW_STAGE4_FOREIGN_BRANCH_ID];
+    denied(await rpc('wow_save_offer_draft', empA,
+      { p_offer_id: process.env.WOW_STAGE4_EMP_A_DRAFT_ID, p_payload: payload }),
+      'draft-unassigned-branch-denied-atomically');
+  });
   const passed = results.filter((r) => r.result === 'PASS').length;
   const failed = results.filter((r) => r.result === 'FAIL').length;
   const notRun = results.filter((r) => r.result === 'NOT_RUN').length;
