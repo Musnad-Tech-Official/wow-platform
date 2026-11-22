@@ -16,6 +16,7 @@ import { useSSO } from '@wow/auth';
 import { useTheme, useWowColors, useWowViewport } from '@wow/theme';
 import { AppButton, AppText, Card } from '@wow/ui';
 import { resolveAuthErrorMessage, validateInternalReturnPath } from './auth-display';
+import { useGuestStore } from '../../state/guest-store';
 
 export interface CustomerAccountRecoveryScreenProps {
   initialReturnTo?: string | null;
@@ -35,6 +36,7 @@ export function CustomerAccountRecoveryScreen({
   const rtlWebProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
 
   const { startSSOFlow } = useSSO();
+  const enterGuest = useGuestStore((state) => state.enterGuest);
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
 
   async function handleProviderRetry(provider: 'oauth_google' | 'oauth_facebook') {
@@ -89,6 +91,12 @@ export function CustomerAccountRecoveryScreen({
     } else {
       router.replace('/sign-in');
     }
+  }
+
+  function handleContinueAsGuest() {
+    // Set the persisted guest access state before navigating through the root route gate.
+    enterGuest();
+    router.replace('/discover');
   }
 
   return (
@@ -388,7 +396,7 @@ export function CustomerAccountRecoveryScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="المتابعة كزائر واستكشاف العروض"
-              onPress={() => router.replace('/discover')}
+              onPress={handleContinueAsGuest}
               style={{
                 minHeight: 48,
                 paddingVertical: 10,
