@@ -30,6 +30,7 @@ export function useAdminAccess(): UseAdminAccessResult {
   const { signOut: clerkSignOut } = useClerk();
   const apiContext = useWowApiContext();
   const effectiveRoleQuery = useAdminEffectiveRole();
+  const { refetch: refetchRole } = effectiveRoleQuery;
   const params = useLocalSearchParams<{ preview?: string }>();
 
   // CRITICAL SECURITY GUARD: Preview parameters are STRICTLY development-only (__DEV__).
@@ -57,8 +58,10 @@ export function useAdminAccess(): UseAdminAccessResult {
 
   const handleRetry = useCallback(() => {
     setManualError(null);
-    void refetch();
-  }, [refetch]);
+    // Membership and effective-role checks are independent queries. A retry
+    // must re-run BOTH so a transient role-fetch failure can recover.
+    void Promise.all([refetch(), refetchRole()]);
+  }, [refetch, refetchRole]);
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -190,15 +193,21 @@ export function useAdminAccess(): UseAdminAccessResult {
     };
   }
 
-  const effectiveError = manualError || (isQueryEnabled ? rpcError : null);
+  const rpcFailure = isQueryEnabled ? rpcError : null;
+  const roleFailure = isQueryEnabled ? effectiveRoleQuery.error : null;
+  const effectiveError = manualError || rpcFailure || roleFailure;
   if (effectiveError) {
     const errorMsg = String(effectiveError.message || '');
+    // A failure to fetch the role is an operational error, not evidence that
+    // the user's membership was revoked. The server remains the final guard.
     const isPermissionDenied =
-      errorMsg.includes('42501') ||
-      errorMsg.includes('admin access required') ||
-      errorMsg.includes('permission') ||
-      errorMsg.includes('Unauthorized') ||
-      errorMsg.includes('forbidden');
+      effectiveError === rpcFailure && (
+        errorMsg.includes('42501') ||
+        errorMsg.includes('admin access required') ||
+        errorMsg.includes('permission') ||
+        errorMsg.includes('Unauthorized') ||
+        errorMsg.includes('forbidden')
+      );
 
     if (isPermissionDenied) {
       return {
