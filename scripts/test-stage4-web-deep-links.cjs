@@ -50,3 +50,14 @@ test('AUD-052: local and hosted gates export and exercise real Customer dev/prod
   assert.match(browser, /missingAsset\.status, 404/);
   assert.match(browser, /await page\.waitForURL/);
 });
+
+test('AUD-052: Merchant compiled SPA has a one-page diagnostic and never returns HTML for missing JS assets', () => {
+  const browser = read('scripts/test-merchant-guest-playwright.cjs');
+  assert.match(browser, /MER-BOOTSTRAP: exported Merchant web renders guest gate/);
+  assert.match(browser, /page\.on\('pageerror'/);
+  assert.match(browser, /page\.on\('requestfailed'/);
+  assert.match(browser, /page\.on\('console'/);
+  assert.match(browser, /if \(path\.extname\(requestedPath\)\)/);
+  assert.match(browser, /response\.writeHead\(404\)/);
+  assert.match(browser, /failedRequests: failedRequests\.slice/);
+});
