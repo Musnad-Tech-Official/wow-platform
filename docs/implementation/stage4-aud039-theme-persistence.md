@@ -14,7 +14,7 @@ The provider accepts `ThemePreferenceStorage` through a prop so the shared packa
 
 ## Verified and pending
 
-Source readback verified consistent root layout wiring across Customer/Merchant/Admin and added `scripts/test-stage4-theme-persistence.cjs` to the existing shared source gate. The test covers accepted values, system resolution, provider synchronization and CSS contract. Syntax of the Node test file was checked.
+Source readback verified consistent root layout wiring across Customer/Merchant/Admin and added `scripts/test-stage4-theme-persistence.cjs` to the existing shared source gate. The test covers accepted values, system resolution, provider synchronization and CSS contract. Syntax of the Node test file was checked. The actual Admin Playwright script also now asserts saved dark/light across real reloads and the `system` mode following Chromium OS-theme changes; these browser cases are **not yet executed**.
 
 **NOT YET VERIFIED:** Expo web browser reload with stored dark mode; OS system changes under `system`; iOS/Android real theme reload, NativeWind `dark:` styling consistency, accessibility/contrast screenshots, or `pnpm typecheck`. Complete these at the Stage 4 acceptance gate. A syntactically valid source change is not a completed visual acceptance.
 

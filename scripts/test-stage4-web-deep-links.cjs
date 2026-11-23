@@ -35,3 +35,18 @@ test('AUD-052: web deployment contract requires SPA fallback and explicitly gate
   assert.match(doc, /200/);
   assert.match(doc, /NOT VERIFIED/);
 });
+
+test('AUD-052: local and hosted gates export and exercise real Customer dev/prod SPAs', () => {
+  const local = read('scripts/verify-local-quality.sh');
+  const ci = read('.github/workflows/ci.yml');
+  const browser = read('scripts/test-customer-web-deeplinks-playwright.cjs');
+  assert.match(local, /pnpm --filter customer exec expo export -p web --dev/);
+  assert.match(local, /pnpm --filter customer exec expo export -p web --output-dir/);
+  assert.equal((local.match(/node scripts\/test-customer-web-deeplinks-playwright\.cjs/g) || []).length, 2);
+  assert.match(ci, /customer-web-deep-links:/);
+  assert.match(ci, /Customer development web SPA/);
+  assert.match(ci, /Customer production web SPA/);
+  assert.equal((ci.match(/node scripts\/test-customer-web-deeplinks-playwright\.cjs/g) || []).length, 2);
+  assert.match(browser, /missingAsset\.status, 404/);
+  assert.match(browser, /await page\.waitForURL/);
+});

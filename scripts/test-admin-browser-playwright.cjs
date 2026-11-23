@@ -136,8 +136,8 @@ async function main() {
         await page.close();
       }
     }
-    // NativeWind v5 web dark: utilities track the OS preference. The WOW theme
-    // switch must not leave a dark canvas behind after selecting manual Light.
+    // AUD-039: visual manual/system theme state matches the saved preference,
+    // including reloads and live OS preference changes in Chromium.
     if (!production) {
       const page = await browser.newPage({
         viewport: { width: 1440, height: 900 },
@@ -157,14 +157,33 @@ async function main() {
         await verifyCanvas('wow-admin-canvas', 'rgb(246, 247, 246)');
         await page.getByRole('button', { name: 'المظهر: داكن' }).click();
         await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
-        console.log('PASS development: manual theme overrides dark system preference on Admin canvas');
+
+        // AUD-039: the manual choice must survive a real browser reload and
+        // must not accidentally continue following changes in OS preference.
+        await page.reload({ waitUntil: 'networkidle' });
+        await page.getByText('نظرة واضحة على ما يحتاج إجراء', { exact: true }).waitFor();
+        await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
+        assert.equal(await page.evaluate(() => localStorage.getItem('wow.theme.mode.v1')), 'dark');
+        await page.getByRole('button', { name: 'المظهر: تلقائي' }).click();
+        await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
+        await page.emulateMedia({ colorScheme: 'light' });
+        await verifyCanvas('wow-admin-canvas', 'rgb(246, 247, 246)');
+        await page.emulateMedia({ colorScheme: 'dark' });
+        await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
+        await page.getByRole('button', { name: 'المظهر: داكن' }).click();
+        await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
+        console.log('PASS development: manual and system modes persist and react to OS changes');
 
         await page.goto(base + '/?preview=adm01', { waitUntil: 'networkidle' });
         await page.getByText('الدخول إلى منصة الإدارة', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-login-canvas', 'rgb(16, 16, 20)');
         await page.getByRole('button', { name: 'المظهر: فاتح' }).click();
         await verifyCanvas('wow-admin-login-canvas', 'rgb(246, 247, 246)');
-        console.log('PASS development: manual Light overrides dark system preference on login canvas');
+        await page.reload({ waitUntil: 'networkidle' });
+        await page.getByText('الدخول إلى منصة الإدارة', { exact: true }).waitFor();
+        await verifyCanvas('wow-admin-login-canvas', 'rgb(246, 247, 246)');
+        assert.equal(await page.evaluate(() => localStorage.getItem('wow.theme.mode.v1')), 'light');
+        console.log('PASS development: manual Light persists across login page reload');
       } finally {
         await page.close();
       }

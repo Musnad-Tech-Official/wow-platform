@@ -34,19 +34,25 @@ bash scripts/verify-local-quality.sh all
 | Mode | What actually runs |
 | --- | --- |
 | `static` | frozen pnpm install, repository and brand assets integrity, browser/staging script syntax, existing `scripts/verify-ui-v08.sh` UI/API/query/integration/typecheck/lint gate |
-| `web` | `static` plus real Merchant & Admin Expo Web exports, Playwright guest/editor/permissions smoke, Admin screenshots, and production-mode preview-bypass checks |
+| `web` | `static` plus real Customer/Merchant/Admin Expo Web exports; Customer deep-link/onboarding SPA checks in development and production, Merchant/Admin browser guest/editor/permissions smokes, Admin screenshots, and production preview-bypass checks |
 | `native` | `static` plus 6 Expo production JS exports: Customer/Merchant/Admin × Android/iOS |
 | `all` | `static`, `web`, and `native` combined |
 
 The script refuses a dirty Git working tree, checks the Node/pnpm versions used by the primary CI job, stops on the first failing command, and writes a private timestamped `PASS` or `FAIL` report under `~/wow-qa-reports/`. Build outputs are temporary; screenshot tools can also write their existing local `artifacts/` folders.
 
-## Required manual approval while GitHub Actions is blocked
+## Stage 4 development and acceptance policy (approved 2026-11-22)
 
-1. Developer runs `all` against the **exact PR head commit SHA** on a clean tree, preserves the exit status and full report path.
-2. Developer shares the SHA, passing report (after secret review) and required visual screenshots with the reviewer; reviewer checks the SHA matches GitHub's actual PR head.
-3. Reviewer examines changed code, safety/data authorization, Android/iOS/web functionality, RTL, dark mode, responsive widths, and any additional role or Storage test fixtures implicated by that PR.
-4. Any code update **invalidates the earlier report**. Repeat the relevant verification on the new SHA. Do not merge with failing or absent required evidence. A green local report is **not** a green GitHub check.
-5. Retain the GitHub workflow for eventual restoration; note the external blocked status explicitly in the PR and project issue.
+During development of each Stage 4 wave, the assistant may review source, add bounded regressions and merge changes **without requiring the developer to run local tests after every commit**. Every such merge MUST disclose that full tests have not run; source review or JavaScript syntax alone must not be reported as functional acceptance. Database authorization, billing and RLS migrations remain exceptions: validate actual transaction-scoped SQL role cases before/after applying any sensitive change, and preserve the applied migration version.
+
+**End-of-stage acceptance is separate and mandatory**:
+
+1. Developer updates `main`, verifies a clean working tree, and runs `bash scripts/verify-local-quality.sh all` with Node 22 and pnpm 10.21.0. Capture the **exact tested SHA**, command exit status and private report path.
+2. Reviewer checks that the tested SHA is the exact current `main` SHA. Preserve the report after reviewing it for secrets. Any new code change invalidates that acceptance; repeat the full gate on the new revision.
+3. Reviewer checks the Customer, Merchant and Admin browser exports, Guest vs authorized role behavior, dark/light/system persistence, RTL, breakpoint widths, link refresh/back/navigation, and signed Clerk/Supabase Storage scope where needed. Real device/iOS/Android accessibility and signed-in OAuth remain **separate evidence items**.
+4. Existing automated `all` does not run authenticated Clerk login/OTP, signed Storage object GET/LIST, real-device screen reader, or production deployment HTTP rewrites. These must be explicitly marked `NOT_RUN` until separately verified. **Do not approve Stage 4** merely because `all` passes.
+5. GitHub-hosted runner allocation remains tracked in [issue #64](https://github.com/Musnad-Tech-Official/wow-platform/issues/64); a green local result is not a green GitHub Actions result.
+
+Unexecuted gates remain **pending** and are not silently waived. No PR may be described as deployed/accepted unless independently verified on the actual target environment.
 
 ## Important uncovered gates
 
