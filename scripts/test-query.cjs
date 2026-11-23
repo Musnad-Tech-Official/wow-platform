@@ -411,25 +411,63 @@ test('private queries stay disabled before auth readiness; missing webhook profi
   assert.equal(result.data.id, 'user_a');
 });
 
-test('all resource queries call SDK API functions with identity filters and business-specific keys', async () => {
+test('resource queries preserve owner/branch filters while business detail uses the authorized projection', async () => {
   let result;
   const requests = [];
-  globalThis.fetch = async url => {
+  globalThis.fetch = async (url, options) => {
     const parsed = new URL(url);
-    requests.push(parsed);
-    if (parsed.pathname.endsWith('/businesses')) return response([{ id, name: 'Shop', owner_user_id: 'user_a', status: 'draft' }]);
-    return response([{ id: otherId, name: 'Branch', business_id: id, status: 'draft', is_primary: true }]);
+    requests.push({ url: parsed, method: options?.method ?? 'GET' });
+    if (parsed.pathname.endsWith('/rpc/wow_merchant_list_accessible_businesses')) {
+      // AUD-016: public.businesses SELECT is owner-only; employee details
+      // must be read from this server-authorized, redacted projection.
+      return response([{ id, name: 'Shop', owner_user_id: 'user_a', status: 'draft' }]);
+    }
+    if (parsed.pathname.endsWith('/businesses')) {
+      return response([{ id, name: 'Shop', owner_user_id: 'user_a', status: 'draft' }]);
+    }
+    if (parsed.pathname.endsWith('/business_branches')) {
+      return response([{ id: otherId, name: 'Branch', business_id: id, status: 'draft', is_primary: true }]);
+    }
+    return response({ message: 'Unexpected Query endpoint' }, 404);
   };
-  function Inspect() { recordClient(); result = { mine: api.useMyBusinesses(), detail: api.useBusiness(id), branches: api.useBusinessBranches(id) }; return null; }
+  function Inspect() {
+    recordClient();
+    result = { mine: api.useMyBusinesses(), detail: api.useBusiness(id), branches: api.useBusinessBranches(id) };
+    return null;
+  }
   await mount(provider(h(Inspect)));
   await act(tick);
   assert.equal(result.mine.data[0].id, id);
   assert.equal(result.detail.data.id, id);
   assert.equal(result.branches.data[0].business_id, id);
-  assert(requests.some(url => url.searchParams.get('owner_user_id') === 'eq.user_a'));
-  assert(requests.some(url => url.searchParams.get('id') === `eq.${id}`));
-  assert(requests.some(url => url.searchParams.get('business_id') === `eq.${id}`));
-  assert(requests.some(url => url.pathname.endsWith('/business_branches')));
+  assert(requests.some(({ url }) => url.pathname.endsWith('/businesses') && url.searchParams.get('owner_user_id') === 'eq.user_a'));
+  assert(requests.some(({ url }) => url.pathname.endsWith('/business_branches') && url.searchParams.get('business_id') === `eq.${id}`));
+  assert(requests.some(({ url, method }) => url.pathname.endsWith('/rpc/wow_merchant_list_accessible_businesses') && method === 'POST'));
+  assert(!requests.some(({ url }) => url.pathname.endsWith('/businesses') && url.searchParams.has('id')),
+    'Never query a staff-visible business detail from the direct owner-only table');
+});
+
+test('business detail returns null for unlisted IDs and fails closed on RPC errors or malformed projections', async () => {
+  const client = makeClient();
+  const requests = [];
+  globalThis.fetch = async url => {
+    requests.push(new URL(url).pathname);
+    return response([{ id: otherId, name: 'Allowed business', status: 'approved' }]);
+  };
+  assert.equal(await api.getBusiness(client, id), null, 'Unlisted business must not be substituted with an arbitrary authorized business');
+  assert.equal((await api.getBusiness(client, otherId)).id, otherId);
+  assert.deepEqual(requests, [
+    '/rest/v1/rpc/wow_merchant_list_accessible_businesses',
+    '/rest/v1/rpc/wow_merchant_list_accessible_businesses',
+  ]);
+
+  globalThis.fetch = async () => response({ code: '42501', message: 'Permission denied' }, 403);
+  await assert.rejects(api.getBusiness(client, id), /Permission denied/,
+    'A role denial must remain a failed query, not an empty or permissive record');
+
+  globalThis.fetch = async () => response({ id, name: 'Unwrapped object' });
+  await assert.rejects(api.getBusiness(client, id), /did not return an array/,
+    'Malformed server projections must never become business records');
 });
 
 test('all private hooks stay idle while signed out and business queries require an ID', async () => {
