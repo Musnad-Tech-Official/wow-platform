@@ -4,6 +4,7 @@ import {
   Linking,
   Pressable,
   ScrollView,
+  type ScrollViewInstance,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -116,7 +117,7 @@ function CustomerBusinessDetailsContent({
 
   const isPreview = __DEV__ && previewMode !== 'live';
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [offersY, setOffersY] = useState(0);
   const [branchesY, setBranchesY] = useState(0);
 
