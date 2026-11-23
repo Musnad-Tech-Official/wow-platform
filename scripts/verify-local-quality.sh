@@ -54,6 +54,7 @@ printf 'WOW local verification | UTC: %s | SHA: %s | mode: %s\n' "$(date -u +%FT
 pnpm install --frozen-lockfile
 node scripts/test-repository-integrity.cjs
 node --check scripts/test-admin-browser-playwright.cjs
+node --check scripts/test-customer-web-deeplinks-playwright.cjs
 node --check scripts/test-merchant-live-auth-playwright.cjs
 node --check scripts/test-stage4-offer-scope-staging.cjs
 node scripts/test-design-foundation.cjs
@@ -62,6 +63,13 @@ bash scripts/verify-ui-v08.sh
 if [[ "$mode" == web || "$mode" == all ]]; then
   # Use only publishable development credentials through ignored .env.local files.
   pnpm exec playwright install chromium
+
+  # AUD-052: Web Customer was missing from the stage-end real SPA test gate.
+  # Run both development and production-like exported builds with no test users.
+  pnpm --filter customer exec expo export -p web --dev --output-dir "$temp_dir/customer-dev"
+  WOW_CUSTOMER_WEB_EXPORT_DIR="$temp_dir/customer-dev" node scripts/test-customer-web-deeplinks-playwright.cjs
+  pnpm --filter customer exec expo export -p web --output-dir "$temp_dir/customer-prod"
+  WOW_CUSTOMER_WEB_EXPORT_DIR="$temp_dir/customer-prod" node scripts/test-customer-web-deeplinks-playwright.cjs
 
   pnpm --filter merchant exec expo export -p web --dev --output-dir "$temp_dir/merchant-dev"
   WOW_MERCHANT_WEB_EXPORT_DIR="$temp_dir/merchant-dev" node scripts/test-merchant-guest-playwright.cjs
