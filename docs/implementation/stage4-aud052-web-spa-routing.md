@@ -12,7 +12,7 @@ The SPA change does not bypass the existing Clerk route gates, Supabase RLS or c
 
 ## Regression and remaining gate
 
-`scripts/test-stage4-web-deep-links.cjs` checks all three production export modes and the existing dynamic route files. Run as part of `scripts/verify-ui-v08.sh`.
+`scripts/test-stage4-web-deep-links.cjs` checks all three production export modes and the existing dynamic route files. Run as part of `scripts/verify-ui-v08.sh`. A separate `scripts/test-customer-web-deeplinks-playwright.cjs` now tests real exported Customer dev/prod SPA HTML fallback, missing asset 404, and fresh-guest onboarding navigation. It is wired into `verify-local-quality.sh web/all` and the `customer-web-deep-links` GitHub job. These tests are **configured but have not yet run**.
 
 **NOT VERIFIED:** production-like Expo export for all three apps, deployed HTTP 200 deep link and browser reload/history/back for at least two unlisted-at-build-time UUIDs, signed-in vs guest access, unknown-resource 404 behavior, route asset caching and CDN rewrites. This must be run in the selected hosting environment before stage acceptance. Changing `web.output` is a source-level architecture fix, **not** evidence of completed web routing acceptance.
 
