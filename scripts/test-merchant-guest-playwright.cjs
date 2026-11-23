@@ -52,7 +52,16 @@ before(async () => {
     }
     if (fs.existsSync(target) && fs.statSync(target).isDirectory()) target = path.join(target, 'index.html');
     if (!fs.existsSync(target) && !path.extname(target) && fs.existsSync(target + '.html')) target += '.html';
-    if (!fs.existsSync(target)) target = path.join(root, 'index.html');
+    if (!fs.existsSync(target)) {
+      // SPA history fallback applies only to routes, never missing JS/CSS/fonts.
+      // Otherwise Chromium can receive HTML for JavaScript and remain blank.
+      if (path.extname(requestedPath)) {
+        response.writeHead(404);
+        response.end('Not found');
+        return;
+      }
+      target = path.join(root, 'index.html');
+    }
     try {
       response.setHeader('Content-Type', mime[path.extname(target).toLowerCase()] || 'application/octet-stream');
       fs.createReadStream(target).on('error', () => { if (!response.headersSent) response.writeHead(500); response.end(); }).pipe(response);
@@ -72,6 +81,67 @@ async function browser() {
 after(async () => {
   if (browserPromise) await (await browserPromise).close();
   if (staticServer) await new Promise(resolve => staticServer.close(resolve));
+});
+
+// This targeted test can run alone via --test-name-pattern=MER-BOOTSTRAP.
+// It diagnoses why *every* Merchant page may be blank without requiring 13
+// consecutive 20-second waitFor timeouts.
+function safeDiagnostic(value) {
+  return String(value)
+    .replace(/https?:\/\/[^\s"'<>]+/gi, '[url]')
+    .replace(/\b(?:pk_(?:test|live)|sb_(?:secret|publishable))_[A-Za-z0-9_-]+\b/g, '[key]')
+    .replace(/\beyJ[A-Za-z0-9._-]+\b/g, '[jwt]')
+    .slice(0, 600);
+}
+
+test('MER-BOOTSTRAP: exported Merchant web renders guest gate or reports exact browser failure', async () => {
+  const context = await (await browser()).newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const pageErrors = [];
+  const consoleErrors = [];
+  const failedRequests = [];
+  const httpErrors = [];
+  page.on('pageerror', error => pageErrors.push(safeDiagnostic(error.message)));
+  page.on('console', message => {
+    if (message.type() === 'error') consoleErrors.push(safeDiagnostic(message.text()));
+  });
+  page.on('requestfailed', request => {
+    const url = new URL(request.url());
+    failedRequests.push(safeDiagnostic(
+      request.method() + ' ' + url.hostname + url.pathname + ' ' + (request.failure()?.errorText || 'failed')
+    ));
+  });
+  page.on('response', response => {
+    if (response.status() >= 400) {
+      const url = new URL(response.url());
+      httpErrors.push(safeDiagnostic(response.status() + ' ' + url.hostname + url.pathname));
+    }
+  });
+  try {
+    await page.goto(origin + '/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    try {
+      await page.getByText('تسجيل الدخول مطلوب').first().waitFor({ timeout: 12_000 });
+    } catch (error) {
+      const text = await page.locator('body').innerText({ timeout: 2_000 }).catch(() => '<body unavailable>');
+      const state = await page.evaluate(() => ({
+        readyState: document.readyState,
+        rootElements: document.getElementById('root')?.childElementCount ?? null,
+      })).catch(() => ({ readyState: '<script failed>', rootElements: null }));
+      throw new Error('Merchant guest bootstrap did not render. ' + JSON.stringify({
+        pathname: new URL(page.url()).pathname,
+        ...state,
+        visibleText: safeDiagnostic(text),
+        pageErrors: pageErrors.slice(0, 4),
+        consoleErrors: consoleErrors.slice(0, 4),
+        failedRequests: failedRequests.slice(0, 8),
+        httpErrors: httpErrors.slice(0, 8),
+        waitError: safeDiagnostic(error.message),
+      }));
+    }
+    assert.deepEqual(pageErrors, [], 'Merchant guest gate must not trigger uncaught browser exceptions');
+  } finally {
+    await context.close();
+  }
 });
 
 const routes = [
