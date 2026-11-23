@@ -320,3 +320,16 @@ test('11. Complete Lifecycle Regression: Onboard -> Guest -> Sign In -> Logout -
   assert.equal(d7Acc.canAccessPrivateApp, false);
   assert.equal(d7Acc.isGuest, true);
 });
+
+test('AUD-TS-002: Expo Router 58 custom Customer tabs navigate by router hrefs', () => {
+  const tabBar = fs.readFileSync(
+    path.resolve(customerDir, 'src/features/navigation/CustomerBottomTabBar.tsx'),
+    'utf8',
+  );
+  assert.match(tabBar, /useRouter\(\)/);
+  assert.match(tabBar, /router\.navigate\('\/'\)/);
+  assert.match(tabBar, /router\.navigate\('\/favorites'\)/);
+  assert.match(tabBar, /router\.navigate\('\/account'\)/);
+  assert.doesNotMatch(tabBar, /navigation\.navigate\(/);
+  assert.doesNotMatch(tabBar, /navigation\.emit\(/);
+});

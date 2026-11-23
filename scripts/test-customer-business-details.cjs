@@ -749,3 +749,11 @@ test('17. Favorite lookup failure: disable both toggle entry points and offer re
     'An accessible retry action must be available when the owner-scoped saved state cannot be loaded',
   );
 });
+
+test('AUD-TS-001: React Native 0.88 ScrollView ref uses instance type', () => {
+  assert.match(businessScreenSrc, /type ScrollViewInstance/);
+  assert.match(businessScreenSrc, /useRef<ScrollViewInstance>\(null\)/);
+  assert.match(businessScreenSrc, /ref=\{scrollRef\}/);
+  assert.match(businessScreenSrc, /scrollRef\.current\?\.scrollTo\(/);
+  assert.doesNotMatch(businessScreenSrc, /useRef<ScrollView>\(null\)/);
+});
