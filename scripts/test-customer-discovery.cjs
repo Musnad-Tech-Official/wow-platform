@@ -20,8 +20,8 @@ execFileSync(
   [
     apiRequire.resolve('typescript/lib/tsc.js'),
     '--target', 'ES2022',
-    '--module', 'commonjs',
-    '--moduleResolution', 'node',
+    '--module', 'Node16',
+    '--moduleResolution', 'Node16',
     '--ignoreDeprecations', '6.0',
     '--skipLibCheck',
     '--strict',

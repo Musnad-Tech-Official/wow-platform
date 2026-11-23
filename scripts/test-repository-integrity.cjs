@@ -113,3 +113,22 @@ test('established upstream skills are complete and credited', () => {
     assert(files.length>=item.minimum,skill+' references incomplete');
   }
 });
+
+test('API TypeScript test harnesses resolve RN 0.88 package exports with Node16', () => {
+  // A separate test-specific compile used legacy Node10 resolution even while
+  // the workspace Bundler-mode typecheck passed. Keep every API compiler in
+  // sync so later Customer tests do not rediscover TS7016/TS7006.
+  for (const file of [
+    'scripts/test-query.cjs',
+    'scripts/test-integration.cjs',
+    'scripts/test-customer-discovery.cjs',
+  ]) {
+    const source = read(file);
+    assert.match(source, /['"]--module['"]\s*,\s*['"]Node16['"]/,
+      file + ': node-executed TypeScript must use Node16 module output');
+    assert.match(source, /['"]--moduleResolution['"]\s*,\s*['"]Node16['"]/,
+      file + ': React Native types require Node16 package-exports resolution');
+    assert.doesNotMatch(source, /['"]--moduleResolution['"]\s*,\s*['"]node['"]/i,
+      file + ': never restore deprecated Node10 resolution');
+  }
+});

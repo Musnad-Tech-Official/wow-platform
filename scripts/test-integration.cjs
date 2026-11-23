@@ -8,7 +8,7 @@ const { resolve } = require('node:path');
 const root = resolve(__dirname, '..');
 const output = mkdtempSync(resolve(tmpdir(), 'wow-integration-tests-'));
 const compiler = require.resolve('typescript/lib/tsc.js', { paths: [resolve(root, 'apps/customer')] });
-execFileSync(process.execPath, [compiler, '--target', 'ES2022', '--module', 'commonjs', '--moduleResolution', 'node', '--ignoreDeprecations', '6.0', '--skipLibCheck', '--strict', '--outDir', output, '--rootDir', 'packages/api/src', 'packages/api/src/integration/index.ts'], { cwd: root, stdio: 'inherit' });
+execFileSync(process.execPath, [compiler, '--target', 'ES2022', '--module', 'Node16', '--moduleResolution', 'Node16', '--ignoreDeprecations', '6.0', '--skipLibCheck', '--strict', '--outDir', output, '--rootDir', 'packages/api/src', 'packages/api/src/integration/index.ts'], { cwd: root, stdio: 'inherit' });
 const { integrationTests, executeIntegrationTest, redact, errorDetails, validatePublicSupabaseKey } = require(resolve(output, 'integration/index.js'));
 const { permissionDenied } = require(resolve(output, 'integration/helpers.js'));
 const context = (overrides = {}) => ({ application: 'merchant', isLoaded: true, isSignedIn: true, userId: 'user_owner', getToken: async () => null, client: {}, anonymousClient: null, assertIdentity() {}, knownOtherUserId: '', otherUserExistsConfirmed: false, branchParameters: {}, artifacts: { verifiedProfiles: [] }, ...overrides });
