@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Tabs } from 'expo-router';
+import { useRouter, type Tabs } from 'expo-router';
 import { Heart, House, UserRound } from 'lucide-react-native';
 import { useTheme, useWowColors, wowBrandColors } from '@wow/theme';
 import { AppText } from '@wow/ui';
@@ -13,8 +13,8 @@ export type CustomerBottomTabBarProps = Parameters<
 export function CustomerBottomTabBar({
   state,
   descriptors,
-  navigation,
 }: CustomerBottomTabBarProps) {
+  const router = useRouter();
   const colors = useWowColors();
   const insets = useSafeAreaInsets();
   const { resolvedTheme } = useTheme();
@@ -64,15 +64,12 @@ export function CustomerBottomTabBar({
               : '#64748B';
 
           function onPress() {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isSelected && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
+            if (isSelected) return;
+            // Expo Router 58 Tabs' tabBar callback does not expose a
+            // navigation prop. Navigate with its public href-aware router.
+            if (route.name === 'index') router.navigate('/');
+            else if (route.name === 'favorites') router.navigate('/favorites');
+            else if (route.name === 'account') router.navigate('/account');
           }
 
           return (
