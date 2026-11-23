@@ -462,8 +462,9 @@ test('business detail returns null for unlisted IDs and fails closed on RPC erro
   ]);
 
   globalThis.fetch = async () => response({ code: '42501', message: 'Permission denied' }, 403);
-  await assert.rejects(api.getBusiness(client, id), /Permission denied/,
-    'A role denial must remain a failed query, not an empty or permissive record');
+  await assert.rejects(api.getBusiness(client, id),
+    { code: '42501', message: 'Permission denied' },
+    'A role denial must propagate its actual PostgREST code and message, not a null or permissive record');
 
   globalThis.fetch = async () => response({ id, name: 'Unwrapped object' });
   await assert.rejects(api.getBusiness(client, id), /did not return an array/,
