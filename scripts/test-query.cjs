@@ -11,8 +11,12 @@ const { createRequire, Module } = require('node:module');
 const root = resolve(__dirname, '..');
 const apiRequire = createRequire(resolve(root, 'packages/api/package.json'));
 const output = mkdtempSync(resolve(tmpdir(), 'wow-query-tests-'));
+// React Native 0.88 exposes its generated types through package exports.
+// Legacy Node10 resolution ("node") misses those types, even though the
+// workspace's Bundler-mode typecheck passes. Node16 resolution understands
+// the exports map and preserves CommonJS output for this Node test harness.
 execFileSync(process.execPath, [apiRequire.resolve('typescript/lib/tsc.js'),
-  '--target', 'ES2022', '--module', 'commonjs', '--moduleResolution', 'node',
+  '--target', 'ES2022', '--module', 'Node16', '--moduleResolution', 'Node16',
   '--ignoreDeprecations', '6.0', '--skipLibCheck', '--strict', '--jsx', 'react-jsx',
   '--outDir', output, '--rootDir', 'packages/api/src', 'packages/api/src/index.ts',
 ], { cwd: root, stdio: 'inherit' });
