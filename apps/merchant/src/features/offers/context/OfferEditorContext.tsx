@@ -1,5 +1,5 @@
 import { randomUUID } from 'expo-crypto';
-import React, { createContext, useContext, useState, useMemo, useCallback, useRef, type PropsWithChildren } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, type PropsWithChildren } from 'react';
 import { useGlobalSearchParams } from 'expo-router';
 import {
   useCreateOffer,
@@ -17,7 +17,7 @@ import {
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import type { SelectedEvidenceFile } from '../../business/components/EvidencePicker';
 import { offerDateTimestamp } from '../offer-local-date';
-import { createEditorOperationGate } from '../editor-operation-gate';
+import { createEditorOperationGate, createDraftIdentity } from '../editor-operation-gate';
 
 export interface OfferDraftState {
   // Step 1: Definition
@@ -172,10 +172,8 @@ export function OfferEditorProvider({
   );
 
   // Persist the confirmed ID synchronously, even before a React render or a partial save failure.
-  const confirmedOfferId = useRef(currentOfferId);
-  const confirmedVersionId=useRef<string|null>(null);
+  const [identity] = useState(() => createDraftIdentity(currentOfferId));
   const [savedVersionId,setSavedVersionId]=useState<string|null>(null);
-  const draftRequestId = useRef<string|null>(null);
   const [operationGate] = useState(createEditorOperationGate);
   const [operation,setOperation] = useState<'save'|'submit'|'upload'|null>(null);
   const beginOperation = useCallback((kind:'save'|'submit'|'upload') => {
@@ -277,9 +275,7 @@ export function OfferEditorProvider({
       if (action === 'switch_and_reset') {
         // Discard old draft, bind to newly selected business
         setDraftBusinessId(activeBusinessId);
-        confirmedOfferId.current = null;
-        draftRequestId.current = null;
-        confirmedVersionId.current=null;
+        identity.reset();
         setSavedVersionId(null);
         setCurrentOfferId(null);
         setDraft(DEFAULT_DRAFT_STATE);
@@ -291,7 +287,7 @@ export function OfferEditorProvider({
         setActiveBusinessId(draftBusinessId);
       }
     },
-    [activeBusinessId, draftBusinessId, setActiveBusinessId, operationGate]
+    [activeBusinessId, draftBusinessId, setActiveBusinessId, operationGate, identity]
   );
 
   const updateDraft = useCallback((patch: Partial<OfferDraftState>) => {
@@ -466,13 +462,13 @@ export function OfferEditorProvider({
       return null;
     }
     try {
-      let targetOfferId = confirmedOfferId.current;
+      let targetOfferId = identity.offerId();
 
       // 1. Create offer if this is a fresh draft
       if (!targetOfferId) {
-        draftRequestId.current ??= randomUUID();
-        targetOfferId = await createOfferMutation.mutateAsync({ businessId: draftBusinessId, requestId:draftRequestId.current });
-        confirmedOfferId.current = targetOfferId;
+        const requestId = identity.requestId(randomUUID);
+        targetOfferId = await createOfferMutation.mutateAsync({ businessId: draftBusinessId, requestId });
+        identity.confirmOffer(targetOfferId);
         setCurrentOfferId(targetOfferId);
       }
 
@@ -512,7 +508,7 @@ export function OfferEditorProvider({
       // 3. Persist even incomplete drafts. The database accepts zero branches
       // for drafts; submission still requires at least one approved branch.
       const savedVersion=await saveDraftMutation.mutateAsync({ offerId: targetOfferId, payload });
-      confirmedVersionId.current=savedVersion;
+      identity.confirmVersion(savedVersion);
       setSavedVersionId(savedVersion);
 
       // 4. Persist both attachments and explicit removal. Never report a
@@ -546,17 +542,19 @@ export function OfferEditorProvider({
     saveDraftMutation,
     saveEvidenceMutation,
     businessConflict,
+    identity,
   ]);
 
   const prepareOfferMediaUpload=useCallback(async()=>{
     if(isSyntheticPreview||!draftBusinessId||businessConflict||!beginOperation('upload'))return null;
     try{
       const saved=await persistDraft();
-      if(saved&&confirmedVersionId.current)return {businessId:draftBusinessId,versionId:confirmedVersionId.current};
+      const versionId = identity.versionId();
+      if(saved&&versionId)return {businessId:draftBusinessId,versionId};
     }catch{/* persistDraft already reports failure */}
     finishOperation('upload');
     return null;
-  },[isSyntheticPreview,draftBusinessId,businessConflict,beginOperation,finishOperation,persistDraft]);
+  },[isSyntheticPreview,draftBusinessId,businessConflict,beginOperation,finishOperation,persistDraft,identity]);
 
   const saveDraft = useCallback(async (): Promise<string | null> => {
     if (!beginOperation('save')) return null;
@@ -603,7 +601,7 @@ export function OfferEditorProvider({
       offerId: currentOfferId,
       versionId:effectiveVersionId,
       media:versionDetails?.version.id===effectiveVersionId?versionDetails.media:[],
-      prepareOfferMediaUpload: () => prepareOfferMediaUpload(),
+      prepareOfferMediaUpload,
       isNewOffer: !currentOfferId,
       isSyntheticPreview,
       draft,
@@ -623,7 +621,7 @@ export function OfferEditorProvider({
       saveDraft,
       submitOfferForReview,
       businessConflict,
-      resolveBusinessConflict: (action) => resolveBusinessConflict(action),
+      resolveBusinessConflict,
       draftBusinessName: businessDetail?.name || activeBusiness?.name || 'النشاط التجاري الحالي',
     }),
     [
