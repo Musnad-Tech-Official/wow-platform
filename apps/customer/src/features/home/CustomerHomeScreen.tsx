@@ -459,21 +459,6 @@ export function CustomerHomeScreen({ showBottomNav = false }: CustomerHomeScreen
           )}
         </View>
 
-        {/* 6. Footnote Disclaimer */}
-        <View style={{ paddingHorizontal: 16 }}>
-          <AppText
-            variant="caption"
-            style={{
-              textAlign: 'center',
-              fontSize: 10,
-              marginTop: 10,
-              marginBottom: 8,
-              color: isDark ? colors.neutral : colors.mutedForeground,
-            }}
-          >
-            العروض والأسعار والصور المعروضة بيانات توضيحية
-          </AppText>
-        </View>
       </ScrollView>
 
       {/* 7. Bottom Navigation (rendered only in standalone mode; otherwise provided by Expo Router Tabs) */}

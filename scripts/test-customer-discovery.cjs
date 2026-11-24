@@ -354,6 +354,8 @@ test('7. Authorized media and signed URL handling: short-lived URLs, rejects pri
 // 8. No fallback to fake production content
 // ---------------------------------------------------------------------------
 test('8. No fallback to fake production content: APPROVED_MERCHANTS not rendered in live mode', () => {
+  assert.doesNotMatch(homeScreenSrc, /العروض والأسعار والصور المعروضة بيانات توضيحية/,
+    'AUD-042: real RPC-backed Home must not claim its data is illustrative');
   assert.doesNotMatch(
     homeScreenSrc,
     /APPROVED_MERCHANTS/,

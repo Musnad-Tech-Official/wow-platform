@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { CustomerComplaintDetailsScreen } from '../../features/complaint';
+import type { ComplaintDetailsPreviewMode } from '../../features/complaint/CustomerComplaintDetailsScreen';
 
 export default function ComplaintDetailsRoute() {
   const { id, preview } = useLocalSearchParams<{
@@ -7,5 +8,5 @@ export default function ComplaintDetailsRoute() {
     preview?: string;
   }>();
 
-  return <CustomerComplaintDetailsScreen complaintId={id} previewMode={preview as any} />;
+  return <CustomerComplaintDetailsScreen complaintId={id} previewMode={__DEV__ && typeof preview === 'string' ? preview as ComplaintDetailsPreviewMode : 'live'} />;
 }

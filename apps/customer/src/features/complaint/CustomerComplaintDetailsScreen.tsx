@@ -69,8 +69,8 @@ export interface CustomerComplaintDetailsScreenProps {
 
 export function CustomerComplaintDetailsScreen({
   complaintId,
-  previewMode = 'live',
-  initialComplaintOverride,
+  previewMode: requestedPreviewMode = 'live',
+  initialComplaintOverride: requestedComplaintOverride,
 }: CustomerComplaintDetailsScreenProps) {
   const router = useRouter();
   const colors = useWowColors();
@@ -81,14 +81,16 @@ export function CustomerComplaintDetailsScreen({
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  // Development-only preview isolation
+  // Never let preview props select a production screen state or data source.
+  const previewMode = __DEV__ ? requestedPreviewMode : 'live';
+  const initialComplaintOverride = __DEV__ ? requestedComplaintOverride : undefined;
   const isPreview = __DEV__ && (previewMode !== 'live' || Boolean(initialComplaintOverride));
 
   // UUID Validation
   const isValidUuid = Boolean(complaintId && isValidComplaintUuid(complaintId));
 
   // Authorized Query via TanStack Query and Clerk session
-  const realQuery = useMyComplaint(complaintId);
+  const realQuery = useMyComplaint(isPreview ? null : complaintId);
 
   // Safe Back Navigation
   const handleBack = useCallback(() => {
