@@ -43,6 +43,8 @@ export const wowQueryKeys = {
       ['offers', 'admin', userId, 'detail', versionId] as const,
   },
   interactions: {
+    assessmentOffer: (userId: string | null, offerId: string | null, purpose: 'rating' | 'complaint') =>
+      ['interactions', 'assessment-offer', userId, offerId, purpose] as const,
     savedOffers: (userId: string | null) => ['interactions', 'savedOffers', userId] as const,
     savedBusinesses: (userId: string | null) => ['interactions', 'savedBusinesses', userId] as const,
     myRatingsRoot: (userId: string | null) => ['interactions', 'ratings', 'customer', userId] as const,

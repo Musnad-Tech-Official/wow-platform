@@ -9,6 +9,8 @@ import {
   getMyComplaintById,
   getMyComplaints,
   getMyRatings,
+  getCustomerAssessmentOffer,
+  type AssessmentPurpose,
   getSavedBusinesses,
   getSavedOffers,
   listAdminComplaints,
@@ -85,6 +87,19 @@ export function useSetSavedBusiness() {
         queryKey: wowQueryKeys.interactions.savedBusinesses(context.userId),
       });
     },
+  });
+}
+
+export function useCustomerAssessmentOffer(offerId: string | null, purpose: AssessmentPurpose) {
+  const context = useWowApiContext();
+  return useQuery({
+    queryKey: wowQueryKeys.interactions.assessmentOffer(context.userId, offerId, purpose),
+    enabled: !!context.userId && !!offerId && uuid(offerId),
+    queryFn: () => {
+      if (!offerId) throw new Error('An offer ID is required.');
+      return getCustomerAssessmentOffer(requireWowApiSession(context).client, offerId, purpose);
+    },
+    staleTime: 0,
   });
 }
 

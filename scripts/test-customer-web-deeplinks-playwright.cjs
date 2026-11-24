@@ -134,3 +134,19 @@ test('AUD-052: production-style forged preview cannot bypass Customer onboarding
     await context.close();
   }
 });
+
+
+test('AUD-024: crafted complaint preview URLs cannot bypass real Customer onboarding', async () => {
+  const id = '11111111-2222-4333-8444-555555555555';
+  for (const route of ['/complaints?preview=populated', '/complaints/' + id + '?preview=new',
+    '/offer/' + id + '/complaint?fixture=true']) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+      const page = await context.newPage();
+      await page.goto(origin + route, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.waitForURL(url => url.pathname === '/welcome', { timeout: 30_000 });
+    } finally {
+      await context.close();
+    }
+  }
+});

@@ -472,3 +472,21 @@ test('12. Guest State & Ergonomics: Secure access illustration, honest copy, min
     'Must set RTL direction on web platforms',
   );
 });
+
+
+test('AUD-051: legal documents use configured HTTPS URLs and never claim unavailable acceptance', () => {
+  const dir=path.join(repoRoot,'apps/customer/src/features/legal');
+  const src=fs.readFileSync(path.join(dir,'legal-documents.ts'),'utf8');
+  const h={};
+  new Function('exports',ts.transpileModule(src,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+  assert.equal(h.validateLegalDocumentUrl('https://example.com/terms'),'https://example.com/terms');
+  for(const value of [null,'','http://example.com','javascript:alert(1)','//example.com','https://user:pass@example.com/','https://127.0.0.1/','https://x.local/','https://example.com/?token=test']) assert.equal(h.validateLegalDocumentUrl(value),null);
+  const links=fs.readFileSync(path.join(dir,'LegalDocumentLinks.tsx'),'utf8');
+  const signIn=fs.readFileSync(path.join(repoRoot,'apps/customer/src/app/sign-in.tsx'),'utf8');
+  assert.match(links,/Linking\.openURL\(url\)/);
+  assert.match(links,/disabled=\{!legalDocuments\.terms\}/);
+  assert.match(links,/disabled=\{!legalDocuments\.privacy\}/);
+  assert.match(signIn,/<LegalDocumentLinks \/>/);
+  assert.match(privacyPolicyModalSrc,/<LegalDocumentLinks \/>/);
+  assert.doesNotMatch(signIn,/بتسجيلك فإنك توافق/);
+});

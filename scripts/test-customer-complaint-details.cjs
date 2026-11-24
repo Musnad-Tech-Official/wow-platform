@@ -606,3 +606,19 @@ test('12. Fixture isolation: __DEV__ guard protects fixtures from production use
 });
 
 console.log('All 16 CUS-09 test suites passed successfully.');
+
+
+test('AUD-024: production ignores preview data, auth overrides and fake complaint screen states', () => {
+  const source = p => fs.readFileSync(path.join(repoRoot, p), 'utf8');
+  const list = source('apps/customer/src/features/complaint/CustomerMyComplaintsScreen.tsx');
+  const submit = source('apps/customer/src/features/complaint/CustomerSubmitComplaintScreen.tsx');
+  assert.match(detailsRouteSrc, /previewMode=\{__DEV__ && typeof preview === 'string'/);
+  assert.match(detailsScreenSrc, /const previewMode = __DEV__ \? requestedPreviewMode : 'live'/);
+  assert.match(detailsScreenSrc, /const initialComplaintOverride = __DEV__ \? requestedComplaintOverride : undefined/);
+  assert.match(list, /const previewMode = __DEV__ \? requestedPreviewMode : 'live'/);
+  assert.match(list, /const initialAuthOverride = __DEV__ \? requestedAuthOverride : undefined/);
+  assert.match(list, /const initialComplaintsOverride = __DEV__ \? requestedComplaintsOverride : undefined/);
+  assert.match(submit, /const isFixture = __DEV__ && requestedFixture/);
+  assert.match(submit, /const initialAuthOverride = isFixture \? requestedAuthOverride : undefined/);
+  assert.match(submit, /const mockOffer = isFixture \? requestedMockOffer : undefined/);
+});

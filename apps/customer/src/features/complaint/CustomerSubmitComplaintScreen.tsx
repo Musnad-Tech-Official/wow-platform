@@ -14,7 +14,7 @@ import {
   CheckCircle2,
 } from 'lucide-react-native';
 import { useAuth } from '@wow/auth';
-import { usePublicOffer, useSubmitComplaint, type ComplaintType } from '@wow/api';
+import { usePublicOffer, useCustomerAssessmentOffer, useSubmitComplaint, type ComplaintType } from '@wow/api';
 import { useTheme, useWowColors } from '@wow/theme';
 import { wowIllustrations } from '@wow/assets';
 import {
@@ -56,15 +56,19 @@ export interface CustomerSubmitComplaintScreenProps {
 
 export function CustomerSubmitComplaintScreen({
   offerId,
-  initialAuthOverride,
-  mockOffer,
-  isFixture = false,
+  initialAuthOverride: requestedAuthOverride,
+  mockOffer: requestedMockOffer,
+  isFixture: requestedFixture = false,
 }: CustomerSubmitComplaintScreenProps) {
   const router = useRouter();
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const rtlWebProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
+
+  const isFixture = __DEV__ && requestedFixture;
+  const initialAuthOverride = isFixture ? requestedAuthOverride : undefined;
+  const mockOffer = isFixture ? requestedMockOffer : undefined;
 
   // 1. Auth session check
   const { isLoaded: isAuthLoadedRaw, isSignedIn: isSignedInRaw } = useAuth();
@@ -73,7 +77,15 @@ export function CustomerSubmitComplaintScreen({
 
   // 2. Offer ID validation & query
   const isUuidValid = Boolean(mockOffer) || isValidUuid(offerId);
-  const offerQuery = usePublicOffer(isUuidValid && !mockOffer ? offerId : null);
+  // Public discovery remains guest-only for the optional visible offer summary.
+  // An authenticated action uses the server's independent eligibility policy.
+  const assessmentQuery = useCustomerAssessmentOffer(
+    isUuidValid && !mockOffer && isAuthLoaded && isSignedIn ? offerId : null, 'complaint',
+  );
+  const publicOfferQuery = usePublicOffer(
+    isUuidValid && !mockOffer && isAuthLoaded && !isSignedIn ? offerId : null,
+  );
+  const offerQuery = isSignedIn ? assessmentQuery : publicOfferQuery;
   const offer = mockOffer ?? offerQuery.data;
 
   // 3. Form State
@@ -147,7 +159,10 @@ export function CustomerSubmitComplaintScreen({
   }
 
   function handleSignInRedirect() {
-    router.push('/sign-in');
+    router.push({
+      pathname: '/sign-in',
+      params: { returnTo: `/offer/${offerId}/complaint`, offerId, action: 'complaint' },
+    });
   }
 
   // Quick Date Fill Helpers
@@ -185,10 +200,12 @@ export function CustomerSubmitComplaintScreen({
 
   async function handleConfirmSubmit() {
     if (!offer) return;
+    if (!mockOffer && (!isAuthLoaded || !isSignedIn || !assessmentQuery.data || assessmentQuery.isError || assessmentQuery.isPending)) return;
 
     await executeComplaintSubmission({
       isSubmittingRef,
       offerId: offer.id,
+      offerVersionId: assessmentQuery.data?.offer_version_id,
       complaintType,
       description,
       branchId,
@@ -303,7 +320,7 @@ export function CustomerSubmitComplaintScreen({
   // ---------------------------------------------------------------------------
   // Loading Offer State
   // ---------------------------------------------------------------------------
-  if (offerQuery.isLoading) {
+  if (!mockOffer && (!isAuthLoaded || offerQuery.isPending)) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         {renderHeader()}
@@ -364,6 +381,22 @@ export function CustomerSubmitComplaintScreen({
   // ---------------------------------------------------------------------------
   // Offer Unavailable / Not Found State
   // ---------------------------------------------------------------------------
+  if (!offer && isAuthLoaded && !isSignedIn) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {renderHeader()}
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+          <DataState
+            kind="empty"
+            title="يلزم تسجيل الدخول للتحقق من إمكانية تقديم شكوى عن هذا العرض"
+            actionLabel="تسجيل الدخول للمتابعة"
+            onAction={handleSignInRedirect}
+          />
+        </View>
+      </View>
+    );
+  }
+
   if (!offer) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
