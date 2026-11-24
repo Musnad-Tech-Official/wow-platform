@@ -239,19 +239,58 @@ function pagination(options: Pagination) {
   return { p_limit: options.limit ?? 50, p_offset: options.offset ?? 0 };
 }
 
-/** The only Migration 005 tables with owner-restricted client SELECT grants. */
+// Fetch small, stable keyset pages so the Data API row cap cannot silently
+// truncate a user's saved IDs. Detail queries remain lazy at the card level.
+const SAVED_PAGE_SIZE = 200;
+type SavedCursor = { id: string; created_at: string };
+
+async function readSavedPages<T extends SavedCursor>(
+  fetchPage: (cursor: SavedCursor | null) => Promise<T[]>,
+  signal?: AbortSignal,
+): Promise<T[]> {
+  let cursor: SavedCursor | null = null;
+  const all: T[] = [];
+  const seen = new Set<string>();
+  for (;;) {
+    signal?.throwIfAborted();
+    const page = await fetchPage(cursor);
+    signal?.throwIfAborted();
+    if (page.length > SAVED_PAGE_SIZE) throw new Error('Unexpected saved-item page size.');
+    for (const item of page) {
+      if (!uuid(item.id) || seen.has(item.id)) throw new Error('Invalid or duplicate saved-item cursor.');
+      seen.add(item.id);
+      all.push(item);
+    }
+    if (page.length < SAVED_PAGE_SIZE) return all;
+    cursor = page[page.length - 1]!;
+    // Preserve PostgreSQL timestamp precision, including fractional seconds.
+    if (!/^[0-9T:+.Z-]+$/.test(cursor.created_at) || !Number.isFinite(Date.parse(cursor.created_at))) {
+      throw new Error('Invalid saved-item timestamp.');
+    }
+  }
+}
+
+function savedCursorFilter(cursor: SavedCursor) {
+  return `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`;
+}
+
+/** Owner-scoped reads; deterministic ordering even for equal timestamps. */
 export async function getSavedOffers(
   client: WowSupabaseClient,
   userId: string,
   signal?: AbortSignal,
 ): Promise<SavedOffer[]> {
-  let request = client.from('saved_offers')
-    .select('id,user_id,offer_id,created_at').eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  if (signal) request = request.abortSignal(signal);
-  const { data, error } = await request;
-  if (error) throw error;
-  return (data ?? []) as SavedOffer[];
+  return readSavedPages(async cursor => {
+    let request = client.from('saved_offers')
+      .select('id,user_id,offer_id,created_at').eq('user_id', userId)
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .limit(SAVED_PAGE_SIZE);
+    if (cursor) request = request.or(savedCursorFilter(cursor));
+    if (signal) request = request.abortSignal(signal);
+    const { data, error } = await request;
+    if (error) throw error;
+    return (data ?? []) as SavedOffer[];
+  }, signal);
 }
 
 export async function getSavedBusinesses(
@@ -259,13 +298,17 @@ export async function getSavedBusinesses(
   userId: string,
   signal?: AbortSignal,
 ): Promise<SavedBusiness[]> {
-  let request = client.from('saved_businesses')
-    .select('id,user_id,business_id,created_at').eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  if (signal) request = request.abortSignal(signal);
-  const { data, error } = await request;
-  if (error) throw error;
-  return (data ?? []) as SavedBusiness[];
+  return readSavedPages(async cursor => {
+    let request = client.from('saved_businesses')
+      .select('id,user_id,business_id,created_at').eq('user_id', userId)
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .limit(SAVED_PAGE_SIZE);
+    if (cursor) request = request.or(savedCursorFilter(cursor));
+    if (signal) request = request.abortSignal(signal);
+    const { data, error } = await request;
+    if (error) throw error;
+    return (data ?? []) as SavedBusiness[];
+  }, signal);
 }
 
 export async function setSavedOffer(
