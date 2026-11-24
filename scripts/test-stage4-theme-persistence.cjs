@@ -46,8 +46,8 @@ test('AUD-039: web class-driven dark variant and CSS variables match palette', (
   const css = read('packages/theme/theme.css');
   const tokens = read('packages/theme/src/tokens.ts');
   assert(css.includes('@custom-variant dark (&:where(.dark, .dark *));'));
-  assert.match(css, /(?:^|\\n)\\.dark\\s*\\{/);
-  assert.doesNotMatch(css, /(?::root\\s*\\.dark|\\.dark\\s*:root)\\s*\\{/,
+  assert.match(css, /(?:^|\n)\.dark\s*\{/);
+  assert.doesNotMatch(css, /(?::root\s*\.dark|\.dark\s*:root)\s*\{/,
     'Class-qualified :root styles prevent NativeWind v5 Android/iOS Metro exports');
   assert(tokens.includes("background: '#101014'"));
   assert(css.includes('--color-background: #101014;'));
