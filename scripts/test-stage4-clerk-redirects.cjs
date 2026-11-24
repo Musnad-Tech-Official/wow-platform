@@ -38,5 +38,7 @@ test('AUD-058: redirect contract matches recorded Clerk Development allowlist', 
   for (const { app, path } of contracts) {
     assert(doc.includes(app + '://' + path));
   }
-  assert.match(doc, /D-02 remains OPEN/);
+  assert.match(doc, /D-02 is approved by the product owner: Google\/Facebook-only for the first release/);
+  assert.match(doc, /Implementation alignment remains open/);
+  assert.match(doc, /safe transition and signed-session tests/);
 });

@@ -1,6 +1,6 @@
 # WOW — Stage 4 acceptance and outstanding evidence
 
-**State:** SOURCE AND PUBLIC CI VERIFIED / AUTHENTICATED ACCEPTANCE OPEN. Never represent merged source patches, transaction-scoped SQL cases or GitHub's runner-admission failures as a full Stage 4 pass. This contract consolidates the frozen Stage 3 backlog; it does not close previously unverified criteria.
+**State:** SOURCE AND PUBLIC CI VERIFIED / COMPREHENSIVE ACCEPTANCE DEFERRED TO STAGE 6 BY OWNER. See [updated gate and transfer register](stage4-stage6-acceptance-transfer-20261124.md) for the binding schedule, all 25 AUD items, and unresolved implementation/security exceptions. Never represent merged source patches, transaction-scoped SQL cases or GitHub's runner-admission failures as a full Stage 4 pass. This contract consolidates the frozen Stage 3 backlog; it does not close previously unverified criteria.
 
 ## 1. Foundation and automated gates (4-PREREQ)
 
@@ -23,7 +23,7 @@ The audited RLS and business-category/trial patches have been applied to the ori
 
 ### 2026-11-24 live Development SQL regression
 
-All six transaction-scoped suites passed: AUD-016 (8), AUD-017 (8), AUD-019 (6), AUD-034 (8), AUD-038 (10), AUD-043 (16), total **56/56**. AUD-019 and AUD-043 used randomized synthetic owners and businesses rather than an existing business; the same fixture isolation is now in the repository. Every suite ended with ROLLBACK; follow-up count of matching synthetic test users was zero. These tests exercise SQL behavior with simulated claims, not signed Clerk JWTs or Storage HTTP.
+Six earlier transaction-scoped suites passed: AUD-016 (8), AUD-017 (8), AUD-019 (6), AUD-034 (8), AUD-038 (10), AUD-043 (16), total **56/56**. AUD-018 was subsequently verified with 10/10 transactional boundary cases, for a total of **66/66** across seven suites. AUD-019 and AUD-043 used randomized synthetic owners and businesses rather than an existing business; the same fixture isolation is now in the repository. Every suite ended with ROLLBACK; follow-up count of matching synthetic test users was zero. These tests exercise SQL behavior with simulated claims, not signed Clerk JWTs or Storage HTTP.
 
 **Never replay already applied migrations** merely to make the status green. Revalidate by reading the database migration history and role-specific requests.
 
@@ -38,7 +38,7 @@ Source changes have been reviewed/merged for **AUD-008, AUD-011, AUD-039, AUD-04
 - Google/Facebook callback popup completion and cancellation, native deep links and signed-in sessions in Clerk Development; role authorization remains server-side (AUD-054/056). Three native return URLs have been inspected in Clerk but **real callback sessions are not yet tested**.
 - Browser/Android/iOS Light/Dark/System persistence, CSS/NativeWind dark utility consistency, screenshots, text contrast and accessibility (AUD-039/062). Admin browser test now includes persistence over reload and simulated OS appearance changes.
 
-**AUD-059 / Product decision D-02 remains OPEN:** WOW Development Clerk has Google/Facebook OAuth **and** password/email-code methods enabled, with pre-existing accounts relying on those methods. The Customer recovery description was corrected. PR #94 removed hardcoded live QA sign-in configuration from current source and isolated the manual live-auth workflow. Clerk settings are unchanged. Historical exposure remediation and replacement isolated fixtures remain required; do not use historical fixtures. Do not disable methods without an approved recovery/migration policy and live authentication acceptance.
+**AUD-059 implementation remains OPEN; D-02 product policy is approved:** WOW Development Clerk has Google/Facebook OAuth **and** password/email-code methods enabled, with pre-existing accounts relying on those methods. The Customer recovery description was corrected. PR #94 removed hardcoded live QA sign-in configuration from current source and isolated the manual live-auth workflow. Clerk settings are unchanged. Historical exposure remediation and replacement isolated fixtures remain required; do not use historical fixtures. Do not disable methods without a verified recovery/migration path and live authentication acceptance. Coordinate the cutover with Stage 6, as recorded in the updated transfer register.
 
 ## 4. End-of-stage acceptance procedure (approved testing cadence)
 
@@ -48,9 +48,9 @@ Per the current owner-approved direct workflow, use GitHub Actions for implement
 2. `git pull --ff-only origin main`
 3. `bash scripts/verify-local-quality.sh all`
 4. Retain the SHA, exit status, timestamped private report under `~/wow-qa-reports/`, and the browser visual screenshots. A code change after the run invalidates that report.
-5. Separately collect real Clerk/Supabase signed-JWT, private Storage/RLS, production-style deep link, authenticated flows, Android/iOS devices, RTL/keyboard/screen reader evidence. A result not executed is `NOT_RUN`, never `PASS`.
-6. Resolve any failures at their actual root cause, rerun on the new SHA, and record a **GO/NO-GO** for this stage only when all mandatory evidence and D-02 decision are satisfied.
+5. Stage 6 collects the remaining real Clerk/Supabase signed-JWT, private Storage/RLS, production-like deep link, authenticated flows, device, RTL/keyboard/screen reader evidence. Actual release hosting belongs to Stage 7. A result not executed is `NOT_RUN`, never `PASS`.
+6. Resolve failures at their actual root cause. Apply the revised Stage 4 implementation gate separately from Stage 6 acceptance, retaining all deferred criteria and current security exceptions.
 
-**Current disposition: NO-GO for Stage 4 acceptance (not a halt to source development).** The public CI suite has passed on a prior merged SHA and the PR #94 candidate; final merged-SHA run 45451833746 was still in progress when this record was prepared. Live identity, Storage HTTP, actual hosting and device acceptance remain incomplete. Do not label a merged PR or a passed transactional SQL role test as functional release approval.
+**Current disposition: public CI and tested SQL gates PASS; Stage 4 implementation/security exceptions tracked; Stage 6 comprehensive acceptance NOT_RUN.** The latest merged baseline 17c3257 passed run 45453598835. Live identity, Storage HTTP, actual hosting and device acceptance remain incomplete under the revised schedule. Do not label a merged PR or a passed transactional SQL role test as functional release approval.
 
 Stage 5 and later stages have their own frozen backlog gates and must not be declared complete as a side effect of Stage 4 source changes.
