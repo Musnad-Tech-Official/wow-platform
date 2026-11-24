@@ -301,7 +301,7 @@ test('BATCH-01: MER-03 dashboard satisfies UI fidelity, analytical metrics, and 
   assert.match(dashboardHook, /useBusiness/);
   assert.match(dashboardHook, /useBusinessBilling/);
   assert.match(dashboardHook, /useBusinessOffers/);
-  assert.match(dashboardHook, /useBusinessComplaints/);
+  assert.match(dashboardHook, /useMerchantComplaintCounts/);
 
   // Truthful telemetry: inquiriesMetrics distinguishes preview from production
   assert.match(dashboardHook, /inquiriesMetrics/);
@@ -354,7 +354,8 @@ test('BATCH-01: MER-04 offers management satisfies UI fidelity, status distribut
 
   // Real RPC mutation and DB field merchant_available
   assert.match(offersHook, /useSetOfferAvailability/);
-  assert.match(offersHook, /merchant_available/);
+  assert.match(offersHook, /resolveMerchantOfferStatus/);
+  assert.match(read('apps/merchant/src/features/offers/merchant-offer-status.ts'), /merchant_available/);
   assert.match(offersHook, /available:\s*!isCurrentlyAvailable/);
   assert.match(offersHook, /paused:\s*isCurrentlyAvailable/);
   assert.match(offersHook, /لا يمكن تفعيل أو إيقاف العرض إلا بعد اعتماده من الإدارة/);
@@ -485,5 +486,60 @@ test('AUD-007/010: optional restricted dashboard sources do not block core and a
  assert.match(screen,/hasComplaintsTelemetry=\{complaintsAvailable\}/);
  assert.match(metrics,/hasComplaintsTelemetry \? complaintsCount : '—'/);
  assert.match(metrics,/hasComplaintsTelemetry && <SegmentedStatusBar/);
- assert.match(hook,/complaintsData.length < 50/);
+ assert.match(hook,/useMerchantComplaintCounts/);
+  assert.doesNotMatch(hook,/complaintsData\.length/);
+});
+
+
+test('AUD-014/029/049: zero flags, initial-only qualification, server-authorized quick draft', () => {
+ const team=read('apps/merchant/src/features/team/components/MerchantTeamEditorScreen.tsx');
+ const status=read('apps/merchant/src/features/business/hooks/useBusinessQualificationStatus.ts');
+ const quick=read('apps/merchant/src/features/dashboard/components/QuickActionsSection.tsx');
+ assert.doesNotMatch(team,/if \(permCount === 0\)/);
+ assert.match(team,/دون صلاحيات تشغيلية/);
+ assert.match(status,/requests\.filter\(r => r.request_type === 'initial'\)/);
+ assert.match(status,/latestInitialQualification\(serverVerifications\)/);
+ assert.match(quick,/await create\.mutateAsync\(\{ businessId: activeBusinessId,requestId \}\)/);
+ assert.match(quick,/requests\.current\.set\(activeBusinessId,requestId\)/);
+ assert.match(quick,/creating\.current/);
+ assert.doesNotMatch(quick,/إنشاء عرض \(قيد التطوير\)/);
+});
+test('AUD-020/037: subscription time boundaries and server entitlement', () => {
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]}));
+ const h={};
+ new Function('exports',ts.transpileModule(read('apps/merchant/src/features/subscription/subscription-time.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ const s={status:'active',starts_at:'2026-11-01T00:00:00Z',ends_at:'2026-11-02T00:00:00Z'};
+ assert.equal(h.isSubscriptionInForce(s,Date.parse(s.starts_at)-1),false);
+ assert.equal(h.isSubscriptionInForce(s,Date.parse(s.starts_at)),true);
+ assert.equal(h.isSubscriptionInForce(s,Date.parse(s.ends_at)-1),true);
+ assert.equal(h.isSubscriptionInForce(s,Date.parse(s.ends_at)),false);
+ assert.equal(h.isSubscriptionExpired(s,Date.parse(s.ends_at)),true);
+ assert.equal(h.isSubscriptionInForce({...s,ends_at:null},Date.parse(s.starts_at)),false);
+ const billing=read('apps/merchant/src/features/subscription/components/MerchantSubscriptionScreen.tsx');
+ const dashboard=read('apps/merchant/src/features/dashboard/hooks/useMerchantDashboard.ts');
+ assert.match(billing,/billing\.has_publication_entitlement/);
+ assert.match(billing,/\{publicationLabel\}/);
+ assert.match(dashboard,/billingData\?\.has_publication_entitlement/);
+});
+
+
+test('AUD-028: active offer state checks approved current version and real time boundaries',()=>{
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]})),h={};
+ new Function('exports',ts.transpileModule(read('apps/merchant/src/features/offers/merchant-offer-status.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ const o={status:'active',merchant_available:true,current_version_id:'v'};
+ const v={id:'v',review_status:'approved',starts_at:'2026-11-01T00:00:00Z',ends_at:'2026-11-02T00:00:00Z'};
+ const start=Date.parse(v.starts_at),end=Date.parse(v.ends_at),status=h.resolveMerchantOfferStatus;
+ assert.equal(status(o,v,undefined,start-1),'scheduled');
+ assert.equal(status(o,v,undefined,start),'visible');
+ assert.equal(status(o,v,undefined,end-1),'visible');
+ assert.equal(status(o,v,undefined,end),'expired');
+ assert.equal(status({...o,status:'paused'},v,undefined,end),'expired');
+ assert.equal(status(o,undefined,undefined,start),'unavailable');
+ assert.equal(status(o,{...v,review_status:'draft'},undefined,start),'unavailable');
+ assert.equal(status(o,{...v,id:'other'},undefined,start),'unavailable');
+ assert.equal(status({...o,merchant_available:false},v,undefined,start),'paused');
+ assert.equal(status({...o,status:'draft'},undefined,'rejected',start),'needs_changes');
+ const hook=read('apps/merchant/src/features/offers/hooks/useMerchantOffers.ts');
+ assert.match(hook,/resolveMerchantOfferStatus\(offer/);
+ assert.match(hook,/serverVersions,now/);
 });

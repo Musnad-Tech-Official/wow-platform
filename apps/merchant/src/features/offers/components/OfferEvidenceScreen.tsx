@@ -10,6 +10,7 @@ import { MerchantScaffold } from '../../navigation/MerchantScaffold';
 import { useOfferEditor } from '../context/OfferEditorContext';
 import { OfferEditorStepper } from './OfferEditorStepper';
 import { OfferBusinessConflictModal } from './OfferBusinessConflictModal';
+import { OfferMediaUploadPanel } from './OfferMediaUploadPanel';
 import { EvidencePicker, type SelectedEvidenceFile } from '../../business/components/EvidencePicker';
 
 export function OfferEvidenceScreen() {
@@ -25,6 +26,9 @@ export function OfferEvidenceScreen() {
     canProceed,
     saveDraft,
     isSaving,
+    isUploadingEvidence,
+    beginEvidenceUpload,
+    endEvidenceUpload,
     actionFeedback,
     clearFeedback,
     businessConflict,
@@ -40,6 +44,7 @@ export function OfferEvidenceScreen() {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const handleFileChange = async (file: SelectedEvidenceFile | null) => {
+    if (isSaving || businessConflict) return;
     if (!file) {
       updateDraft({ evidenceFile: null });
       return;
@@ -59,6 +64,8 @@ export function OfferEvidenceScreen() {
 
     // Perform real private upload if new file with bytes
     if (file.bytes && businessId) {
+      if (!beginEvidenceUpload()) return;
+      updateDraft({ evidenceFile: { ...file, isUploaded: false } });
       try {
         setUploadProgress('جارٍ رفع المستند بأمان إلى التخزين الخاص...');
         const uploaded = await uploadMutation.mutateAsync({
@@ -83,14 +90,14 @@ export function OfferEvidenceScreen() {
             isUploaded: false,
           },
         });
-      }
+      } finally { endEvidenceUpload(); }
     } else {
       updateDraft({ evidenceFile: file });
     }
   };
 
   const handleNext = async () => {
-    if (isSaving || businessConflict || !validateStep(4)) return;
+    if (isSaving || isUploadingEvidence || businessConflict || !validateStep(4)) return;
     // Never navigate until server-side draft/evidence persistence succeeds.
     const savedOfferId = await saveDraft();
     if (!savedOfferId) return;
@@ -105,6 +112,7 @@ export function OfferEvidenceScreen() {
   };
 
   const handlePrev = () => {
+    if (isSaving || isUploadingEvidence) return;
     router.push({
       pathname: '/offers/editor/branches',
       params: {
@@ -139,6 +147,7 @@ export function OfferEvidenceScreen() {
       <OfferEditorStepper
         currentStep={4}
         onStepPress={(s) => {
+          if (isSaving || isUploadingEvidence) return;
           if (s === 1) {
             router.push({
               pathname: '/offers/editor',
@@ -247,7 +256,7 @@ export function OfferEvidenceScreen() {
           value={draft.evidenceFile}
           onChange={handleFileChange}
           error={errors.evidence}
-          disabled={uploadMutation.isPending}
+          disabled={isSaving || isUploadingEvidence || uploadMutation.isPending}
         />
 
         {/* Upload Progress Indicator */}
@@ -303,13 +312,15 @@ export function OfferEvidenceScreen() {
         </View>
       </View>
 
+      <OfferMediaUploadPanel />
+
       {/* Navigation Buttons */}
       <View className="w-full gap-2.5 pb-6">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="التالي: الانتقال إلى المراجعة والإرسال"
           onPress={handleNext}
-          disabled={!canProceed(4)}
+          disabled={isSaving || isUploadingEvidence || !canProceed(4)}
           className="w-full min-h-[48px] rounded-xl items-center justify-center active:opacity-85 shadow-sm"
           style={{
             backgroundColor: canProceed(4) ? '#FACC15' : isDark ? '#3F3F46' : '#E2E8F0',
@@ -344,6 +355,7 @@ export function OfferEvidenceScreen() {
           accessibilityRole="button"
           accessibilityLabel="السابق: العودة إلى الفروع والمدة"
           onPress={handlePrev}
+          disabled={isSaving || isUploadingEvidence}
           className="w-full min-h-[44px] items-center justify-center active:opacity-75"
         >
           <AppText variant="caption" className="font-tajawal-bold text-sm" style={{ color: colors.foreground }}>

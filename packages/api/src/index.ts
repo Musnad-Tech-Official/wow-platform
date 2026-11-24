@@ -84,6 +84,7 @@ export {
   useMyComplaint,
   useSubmitComplaint,
   useBusinessComplaints,
+  useMerchantComplaintCounts,
   useMerchantComplaint,
   useMerchantRespondComplaint,
   useAdminRatings,
@@ -118,6 +119,7 @@ export {
 export {
   usePublicOfferMedia,
   useBusinessMediaSignedUrl,
+  useOfferMediaSignedUrl,
   useUploadWowMedia,
   useAttachOfferMedia,
   useAttachComplaintEvidence,

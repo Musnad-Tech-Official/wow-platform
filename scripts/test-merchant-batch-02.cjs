@@ -392,7 +392,7 @@ test('BATCH-02: Private evidence ACL is separate from owner-only verification', 
   assert(details.includes('latestReviewNote'));
 });
 
-test('BATCH-02: Date fields retain partial input and validate before UTC serialization', () => {
+test('BATCH-02: Date fields retain partial input and validate before local-day serialization', () => {
   const branches = read('apps/merchant/src/features/offers/components/OfferBranchesScreen.tsx');
   const state = read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
   assert(branches.includes("updateDraft({ startsAt: text });"));
@@ -402,4 +402,61 @@ test('BATCH-02: Date fields retain partial input and validate before UTC seriali
   assert(state.includes('new Date(timestamp).toISOString().slice(0, 10) === date'), 'Reject invalid calendar dates');
   assert(state.includes('starts_at: offerDateTimestamp(draft.startsAt, false)'));
   assert(state.includes('ends_at: offerDateTimestamp(draft.endsAt, true)'));
+});
+
+
+test('AUD-026: local date boundaries in UTC+3, UTC-8 and DST; stored instants round-trip',()=>{
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]})),{execFileSync}=require('node:child_process');
+ const compiled=ts.transpileModule(read('apps/merchant/src/features/offers/offer-local-date.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+ for(const [TZ,day,start,end] of [
+  ['Asia/Aden','2026-11-24','2026-11-23T21:00:00.000Z','2026-11-24T20:59:59.999Z'],
+  ['America/Los_Angeles','2026-11-24','2026-11-24T08:00:00.000Z','2026-11-25T07:59:59.999Z'],
+  ['America/Los_Angeles','2026-03-08','2026-03-08T08:00:00.000Z','2026-03-09T06:59:59.999Z']
+ ]){
+  const script=compiled+'\nconst a=require("node:assert/strict");const [d,s,e]=process.argv.slice(1);a.equal(exports.offerDateTimestamp(d,false),s);a.equal(exports.offerDateTimestamp(d,true),e);a.equal(exports.formatOfferLocalDate(s),d);a.equal(exports.formatOfferLocalDate(e),d);a.equal(exports.offerDateTimestamp(e,true),e);a.throws(()=>exports.offerDateTimestamp("2026-02-30",false));';
+  execFileSync(process.execPath,['-e',script,day,start,end],{env:{...process.env,TZ}});
+ }
+});
+test('AUD-027/044: one operation across editor routes; uploads block writes and known draft ID survives partial failure',()=>{
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]})),h={};
+ new Function('exports',ts.transpileModule(read('apps/merchant/src/features/offers/editor-operation-gate.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ const gate=h.createEditorOperationGate();
+ assert.equal(gate.begin('upload'),true);assert.equal(gate.begin('save'),false);assert.equal(gate.begin('submit'),false);
+ assert.equal(gate.finish('save'),false);assert.equal(gate.current(),'upload');assert.equal(gate.finish('upload'),true);
+ assert.equal(gate.begin('save'),true);assert.equal(gate.begin('save'),false);assert.equal(gate.begin('submit'),false);
+ assert.equal(gate.finish('save'),true);assert.equal(gate.begin('submit'),true);assert.equal(gate.begin('upload'),false);
+ const state=read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
+ const evidence=read('apps/merchant/src/features/offers/components/OfferEvidenceScreen.tsx');
+ assert.match(state,/let targetOfferId = identity\.offerId\(\)/);
+ assert.match(state,/identity\.confirmOffer\(targetOfferId\);\s*setCurrentOfferId/);
+ assert.match(state,/if \(!beginOperation\('save'\)\) return null/);
+ assert.match(state,/if \(!beginOperation\('submit'\)\) return null/);
+ assert.match(state,/draft.evidenceFile && !draft.evidenceFile.isUploaded/);
+ assert.match(evidence,/if \(!beginEvidenceUpload\(\)\) return/);
+ assert.match(evidence,/finally \{ endEvidenceUpload\(\); \}/);
+ assert.match(evidence,/disabled=\{isSaving \|\| isUploadingEvidence \|\| !canProceed\(4\)\}/);
+});
+
+
+test('AUD-027: editor retains request identity across ambiguous create responses',()=>{
+ const state=read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
+ const api=read('packages/api/src/offers.ts');
+ assert.match(state,/identity\.requestId\(randomUUID\)/);
+ assert.match(state,/businessId: draftBusinessId, requestId/);
+ assert.match(api,/wow_create_offer_once/);
+});
+
+test('AUD-027/044: draft identity survives retries, partial failures and resets only explicitly',()=>{
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]})),h={};
+ new Function('exports',ts.transpileModule(read('apps/merchant/src/features/offers/editor-operation-gate.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ const identity=h.createDraftIdentity(null), existing=h.createDraftIdentity('existing');
+ let calls=0;const generate=()=>String(++calls);
+ assert.equal(existing.offerId(),'existing');
+ assert.equal(identity.requestId(generate),'1');assert.equal(identity.requestId(generate),'1');
+ assert.equal(identity.offerId(),null);identity.confirmOffer('offer-1');
+ assert.equal(identity.offerId(),'offer-1');assert.equal(identity.versionId(),null);
+ identity.confirmVersion('version-1');assert.equal(identity.versionId(),'version-1');
+ assert.equal(identity.requestId(generate),'1');assert.equal(calls,1);
+ identity.reset();assert.equal(identity.offerId(),null);assert.equal(identity.versionId(),null);
+ assert.equal(identity.requestId(generate),'2');assert.equal(existing.offerId(),'existing');
 });

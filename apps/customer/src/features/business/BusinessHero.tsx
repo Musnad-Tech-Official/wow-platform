@@ -4,7 +4,8 @@ import { Tag } from 'lucide-react-native';
 import { useWowColors } from '@wow/theme';
 import { AppText } from '@wow/ui';
 import { FavoriteButton } from '../favorites/FavoriteButton';
-import { formatOfferCount, isSafePublicImageUrl } from './business-display';
+import { formatOfferCount } from './business-display';
+import { usePublicBusinessImage } from './use-public-business-image';
 
 export interface BusinessHeroProps {
   name: string;
@@ -44,11 +45,13 @@ export function BusinessHero({
   onFavoriteGuestPress,
 }: BusinessHeroProps) {
   const colors = useWowColors();
-  const [coverFailed, setCoverFailed] = useState(false);
-  const [logoFailed, setLogoFailed] = useState(false);
+  const signedCover = usePublicBusinessImage(businessId,coverUrl);
+  const signedLogo = usePublicBusinessImage(businessId,logoUrl);
+  const [coverFailed, setCoverFailed] = useState<string|null>(null);
+  const [logoFailed, setLogoFailed] = useState<string|null>(null);
 
-  const canShowCover = isSafePublicImageUrl(coverUrl) && !coverFailed;
-  const canShowLogo = isSafePublicImageUrl(logoUrl) && !logoFailed;
+  const canShowCover = !!signedCover && coverFailed !== signedCover;
+  const canShowLogo = !!signedLogo && logoFailed !== signedLogo;
 
   const coverHeight = isCompact ? 190 : isDesktop ? 260 : 220;
   const logoSize = isDesktop ? 80 : 64;
@@ -70,11 +73,11 @@ export function BusinessHero({
       >
         {canShowCover ? (
           <Image
-            source={{ uri: coverUrl }}
+            source={{ uri: signedCover ?? undefined }}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
             accessibilityLabel={`غلاف ${name}`}
-            onError={() => setCoverFailed(true)}
+            onError={() => setCoverFailed(signedCover)}
           />
         ) : (
           /* Branded WOW Pattern Fallback */
@@ -171,11 +174,11 @@ export function BusinessHero({
         >
           {canShowLogo ? (
             <Image
-              source={{ uri: logoUrl }}
+              source={{ uri: signedLogo ?? undefined }}
               style={{ width: '100%', height: '100%' }}
               resizeMode="cover"
               accessibilityLabel={`شعار ${name}`}
-              onError={() => setLogoFailed(true)}
+              onError={() => setLogoFailed(signedLogo)}
             />
           ) : (
             <View

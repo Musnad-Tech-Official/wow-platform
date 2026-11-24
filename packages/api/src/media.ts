@@ -203,3 +203,12 @@ export async function signPublicOfferMedia(
   if (!data?.signedUrl) throw new Error('Storage did not return a signed media URL.');
   return data.signedUrl;
 }
+
+/** Sign exact approved business image references through the guest client; Storage RLS rechecks visibility. */
+export async function signPublicBusinessMedia(client:WowSupabaseClient,businessId:string,key:string):Promise<string>{
+  if(!uuid(businessId)||!key.startsWith(businessId+'/')||!/^([0-9a-f-]{36})\/[A-Za-z0-9_-]{3,128}\/[a-f0-9]{48}\.(jpg|jpeg|png|webp)$/.test(key)) throw new Error('Invalid business image reference.');
+  const {data,error}=await client.storage.from(wowStorageBuckets.business).createSignedUrl(key,60);
+  if(error)throw error;
+  if(!data?.signedUrl)throw new Error('No signed image URL.');
+  return data.signedUrl;
+}

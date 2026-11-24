@@ -8,6 +8,7 @@ export interface DashboardEligibilityBannerProps {
   isQualificationApproved: boolean;
   isSubscriptionActive: boolean;
   isSubscriptionKnown?: boolean;
+  publicationEntitlement?: boolean | null;
   subscriptionKindText?: string;
 }
 
@@ -15,6 +16,7 @@ export function DashboardEligibilityBanner({
   isQualificationApproved,
   isSubscriptionActive,
   isSubscriptionKnown = true,
+  publicationEntitlement = null,
   subscriptionKindText = 'الاشتراك تجريبي',
 }: DashboardEligibilityBannerProps) {
   const colors = useWowColors();
@@ -111,7 +113,7 @@ export function DashboardEligibilityBanner({
       </View>
 
       <AppText variant="caption" muted className="text-[11px] leading-5 text-right">
-        نشر كل عرض يعتمد أيضًا على حالة مراجعته والفروع وصلاحية الاشتراك.
+        {publicationEntitlement === null ? 'أهلية النشر غير مؤكدة' : publicationEntitlement ? 'أهلية النشر مؤكدة من الخادم' : 'أهلية النشر غير متوفرة وفق الخادم'}. ظهور كل عرض يعتمد أيضًا على اعتماده وفروعه ومدة سريانه.
       </AppText>
     </View>
   );

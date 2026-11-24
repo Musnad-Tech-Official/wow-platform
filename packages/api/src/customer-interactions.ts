@@ -413,6 +413,16 @@ export async function getMyComplaintById(
   throw new ComplaintLookupCeilingError(offset, batchSize);
 }
 
+export interface MerchantComplaintCounts { totalCount:number; openCount:number; closedCount:number }
+
+export async function getMerchantComplaintCounts(client:WowSupabaseClient,businessId:string):Promise<MerchantComplaintCounts> {
+  const {data,error}=await client.rpc('wow_merchant_complaint_counts',{p_business_id:businessId});
+  if(error) throw error;
+  const v=data as MerchantComplaintCounts|null;
+  if(!v || ![v.totalCount,v.openCount,v.closedCount].every(n=>Number.isSafeInteger(n)&&n>=0) || v.totalCount!==v.openCount+v.closedCount) throw new Error('Invalid complaint counts');
+  return {totalCount:v.totalCount,openCount:v.openCount,closedCount:v.closedCount};
+}
+
 export async function getBusinessComplaints(
   client: WowSupabaseClient,
   options: MerchantComplaintListOptions,

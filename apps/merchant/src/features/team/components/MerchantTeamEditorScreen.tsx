@@ -101,10 +101,6 @@ function TeamEditorForm({
       setFormError('يرجى تحديد فرع واحد على الأقل.');
       return;
     }
-    if (permCount === 0) {
-      setFormError('يرجى اختيار صلاحية تشغيلية واحدة على الأقل.');
-      return;
-    }
     if (!confirmedScope) {
       setFormError('يرجى تأكيد مراجعة نطاق الفروع والمهام المسموح بها.');
       return;
@@ -380,6 +376,7 @@ function TeamEditorForm({
           <AppText variant="caption" muted className="text-xs text-right">
             {branchCount} فرع مؤهل • {permCount} صلاحيات تشغيلية
           </AppText>
+          {permCount === 0 && <AppText variant="caption" muted>سيبقى الموظف في سجل الفريق دون صلاحيات تشغيلية أو وصول إلى النشاط حتى يُفعّل المالك صلاحية.</AppText>}
 
           <Pressable
             accessibilityRole="checkbox"

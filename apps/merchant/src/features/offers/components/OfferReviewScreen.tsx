@@ -7,7 +7,7 @@ import { useWowColors, useTheme } from '@wow/theme';
 import { wowIllustrations } from '@wow/assets';
 import { usePublicCategories, useBusinessBranches } from '@wow/api';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
-import { useOfferEditor } from '../context/OfferEditorContext';
+import { useOfferEditor, formatOfferLocalDate } from '../context/OfferEditorContext';
 import { OfferEditorStepper } from './OfferEditorStepper';
 import { OfferBusinessConflictModal } from './OfferBusinessConflictModal';
 import { PREVIEW_BRANCHES_FIXTURE } from './OfferBranchesScreen';
@@ -306,8 +306,8 @@ export function OfferReviewScreen() {
             </AppText>
 
             <AppText variant="caption" muted className="text-right text-[11px]">
-              السريان: {draft.startsAt ? draft.startsAt.slice(0, 10) : '—'} حتى{' '}
-              {draft.endsAt ? draft.endsAt.slice(0, 10) : '—'}
+              السريان: {draft.startsAt ? formatOfferLocalDate(draft.startsAt) : '—'} حتى{' '}
+              {draft.endsAt ? formatOfferLocalDate(draft.endsAt) : '—'}
             </AppText>
 
             <AppText variant="caption" className="font-tajawal-medium text-xs text-right" style={{ color: draft.merchantAvailable ? '#15803D' : '#D97706' }}>

@@ -12,7 +12,7 @@ import {
 import { AppText } from '@wow/ui';
 import { useWowColors, useTheme } from '@wow/theme';
 
-export type OfferCardStatus = 'visible' | 'pending' | 'needs_changes' | 'draft' | 'expired' | 'paused';
+export type OfferCardStatus = import('../merchant-offer-status').MerchantOfferStatus;
 
 export interface MerchantOfferItem {
   id: string;
@@ -105,6 +105,14 @@ export function MerchantOfferCard({
       primaryBtnText: 'عرض الحالة',
       primaryBtnBg: '#FACC15',
       primaryBtnTextColor: '#0F172D',
+    },
+    scheduled: {
+      badgeText: 'مجدول', badgeBg: isDark ? '#27272A' : '#F1F5F9', badgeColor: colors.mutedForeground,
+      primaryBtnText: 'عرض الحالة', primaryBtnBg: '#FACC15', primaryBtnTextColor: '#0F172D',
+    },
+    unavailable: {
+      badgeText: 'الحالة غير مؤكدة', badgeBg: isDark ? '#27272A' : '#F1F5F9', badgeColor: colors.mutedForeground,
+      primaryBtnText: 'عرض الحالة', primaryBtnBg: '#FACC15', primaryBtnTextColor: '#0F172D',
     },
     paused: {
       badgeText: 'متوقف مؤقتًا',

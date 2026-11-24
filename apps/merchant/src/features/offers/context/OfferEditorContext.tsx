@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import React, { createContext, useContext, useState, useMemo, useCallback, type PropsWithChildren } from 'react';
 import { useGlobalSearchParams } from 'expo-router';
 import {
@@ -11,9 +12,12 @@ import {
   useBusiness,
   type OfferDraftPayload,
   type OfferKind,
+  type OfferMedia,
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import type { SelectedEvidenceFile } from '../../business/components/EvidencePicker';
+import { offerDateTimestamp } from '../offer-local-date';
+import { createEditorOperationGate, createDraftIdentity } from '../editor-operation-gate';
 
 export interface OfferDraftState {
   // Step 1: Definition
@@ -47,6 +51,8 @@ export interface OfferEditorContextValue {
   businessId: string | null;
   offerId: string | null;
   versionId: string | null;
+  media: OfferMedia[];
+  prepareOfferMediaUpload:()=>Promise<{businessId:string;versionId:string}|null>;
   isNewOffer: boolean;
   isSyntheticPreview: boolean;
 
@@ -64,6 +70,9 @@ export interface OfferEditorContextValue {
   isDirty: boolean;
   isSaving: boolean;
   isSubmitting: boolean;
+  isUploadingEvidence: boolean;
+  beginEvidenceUpload: () => boolean;
+  endEvidenceUpload: () => void;
   actionFeedback: string | null;
   clearFeedback: () => void;
   saveDraft: () => Promise<string | null>;
@@ -83,16 +92,12 @@ const OfferEditorContext = createContext<OfferEditorContextValue | null>(null);
 export function isValidOfferDateValue(value: string): boolean {
   const date = value.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
-  if (value.length !== 10 && !/^\d{4}-\d{2}-\d{2}T/.test(value)) return false;
+  if (value.length !== 10 && (!/^\d{4}-\d{2}-\d{2}T/.test(value) || !Number.isFinite(Date.parse(value)))) return false;
   const timestamp = Date.parse(date + 'T00:00:00.000Z');
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === date;
 }
 
-function offerDateTimestamp(value: string, endOfDay: boolean): string | null {
-  if (!value) return null;
-  if (!isValidOfferDateValue(value)) throw new Error('Invalid offer date');
-  return value.slice(0, 10) + (endOfDay ? 'T23:59:59.000Z' : 'T00:00:00.000Z');
-}
+export { offerDateTimestamp, formatOfferLocalDate } from '../offer-local-date';
 
 const DEFAULT_DRAFT_STATE: OfferDraftState = {
   offerKind: 'product',
@@ -166,6 +171,21 @@ export function OfferEditorProvider({
     initialOfferId ?? searchParams.offerId ?? null
   );
 
+  // Persist the confirmed ID synchronously, even before a React render or a partial save failure.
+  const [identity] = useState(() => createDraftIdentity(currentOfferId));
+  const [savedVersionId,setSavedVersionId]=useState<string|null>(null);
+  const [operationGate] = useState(createEditorOperationGate);
+  const [operation,setOperation] = useState<'save'|'submit'|'upload'|null>(null);
+  const beginOperation = useCallback((kind:'save'|'submit'|'upload') => {
+    if (!operationGate.begin(kind)) return false;
+    setOperation(kind); return true;
+  }, [operationGate]);
+  const finishOperation = useCallback((kind:'save'|'submit'|'upload') => {
+    if (operationGate.finish(kind)) setOperation(null);
+  }, [operationGate]);
+  const beginEvidenceUpload = useCallback(() => beginOperation('upload'),[beginOperation]);
+  const endEvidenceUpload = useCallback(() => finishOperation('upload'),[finishOperation]);
+
   // Bind once when the active business loads. A guarded same-component render
   // update is intentional: no effect that races with the user's first edit.
   if (!draftBusinessId && effectiveBusinessId) {
@@ -185,7 +205,8 @@ export function OfferEditorProvider({
   const { data: businessDetail } = useBusiness(draftBusinessId);
   const { data: versions = [] } = useOfferVersions(currentOfferId);
   const draftVersion = versions.find((v) => v.review_status === 'draft') ?? versions[0] ?? null;
-  const { data: versionDetails } = useOfferVersionDetails(draftVersion?.id);
+  const effectiveVersionId=savedVersionId??draftVersion?.id??null;
+  const { data: versionDetails } = useOfferVersionDetails(effectiveVersionId);
   const { data: evidenceDocs = [] } = useOfferEvidenceDraft(currentOfferId);
 
   const createOfferMutation = useCreateOffer();
@@ -250,9 +271,12 @@ export function OfferEditorProvider({
 
   const resolveBusinessConflict = useCallback(
     (action: 'switch_and_reset' | 'keep_draft') => {
+      if (operationGate.current() !== null) return;
       if (action === 'switch_and_reset') {
         // Discard old draft, bind to newly selected business
         setDraftBusinessId(activeBusinessId);
+        identity.reset();
+        setSavedVersionId(null);
         setCurrentOfferId(null);
         setDraft(DEFAULT_DRAFT_STATE);
         setIsDirty(false);
@@ -263,10 +287,11 @@ export function OfferEditorProvider({
         setActiveBusinessId(draftBusinessId);
       }
     },
-    [activeBusinessId, draftBusinessId, setActiveBusinessId]
+    [activeBusinessId, draftBusinessId, setActiveBusinessId, operationGate, identity]
   );
 
   const updateDraft = useCallback((patch: Partial<OfferDraftState>) => {
+    if (operationGate.current() === 'save' || operationGate.current() === 'submit') return;
     setDraft((prev) => ({ ...prev, ...patch }));
     setIsDirty(true);
     // Clear field errors on change
@@ -277,7 +302,7 @@ export function OfferEditorProvider({
       }
       return next;
     });
-  }, []);
+  }, [operationGate]);
 
   // Conditional Evidence Requirement Rule:
   // If reference price is provided (discount claim) or clearance is indicated, proof is strictly required.
@@ -413,7 +438,7 @@ export function OfferEditorProvider({
   );
 
   // Save Draft Action
-  const saveDraft = useCallback(async (): Promise<string | null> => {
+  const persistDraft = useCallback(async (): Promise<string | null> => {
     if (isSyntheticPreview) {
       setIsDirty(false);
       setActionFeedback('تم حفظ المسودة بنجاح (معاينة تجريبية).');
@@ -432,12 +457,18 @@ export function OfferEditorProvider({
       return null;
     }
 
+    if (draft.evidenceFile && !draft.evidenceFile.isUploaded) {
+      setActionFeedback('تعذّر تأكيد المستند. أعد رفعه أو أزله صراحةً قبل الحفظ.');
+      return null;
+    }
     try {
-      let targetOfferId = currentOfferId;
+      let targetOfferId = identity.offerId();
 
       // 1. Create offer if this is a fresh draft
       if (!targetOfferId) {
-        targetOfferId = await createOfferMutation.mutateAsync({ businessId: draftBusinessId });
+        const requestId = identity.requestId(randomUUID);
+        targetOfferId = await createOfferMutation.mutateAsync({ businessId: draftBusinessId, requestId });
+        identity.confirmOffer(targetOfferId);
         setCurrentOfferId(targetOfferId);
       }
 
@@ -476,7 +507,9 @@ export function OfferEditorProvider({
 
       // 3. Persist even incomplete drafts. The database accepts zero branches
       // for drafts; submission still requires at least one approved branch.
-      await saveDraftMutation.mutateAsync({ offerId: targetOfferId, payload });
+      const savedVersion=await saveDraftMutation.mutateAsync({ offerId: targetOfferId, payload });
+      identity.confirmVersion(savedVersion);
+      setSavedVersionId(savedVersion);
 
       // 4. Persist both attachments and explicit removal. Never report a
       // successful draft save when private evidence persistence fails.
@@ -509,10 +542,30 @@ export function OfferEditorProvider({
     saveDraftMutation,
     saveEvidenceMutation,
     businessConflict,
+    identity,
   ]);
+
+  const prepareOfferMediaUpload=useCallback(async()=>{
+    if(isSyntheticPreview||!draftBusinessId||businessConflict||!beginOperation('upload'))return null;
+    try{
+      const saved=await persistDraft();
+      const versionId = identity.versionId();
+      if(saved&&versionId)return {businessId:draftBusinessId,versionId};
+    }catch{/* persistDraft already reports failure */}
+    finishOperation('upload');
+    return null;
+  },[isSyntheticPreview,draftBusinessId,businessConflict,beginOperation,finishOperation,persistDraft,identity]);
+
+  const saveDraft = useCallback(async (): Promise<string | null> => {
+    if (!beginOperation('save')) return null;
+    try { return await persistDraft(); }
+    finally { finishOperation('save'); }
+  }, [beginOperation,finishOperation,persistDraft]);
 
   // Submit Offer Action
   const submitOfferForReview = useCallback(async (): Promise<string | null> => {
+    if (!beginOperation('submit')) return null;
+    try {
     // Full validation before submit
     if (!validateStep(5)) {
       setActionFeedback('يرجى تصحيح الأخطاء الواردة في الأقسام قبل الإرسال.');
@@ -527,7 +580,7 @@ export function OfferEditorProvider({
 
     try {
       // 1. First ensure latest draft state is saved
-      const savedOfferId = await saveDraft();
+      const savedOfferId = await persistDraft();
       if (!savedOfferId) throw new Error('تعذر إكمال حفظ بيانات العرض قبل الإرسال.');
 
       // 2. Submit to administration review
@@ -539,13 +592,16 @@ export function OfferEditorProvider({
       setActionFeedback(err?.message || 'تعذر إرسال العرض للمراجعة.');
       return null;
     }
-  }, [validateStep, isSyntheticPreview, currentOfferId, saveDraft, submitOfferMutation]);
+    } finally { finishOperation('submit'); }
+  }, [validateStep, isSyntheticPreview, currentOfferId, persistDraft, submitOfferMutation,beginOperation,finishOperation]);
 
   const value = useMemo<OfferEditorContextValue>(
     () => ({
       businessId: draftBusinessId,
       offerId: currentOfferId,
-      versionId: draftVersion?.id ?? null,
+      versionId:effectiveVersionId,
+      media:versionDetails?.version.id===effectiveVersionId?versionDetails.media:[],
+      prepareOfferMediaUpload,
       isNewOffer: !currentOfferId,
       isSyntheticPreview,
       draft,
@@ -555,8 +611,11 @@ export function OfferEditorProvider({
       canProceed,
       isEvidenceRequired,
       isDirty,
-      isSaving: createOfferMutation.isPending || saveDraftMutation.isPending || saveEvidenceMutation.isPending,
-      isSubmitting: submitOfferMutation.isPending,
+      isSaving: operation !== null || createOfferMutation.isPending || saveDraftMutation.isPending || saveEvidenceMutation.isPending,
+      isSubmitting: operation === 'submit' || submitOfferMutation.isPending,
+      isUploadingEvidence: operation === 'upload',
+      beginEvidenceUpload,
+      endEvidenceUpload,
       actionFeedback,
       clearFeedback: () => setActionFeedback(null),
       saveDraft,
@@ -568,7 +627,9 @@ export function OfferEditorProvider({
     [
       draftBusinessId,
       currentOfferId,
-      draftVersion?.id,
+      effectiveVersionId,
+      versionDetails,
+      prepareOfferMediaUpload,
       isSyntheticPreview,
       draft,
       updateDraft,
@@ -577,6 +638,9 @@ export function OfferEditorProvider({
       canProceed,
       isEvidenceRequired,
       isDirty,
+      operation,
+      beginEvidenceUpload,
+      endEvidenceUpload,
       createOfferMutation.isPending,
       saveDraftMutation.isPending,
       saveEvidenceMutation.isPending,

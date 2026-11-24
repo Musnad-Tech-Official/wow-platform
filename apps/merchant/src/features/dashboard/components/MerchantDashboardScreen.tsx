@@ -16,6 +16,7 @@ export function MerchantDashboardScreen() {
     isQualificationApproved,
     subscriptionSummary,
     billingAvailable,
+    publicationEntitlement,
     complaintsAvailable,
     isOwner,
     offerMetrics,
@@ -62,6 +63,7 @@ export function MerchantDashboardScreen() {
         isQualificationApproved={isQualificationApproved}
         isSubscriptionActive={subscriptionSummary.isActive}
         isSubscriptionKnown={billingAvailable}
+        publicationEntitlement={publicationEntitlement}
         subscriptionKindText={subscriptionSummary.kindText}
       />
 

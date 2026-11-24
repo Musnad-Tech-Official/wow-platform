@@ -97,13 +97,13 @@ export function DashboardMetrics({
 
           <View className="items-end my-1">
             <AppText variant="caption" muted className="text-[11px]">
-              العروض الظاهرة
+              العروض المفعّلة ضمن المدة
             </AppText>
             <AppText variant="heading" className="font-tajawal-bold text-2xl mt-0.5">
               {visibleOffersCount}
             </AppText>
             <AppText variant="caption" muted className="text-[10px] mt-0.5">
-              العدد الحالي
+              الظهور الفعلي مشروط بالأهلية
             </AppText>
           </View>
 

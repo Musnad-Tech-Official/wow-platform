@@ -5,6 +5,7 @@ import {
   adminRequestMerchantResponse,
   getAdminComplaint,
   getBusinessComplaints,
+  getMerchantComplaintCounts,
   getMerchantComplaint,
   getMyComplaintById,
   getMyComplaints,
@@ -177,6 +178,16 @@ export function useSubmitComplaint() {
         queryKey: wowQueryKeys.interactions.myComplaintsRoot(context.userId),
       });
     },
+  });
+}
+
+export function useMerchantComplaintCounts(businessId?:string|null) {
+  const context=useWowApiContext();
+  return useQuery({
+    queryKey:wowQueryKeys.interactions.merchantComplaintCounts(businessId??null,context.userId),
+    enabled:!!context.userId&&!!businessId,
+    queryFn:()=>{if(!businessId)throw new Error('A business ID is required.');return getMerchantComplaintCounts(requireWowApiSession(context).client,businessId);},
+    refetchInterval:60_000,
   });
 }
 

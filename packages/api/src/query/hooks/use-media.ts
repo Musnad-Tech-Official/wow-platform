@@ -92,3 +92,21 @@ export function useBusinessMediaSignedUrl(storageKey?: string | null) {
     },
   });
 }
+
+/** Merchant preview only: the existing private Storage RLS authorizes exact draft image paths. */
+export function useOfferMediaSignedUrl(storageKey?:string|null){
+  const context=useWowApiContext();
+  return useQuery({
+    queryKey:['media','offer','signed-preview',context.userId,storageKey??null],
+    enabled:!!context.userId&&!!storageKey,
+    staleTime:20_000,refetchInterval:40_000,retry:false,
+    queryFn:async()=>{
+      if(!storageKey||!/^([0-9a-f-]{36})\/([0-9a-f-]{36})\/[A-Za-z0-9_-]{3,128}\/[a-f0-9]{48}\.(jpg|jpeg|png|webp)$/.test(storageKey))throw new Error('Invalid offer image key');
+      const {client}=requireWowApiSession(context);
+      const {data,error}=await client.storage.from('wow-offer-media').createSignedUrl(storageKey,60);
+      if(error)throw error;
+      if(!data?.signedUrl)throw new Error('Image unavailable');
+      return data.signedUrl;
+    },
+  });
+}

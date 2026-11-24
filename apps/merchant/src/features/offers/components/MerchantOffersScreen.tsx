@@ -46,6 +46,8 @@ export function MerchantOffersScreen() {
     { key: 'draft', label: 'مسودة', count: counts.draft },
     { key: 'expired', label: 'منتهي', count: counts.expired },
     { key: 'needs_changes', label: 'يحتاج تعديل', count: counts.needs_changes },
+    { key: 'scheduled', label: 'مجدول', count: counts.scheduled },
+    { key: 'unavailable', label: 'غير مؤكد', count: counts.unavailable },
   ];
 
   return (
@@ -109,6 +111,8 @@ export function MerchantOffersScreen() {
         needsChangesCount={counts.needs_changes}
         totalCount={counts.all}
         pausedCount={counts.paused}
+        scheduledCount={counts.scheduled}
+        unavailableCount={counts.unavailable}
         isSyntheticPreview={isSyntheticPreview}
       />
 

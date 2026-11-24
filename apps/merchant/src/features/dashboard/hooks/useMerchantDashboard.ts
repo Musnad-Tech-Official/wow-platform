@@ -4,11 +4,12 @@ import {
   useBusinessBilling,
   useBusinessOffers,
   useBusinessOfferVersions,
-  useBusinessComplaints,
-  type MerchantComplaintSummary,
+  useMerchantComplaintCounts,
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { formatArabicDate } from '../../business/hooks/useBusinessQualificationStatus';
+import { isSubscriptionInForce } from '../../subscription/subscription-time';
+import { resolveMerchantOfferStatus } from '../../offers/merchant-offer-status';
 
 export function useMerchantDashboard() {
   const { activeBusiness, activeBusinessId, isSyntheticPreview, isOwner } = useActiveBusiness();
@@ -28,8 +29,8 @@ export function useMerchantDashboard() {
   const { data: offersData = [], isLoading: isOffersLoading, error: offersError, refetch: refetchOffers } = useBusinessOffers(
     isSyntheticPreview ? null : activeBusinessId
   );
-  const { data: complaintsData = [], isLoading: isComplaintsLoading, error: complaintsError, refetch: refetchComplaints } = useBusinessComplaints(
-    isSyntheticPreview || !activeBusinessId ? null : { businessId: activeBusinessId }
+  const { data: complaintsData, isLoading: isComplaintsLoading, error: complaintsError, refetch: refetchComplaints } = useMerchantComplaintCounts(
+    isSyntheticPreview ? null : activeBusinessId
   );
 
   const { data: offerVersions = [], isLoading: versionsLoading, error: versionsError, refetch: refetchVersions } =
@@ -43,8 +44,8 @@ export function useMerchantDashboard() {
 
   // Optional sources never block the authorized core dashboard.
   const billingAvailable = isSyntheticPreview || (isOwner && !isBillingLoading && !billingError && !!billingData);
-  // The list is capped at 50; never present a full page as a verified total.
-  const complaintsAvailable = isSyntheticPreview || (!isComplaintsLoading && !complaintsError && complaintsData.length < 50);
+  // Server aggregate uses the same owner/branch-monitor scope without pagination.
+  const complaintsAvailable = isSyntheticPreview || (!isComplaintsLoading && !complaintsError && !!complaintsData);
 
   // Subscription status
   const subscriptionSummary = useMemo(() => {
@@ -64,8 +65,7 @@ export function useMerchantDashboard() {
         daysRemaining: 0, endsAtText: '—', progressPercentage: 0 };
     }
     const subs = billingData?.subscriptions ?? [];
-    const activeSub = subs.find((s) => s.status === 'active' &&
-      (!s.ends_at || new Date(s.ends_at).getTime() > currentTimestamp));
+    const activeSub = subs.find((s) => isSubscriptionInForce(s,currentTimestamp));
     if (!activeSub) {
       return {
         isActive: false,
@@ -103,7 +103,7 @@ export function useMerchantDashboard() {
       };
     }
 
-    const visibleCount = offersData.filter((o) => o.status === 'active' && o.merchant_available).length;
+    const visibleCount = offersData.filter(o => resolveMerchantOfferStatus(o,offerVersions.find(v=>v.id===o.current_version_id),undefined,currentTimestamp)==='visible').length;
     const pendingCount = offersData.filter((o) => o.status === 'pending').length;
     const draftCount = offersData.filter((o) => o.status === 'draft').length;
     const totalCount = offersData.length;
@@ -114,7 +114,7 @@ export function useMerchantDashboard() {
       draftCount,
       totalCount,
     };
-  }, [isSyntheticPreview, offersData, offerVersions]);
+  }, [isSyntheticPreview, offersData, offerVersions,currentTimestamp]);
 
   // Complaint Metrics
   const complaintMetrics = useMemo(() => {
@@ -126,19 +126,7 @@ export function useMerchantDashboard() {
       };
     }
 
-    const totalCount = complaintsData.length;
-    const openCount = complaintsData.filter(
-      (c: MerchantComplaintSummary) => c.status === 'new' || c.status === 'investigating' || c.status === 'waiting'
-    ).length;
-    const closedCount = complaintsData.filter(
-      (c: MerchantComplaintSummary) => c.status === 'closed'
-    ).length;
-
-    return {
-      totalCount,
-      openCount,
-      closedCount,
-    };
+    return complaintsData ?? {totalCount:0,openCount:0,closedCount:0};
   }, [isSyntheticPreview, complaintsData]);
 
   // Inquiries Metrics (distinguish synthetic preview from truthful production telemetry)
@@ -197,6 +185,7 @@ export function useMerchantDashboard() {
     isQualificationApproved,
     subscriptionSummary,
     billingAvailable,
+    publicationEntitlement: isSyntheticPreview ? true : billingAvailable ? billingData?.has_publication_entitlement ?? null : null,
     complaintsAvailable,
     isOwner,
     offerMetrics,
