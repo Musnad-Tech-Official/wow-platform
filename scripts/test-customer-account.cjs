@@ -181,19 +181,31 @@ test('4. Security & Compliance: Unconditional "حساب موثق ومحمي" and
     'AccountSummaryCard must not show unverified "قيد المزامنة"',
   );
 
-  const { resolveAccountStatusInfo } = accountDisplay;
-  const syncedActive = resolveAccountStatusInfo('active');
+  const { resolveAccountStatusInfo, resolveAccountStatusSource } = accountDisplay;
+  const syncedActive = resolveAccountStatusInfo('active', 'verified');
   assert.equal(syncedActive.label, 'حساب نشط');
   assert.equal(syncedActive.tone, 'success');
   assert.equal(syncedActive.isAuthoritative, true);
-
-  const authenticatedSession = resolveAccountStatusInfo(null, { id: 'usr_valid_123' });
-  assert.equal(authenticatedSession.label, 'حساب نشط');
-  assert.equal(authenticatedSession.tone, 'success');
-  assert.equal(authenticatedSession.isAuthoritative, true);
-
-  const suspended = resolveAccountStatusInfo('suspended');
-  assert.equal(suspended.tone, 'warning');
+  const session = { userId: 'user-a', isPending: false, isError: false };
+  for (const profile of [null, undefined, { id: 'user-b', account_status: 'active' }]) {
+    const resolved = resolveAccountStatusSource({ ...session, profile });
+    assert.equal(resolved.source, 'unknown');
+    assert.equal(resolveAccountStatusInfo(resolved.status, resolved.source).isAuthoritative, false);
+  }
+  const active = { id: 'user-a', account_status: 'active' };
+  for (const [state, expected] of [[{ isPending: true }, 'loading'], [{ isError: true }, 'error']]) {
+    const resolved = resolveAccountStatusSource({ ...session, profile: active, ...state });
+    assert.equal(resolved.source, expected);
+    assert.equal(resolveAccountStatusInfo(resolved.status, resolved.source).isAuthoritative, false);
+  }
+  const verified = resolveAccountStatusSource({ ...session, profile: active });
+  assert.deepEqual(verified, { status: 'active', source: 'verified' });
+  assert.equal(resolveAccountStatusInfo('suspended', 'verified').tone, 'warning');
+  assert.equal(resolveAccountStatusInfo('active').isAuthoritative, false);
+  assert.equal(resolveAccountStatusInfo('active', 'preview').isAuthoritative, false);
+  assert.equal(resolveAccountStatusInfo('unexpected', 'verified').isAuthoritative, false);
+  assert.match(accountScreenSrc, /profile: currentUserQuery\.data/);
+  assert.doesNotMatch(accountScreenSrc, /realIsSignedIn\s*\?\s*'active'/);
 });
 
 // ===========================================================================

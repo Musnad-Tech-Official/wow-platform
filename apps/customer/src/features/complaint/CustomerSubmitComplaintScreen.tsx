@@ -56,15 +56,19 @@ export interface CustomerSubmitComplaintScreenProps {
 
 export function CustomerSubmitComplaintScreen({
   offerId,
-  initialAuthOverride,
-  mockOffer,
-  isFixture = false,
+  initialAuthOverride: requestedAuthOverride,
+  mockOffer: requestedMockOffer,
+  isFixture: requestedFixture = false,
 }: CustomerSubmitComplaintScreenProps) {
   const router = useRouter();
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const rtlWebProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
+
+  const isFixture = __DEV__ && requestedFixture;
+  const initialAuthOverride = isFixture ? requestedAuthOverride : undefined;
+  const mockOffer = isFixture ? requestedMockOffer : undefined;
 
   // 1. Auth session check
   const { isLoaded: isAuthLoadedRaw, isSignedIn: isSignedInRaw } = useAuth();

@@ -51,9 +51,9 @@ export interface CustomerMyComplaintsScreenProps {
 }
 
 export function CustomerMyComplaintsScreen({
-  initialAuthOverride,
-  initialComplaintsOverride,
-  previewMode = 'live',
+  initialAuthOverride: requestedAuthOverride,
+  initialComplaintsOverride: requestedComplaintsOverride,
+  previewMode: requestedPreviewMode = 'live',
 }: CustomerMyComplaintsScreenProps) {
   const router = useRouter();
   const colors = useWowColors();
@@ -61,7 +61,11 @@ export function CustomerMyComplaintsScreen({
   const isDark = resolvedTheme === 'dark';
   const rtlWebProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
 
-  // Auth Context (real Clerk session or test/preview override)
+  const previewMode = __DEV__ ? requestedPreviewMode : 'live';
+  const initialAuthOverride = __DEV__ ? requestedAuthOverride : undefined;
+  const initialComplaintsOverride = __DEV__ ? requestedComplaintsOverride : undefined;
+
+  // Auth Context (real Clerk session or development preview override)
   const realAuth = useAuth();
   const effectiveAuth = initialAuthOverride ?? realAuth;
   const isAuthLoaded = previewMode === 'auth_loading' ? false : effectiveAuth.isLoaded;
@@ -97,7 +101,7 @@ export function CustomerMyComplaintsScreen({
   const apiContext = useWowApiContext();
 
   // Synthetic / Preview Data Resolution
-  const isPreview = previewMode !== 'live' || Boolean(initialComplaintsOverride);
+  const isPreview = __DEV__ && (previewMode !== 'live' || Boolean(initialComplaintsOverride) || Boolean(initialAuthOverride));
 
   const initialServerComplaints: CustomerComplaint[] = useMemo(() => {
     if (previewMode === 'empty') return [];
