@@ -48,7 +48,32 @@ const server=http.createServer((req,res)=>{
  fs.createReadStream(f).on('error',()=>{if(!res.headersSent)res.writeHead(500);res.end();}).pipe(res);
 });
 const origin=()=> 'http://127.0.0.1:'+server.address().port;
-async function rows(token,table,params){
+async function resolveToken(source){
+ const token=typeof source==='function'?await source():source;
+ sub(token);
+ return token;
+}
+function sessionTokenProvider(page, expectedId){
+ return async()=>{
+  const token=await page.evaluate(async()=> {
+   const clerk=window.Clerk;
+   if(!clerk?.session) throw Error('Active Clerk session required');
+   return clerk.session.getToken({skipCache:true});
+  });
+  if(!token||sub(token)!==expectedId) throw Error('QA session subject mismatch or missing token');
+  return token;
+ };
+}
+async function endSession(page){
+ await page.evaluate(async()=>{
+  const clerk=window.Clerk;
+  if(!clerk)throw Error('Clerk unavailable during session cleanup');
+  if(clerk.session)await clerk.signOut();
+  if(clerk.session)throw Error('QA session cleanup did not sign out');
+ });
+}
+async function rows(source,table,params){
+ const token=await resolveToken(source);
  const url=new URL('/rest/v1/'+table,supabase);url.searchParams.set('select','id');
  for(const [k,v] of Object.entries(params))url.searchParams.set(k,v);
  const r=await fetch(url,{headers:{apikey:publicKey,Authorization:'Bearer '+token},redirect:'error',signal:AbortSignal.timeout(16000)});
@@ -91,7 +116,8 @@ function sub(token){
 
 const E2E_NAME='WOW E2E QA Business - Merchant A';
 const E2E_BRANCH='WOW E2E Main Branch';
-async function rpcResult(token,method,body){
+async function rpcResult(source,method,body){
+ const token=await resolveToken(source);
  const r=await fetch(new URL('/rest/v1/rpc/'+method,supabase),{
   method:'POST',redirect:'error',
   headers:{apikey:publicKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},
@@ -163,7 +189,8 @@ async function verifyIsolation(owner,nonowner,admin,fixture){
  assert.equal(String(missingEvidence.code),'22023','Expected evidence validation denial.');
 }
 
-async function verifyNoAdmin(token){
+async function verifyNoAdmin(source){
+ const token=await resolveToken(source);
  const response=await fetch(new URL('/rest/v1/rpc/wow_admin_list_business_verifications',supabase),{
   method:'POST',headers:{apikey:publicKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},
   body:JSON.stringify({p_status:null,p_limit:1,p_offset:0}),signal:AbortSignal.timeout(16000)});
@@ -251,7 +278,7 @@ async function captureW06AdminViews(browser, adminIdentity) {
     console.log('PASS: signed Clerk reviewer opened six real W06 Expo Web views.');
   } finally {
     root=priorRoot;
-    await context.close();
+    try { await endSession(page); } finally { await context.close(); }
   }
 }
 
@@ -268,17 +295,17 @@ async function verifyW06StorageHttp(owner,nonowner,reviewer,fixture) {
   const doc=Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n');
   const storageUrl=new URL('/storage/v1/object/'+bucket+'/'+objectKey,supabase);
   const baseUrl=new URL('/storage/v1/object/'+bucket,supabase);
-  const keyHeaders=(token)=>({apikey:publicKey,Authorization:'Bearer '+token});
+  const keyHeaders=async(source)=>({apikey:publicKey,Authorization:'Bearer '+await resolveToken(source)});
   const signedRequest=async(token)=>{
     const endpoint=new URL('/storage/v1/object/sign/'+bucket+'/'+objectKey,supabase);
-    const response=await fetch(endpoint,{method:'POST',headers:{...keyHeaders(token),'Content-Type':'application/json'},
+    const response=await fetch(endpoint,{method:'POST',headers:{...await keyHeaders(token),'Content-Type':'application/json'},
       body:JSON.stringify({expiresIn:60}),redirect:'error',signal:AbortSignal.timeout(20000)});
     const data=await response.json().catch(()=>({}));
     return {ok:response.ok,status:response.status,url:data?.signedURL||data?.signedUrl||null};
   };
   const cleanup=async()=>{
     const response=await fetch(baseUrl,{method:'DELETE',
-      headers:{...keyHeaders(owner.token),'Content-Type':'application/json'},
+      headers:{...await keyHeaders(owner.token),'Content-Type':'application/json'},
       body:JSON.stringify({prefixes:[objectKey]}),redirect:'error',signal:AbortSignal.timeout(22000)});
     if(!response.ok) {
       const err=await response.json().catch(()=>({}));
@@ -286,16 +313,16 @@ async function verifyW06StorageHttp(owner,nonowner,reviewer,fixture) {
     }
     return response;
   };
-  let uploadAttempted=false;
+  let uploadedByThisRun=false;
   try {
-    uploadAttempted=true;
     const upload=await fetch(storageUrl,{method:'POST',
-      headers:{...keyHeaders(owner.token),'Content-Type':'application/pdf','x-upsert':'false'},
+      headers:{...await keyHeaders(owner.token),'Content-Type':'application/pdf','x-upsert':'false'},
       body:doc,redirect:'error',signal:AbortSignal.timeout(22000)});
     if(!upload.ok) {
       const err=await upload.json().catch(()=>({}));
       throw Error('Owner private evidence upload failed: HTTP '+upload.status+' / '+String(err?.error||err?.message||'unknown'));
     }
+    uploadedByThisRun=true;
     const ownerSign=await signedRequest(owner.token);
     assert.equal(ownerSign.ok,true,'Owner could not sign own real private file: HTTP '+ownerSign.status);
     assert.ok(ownerSign.url,'Signed URL was absent for owner');
@@ -304,7 +331,7 @@ async function verifyW06StorageHttp(owner,nonowner,reviewer,fixture) {
     assert.ok(independent.url,'Signed URL absent for reviewer');
     assert.equal(unrelated.ok,false,'SECURITY: unrelated authenticated merchant signed private evidence.');
     const unsigned=await fetch(new URL('/storage/v1/object/authenticated/'+bucket+'/'+objectKey,supabase),{
-      method:'GET',headers:keyHeaders(nonowner.token),redirect:'error',signal:AbortSignal.timeout(18000)});
+      method:'GET',headers:await keyHeaders(nonowner.token),redirect:'error',signal:AbortSignal.timeout(18000)});
     assert.equal(unsigned.ok,false,'SECURITY: unrelated merchant fetched private evidence.');
     // A signed URL is a short-lived bearer credential. Prove it retrieves the
     // exact uploaded bytes; do not serialize/log the URL itself.
@@ -313,7 +340,7 @@ async function verifyW06StorageHttp(owner,nonowner,reviewer,fixture) {
     assert.deepEqual(Buffer.from(await content.arrayBuffer()),doc,'Signed URL returned different bytes.');
     console.log('PASS: real Clerk owner upload + owner/reviewer signing + nonowner deny + signed read.');
   } finally {
-    if(uploadAttempted){
+    if(uploadedByThisRun){
       await cleanup();
       console.log('PASS: Storage API removed exact temporary evidence key.');
     }
@@ -366,7 +393,7 @@ async function captureW07AdminViews(browser, reviewerToken, nonAdminToken) {
     console.log('PASS: real Clerk reviewer opens W07 offer/category routes on desktop and mobile; non-admin W07 RPCs denied.');
   }finally{
     root=previousRoot;
-    await context.close();
+    try { await endSession(page); } finally { await context.close(); }
   }
 }
 
@@ -380,21 +407,26 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300
     const [email,id]=users[i];
     const context=await browser.newContext({viewport:{width:390,height:844}});
     const page=await context.newPage();
-    try{
+    // Keep an isolated auth tab alive for fresh tokens while the UI navigates.
+    const session={id,context,page,token:sessionTokenProvider(page,id)};
+    sessions.push(session);
+    {
       const token=await login(page,email);
       assert.equal(sub(token),id,'Test account subject changed.');
       assert.deepEqual(await rows(token,'users',{id:'eq.'+id}),[{id}]);
-      sessions.push({id,token});
       if(i===0){
-        fixture=await ensureFixture(token,id);
-        await page.goto(origin()+'/',{waitUntil:'domcontentloaded'});
-        await page.getByText('لوحة التاجر',{exact:true}).first().waitFor({timeout:30000});
-        assert.equal(await page.getByText('تسجيل الدخول مطلوب').count(),0);
-        await page.getByText(E2E_NAME,{exact:true}).first().waitFor({timeout:30000});
-        await page.goto(origin()+'/offers',{waitUntil:'domcontentloaded'});
-        await page.getByText('إدارة العروض',{exact:true}).first().waitFor({timeout:30000});
+        fixture=await ensureFixture(session.token,id);
+        const ui=await context.newPage();
+        try {
+          await ui.goto(origin()+'/',{waitUntil:'domcontentloaded'});
+          await ui.getByText('لوحة التاجر',{exact:true}).first().waitFor({timeout:30000});
+          assert.equal(await ui.getByText('تسجيل الدخول مطلوب').count(),0);
+          await ui.getByText(E2E_NAME,{exact:true}).first().waitFor({timeout:30000});
+          await ui.goto(origin()+'/offers',{waitUntil:'domcontentloaded'});
+          await ui.getByText('إدارة العروض',{exact:true}).first().waitFor({timeout:30000});
+        } finally { await ui.close(); }
       }
-    }finally{await context.close();}
+    }
   }
   for(const s of sessions)for(const [,otherId] of users)
     if(s.id!==otherId)assert.deepEqual(await rows(s.token,'users',{id:'eq.'+otherId}),[],'RLS profile leak.');
@@ -413,8 +445,13 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300
   console.log('PASS: real OTP, profiles, actual business and branch RLS, denied unauthorized branch, evidence-required gate, and merchant UI.');
   console.log('DEDICATED_TEST_FIXTURE business='+fixture.businessId+' branch='+fixture.branchId);
  }finally{
-   for(const s of sessions)s.token=null;
+   let cleanupFailed=false;
+   for(const s of sessions){
+    try{await endSession(s.page);}catch{cleanupFailed=true;}
+    finally{s.token=null;await s.context.close();}
+   }
    await browser.close();
    await new Promise(resolve=>server.close(resolve));
+   if(cleanupFailed)throw Error('QA session cleanup failed; revoke affected dedicated test sessions before rerunning.');
  }
 });
