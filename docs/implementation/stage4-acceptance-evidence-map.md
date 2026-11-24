@@ -1,14 +1,14 @@
 # WOW — Stage 4 acceptance and outstanding evidence
 
-**State:** IMPLEMENTATION IN PROGRESS / ACCEPTANCE NOT RUN. Never represent merged source patches, transaction-scoped SQL cases or GitHub's runner-admission failures as a full Stage 4 pass. This contract consolidates the frozen Stage 3 backlog; it does not close previously unverified criteria.
+**State:** SOURCE AND PUBLIC CI VERIFIED / AUTHENTICATED ACCEPTANCE OPEN. Never represent merged source patches, transaction-scoped SQL cases or GitHub's runner-admission failures as a full Stage 4 pass. This contract consolidates the frozen Stage 3 backlog; it does not close previously unverified criteria.
 
 ## 1. Foundation and automated gates (4-PREREQ)
 
-**AUD-001 — Blocked, not passed.** Private GitHub-hosted runner assignment still fails with `runner_id=0` before any steps. Verified again on the post-PR-83 `main` run `45096827257` (2026-11-23): main verification failed before a Runner was allocated; all dependent jobs, including the new Customer web test, were skipped. See [issue #64](https://github.com/Musnad-Tech-Official/wow-platform/issues/64). Use local QA until the external allocation issue is resolved.
+**AUD-001 — Runner admission resolved.** Repository is public; hosted runners executed successfully. See [issue #64](https://github.com/Musnad-Tech-Official/wow-platform/issues/64). If visibility returns to private, recheck runner eligibility.
 
-**AUD-002 — Source gate updated; runtime not run.** Shared static gate now covers the available Customer regressions. `scripts/verify-local-quality.sh web/all` and CI include a **real Customer Expo Web export**, development and production, with Chromium deep-link/onboarding/asset-404 checks. Merchant and Admin browser suites, native bundles and source gates remain. Some real Clerk/Storage/role tests intentionally require separate trusted fixtures; do not silently treat absence as PASS.
+**AUD-002 — Public CI runtime verified; live identity tests remain open.** Shared static gate now covers the available Customer regressions. `scripts/verify-local-quality.sh web/all` and CI include a **real Customer Expo Web export**, development and production, with Chromium deep-link/onboarding/asset-404 checks. Merchant and Admin browser suites, native bundles and source gates passed on main `36befc0` ([run 45450157212](https://github.com/Musnad-Tech-Official/wow-platform/actions/runs/45450157212)) and the PR #94 merge candidate ([run 45450406321](https://github.com/Musnad-Tech-Official/wow-platform/actions/runs/45450406321)). This does not prove physical device or real OAuth acceptance. Some real Clerk/Storage/role tests intentionally require separate trusted fixtures; do not silently treat absence as PASS.
 
-**AUD-004 — Compatibility unresolved.** The apps use Expo 58 while root uses eslint-config-expo 57.0.2. This is a version mismatch, not proof of a runtime failure. Run a frozen install and actual lint/typecheck on the same SHA. See `docs/implementation/stage4-aud004-eslint-expo-compatibility.md`. No lockfile-only or untested dependency bump allowed.
+**AUD-004 — Required frozen install/lint/typecheck checks passed.** The Expo 58 / eslint-config-expo 57.0.2 version mismatch remains a tracked compatibility risk; no dependency upgrade without reviewed resolver and lockfile verification. See `docs/implementation/stage4-aud004-eslint-expo-compatibility.md`. No lockfile-only or untested dependency bump allowed.
 
 ## 2. Database, RLS and authorization (4A and 4C)
 
@@ -20,6 +20,10 @@ The audited RLS and business-category/trial patches have been applied to the ori
 - **AUD-019:** complaint waiting state requires a proprietor request. End-to-end Admin waiting → Merchant response still unverified.
 - **AUD-034:** public discovery rechecks active category, active parent and business assignment. 8/8 real PostgreSQL transaction cases passed before and after deployment. Browser/guest REST request remains unverified.
 - **AUD-038:** trial activation requires an eligible offer, an unpaused approved business/branch and valid category assignment, without circularly requiring its own entitlement. 10/10 real PostgreSQL transaction cases passed before and after deployment; no permanent test rows. Real owner JWT and browser flow remain unverified.
+
+### 2026-11-24 live Development SQL regression
+
+All six transaction-scoped suites passed: AUD-016 (8), AUD-017 (8), AUD-019 (6), AUD-034 (8), AUD-038 (10), AUD-043 (16), total **56/56**. AUD-019 and AUD-043 used randomized synthetic owners and businesses rather than an existing business; the same fixture isolation is now in the repository. Every suite ended with ROLLBACK; follow-up count of matching synthetic test users was zero. These tests exercise SQL behavior with simulated claims, not signed Clerk JWTs or Storage HTTP.
 
 **Never replay already applied migrations** merely to make the status green. Revalidate by reading the database migration history and role-specific requests.
 
@@ -34,11 +38,11 @@ Source changes have been reviewed/merged for **AUD-008, AUD-011, AUD-039, AUD-04
 - Google/Facebook callback popup completion and cancellation, native deep links and signed-in sessions in Clerk Development; role authorization remains server-side (AUD-054/056). Three native return URLs have been inspected in Clerk but **real callback sessions are not yet tested**.
 - Browser/Android/iOS Light/Dark/System persistence, CSS/NativeWind dark utility consistency, screenshots, text contrast and accessibility (AUD-039/062). Admin browser test now includes persistence over reload and simulated OS appearance changes.
 
-**AUD-059 / Product decision D-02 remains OPEN:** WOW Development Clerk has Google/Facebook OAuth **and** password/email-code methods enabled, with pre-existing accounts relying on those methods. The Customer recovery description was corrected; **no account or Clerk setting was changed**. Do not disable methods without an approved recovery/migration policy and live authentication acceptance.
+**AUD-059 / Product decision D-02 remains OPEN:** WOW Development Clerk has Google/Facebook OAuth **and** password/email-code methods enabled, with pre-existing accounts relying on those methods. The Customer recovery description was corrected. PR #94 removed hardcoded live QA sign-in configuration from current source and isolated the manual live-auth workflow. Clerk settings are unchanged. Historical exposure remediation and replacement isolated fixtures remain required; do not use historical fixtures. Do not disable methods without an approved recovery/migration policy and live authentication acceptance.
 
 ## 4. End-of-stage acceptance procedure (approved testing cadence)
 
-Do not request repeated full test runs after every development commit. At the **end of Stage 4**, on a clean clone of the exact current `main`:
+Per the current owner-approved direct workflow, use GitHub Actions for implementation and test/fix cycles; retain exact SHA evidence and rerun the affected gates after fixes. The local quality script remains an equivalent diagnostic option, not the primary execution route. At acceptance:
 
 1. Use Node.js 22 and pnpm 10.21.0. Confirm `node -v` and `pnpm -v`.
 2. `git pull --ff-only origin main`
@@ -47,6 +51,6 @@ Do not request repeated full test runs after every development commit. At the **
 5. Separately collect real Clerk/Supabase signed-JWT, private Storage/RLS, production-style deep link, authenticated flows, Android/iOS devices, RTL/keyboard/screen reader evidence. A result not executed is `NOT_RUN`, never `PASS`.
 6. Resolve any failures at their actual root cause, rerun on the new SHA, and record a **GO/NO-GO** for this stage only when all mandatory evidence and D-02 decision are satisfied.
 
-**Current disposition: NO-GO for Stage 4 acceptance (not a halt to source development).** We have intentionally not run the comprehensive workspace/Expo/Playwright/native test suite on the current revision. Do not label a merged PR or a passed transactional SQL role test as functional release approval.
+**Current disposition: NO-GO for Stage 4 acceptance (not a halt to source development).** The public CI suite has passed on a prior merged SHA and the PR #94 candidate; final merged-SHA run 45451833746 was still in progress when this record was prepared. Live identity, Storage HTTP, actual hosting and device acceptance remain incomplete. Do not label a merged PR or a passed transactional SQL role test as functional release approval.
 
 Stage 5 and later stages have their own frozen backlog gates and must not be declared complete as a side effect of Stage 4 source changes.

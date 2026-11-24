@@ -12,9 +12,12 @@ DECLARE
   r uuid;
   denied boolean;
 BEGIN
-  SELECT b.id,b.owner_user_id INTO biz,owner_id FROM public.businesses b
-  ORDER BY b.created_at LIMIT 1;
-  IF biz IS NULL OR owner_id IS NULL THEN RAISE EXCEPTION 'Fixture business missing'; END IF;
+  biz:=gen_random_uuid();
+ owner_id:='qa_aud019_owner_'||substr(md5(random()::text),1,16);
+ INSERT INTO public.users(id,account_status) VALUES(owner_id,'active');
+ INSERT INTO public.businesses(id,owner_user_id,name,status,approved_at) VALUES(biz,owner_id,'Isolated Stage4 SQL regression', 'approved',now());
+ INSERT INTO public.business_members(business_id,user_id,role,status,can_draft,can_submit,can_pause,can_monitor)
+ VALUES(biz,owner_id,'owner','active',true,true,true,true);
   INSERT INTO public.users(id,account_status)
   VALUES(reviewer,'active'),(customer,'active');
   INSERT INTO wow_private.admin_members(user_id,role,is_active) VALUES(reviewer,'reviewer',true);

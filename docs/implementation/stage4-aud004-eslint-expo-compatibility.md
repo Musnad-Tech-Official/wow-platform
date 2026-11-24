@@ -19,6 +19,6 @@ If these tests pass with the current pinned 57 config, document the runtime resu
 
 ## Verification status
 
-**NOT_RUN** on the current merged Stage 4 SHA. The shared `scripts/verify-local-quality.sh all` gate already runs all the required frozen install/type/lint commands; the user-approved process defers full execution to Stage 4 acceptance. No package or lockfile modification was applied in this review.
+**PASS — frozen install, lint and typecheck** on main `36befc0` (run 45450157212) and PR #94 candidate (run 45450406321). The post-merge baseline quality job on `d897cf6` also passed (job 138650714928). Retain the compatibility risk separately; no package or lockfile changes required to pass these gates. No package or lockfile modification was applied in this review.
 
 Sources: `https://github.com/expo/expo/blob/main/packages/eslint-config-expo/CHANGELOG.md` and `https://docs.expo.dev/guides/using-eslint/`.
