@@ -469,3 +469,21 @@ test('BATCH-01: approved navy WOW merchant mark uses the common customer header 
   assert.match(merchant, /setActiveBusinessId\(item\.id\)/);
   assert.match(scaffold, /<PageHeader title=\{title\}/);
 });
+
+
+test('AUD-007/010: optional restricted dashboard sources do not block core and attention tracks versions', () => {
+ const hook=read('apps/merchant/src/features/dashboard/hooks/useMerchantDashboard.ts');
+ const screen=read('apps/merchant/src/features/dashboard/components/MerchantDashboardScreen.tsx');
+ const metrics=read('apps/merchant/src/features/dashboard/components/DashboardMetrics.tsx');
+ assert.match(hook,/useBusinessBilling\(\s*isSyntheticPreview \|\| !isOwner \? null : activeBusinessId/);
+ assert.match(hook,/billingAvailable = isSyntheticPreview \|\| \(isOwner && !isBillingLoading && !billingError && !!billingData\)/);
+ assert.match(hook,/const isLoading =\s*!isSyntheticPreview &&\s*\(isBusinessLoading \|\| isOffersLoading \|\| versionsLoading\)/);
+ assert.match(hook,/hasError: Boolean\(!isSyntheticPreview && \(businessError \|\| offersError \|\| versionsError\)\)/);
+ assert.match(hook,/\.\.\.\(isOwner \? \[refetchBilling\(\)\] : \[\]\)/);
+ assert.match(hook,/const attentionOffers = useMemo\([\s\S]*?\}, \[isSyntheticPreview, offersData, offerVersions\]\)/);
+ assert.match(screen,/isOwner && billingAvailable \? <SubscriptionCard/);
+ assert.match(screen,/hasComplaintsTelemetry=\{complaintsAvailable\}/);
+ assert.match(metrics,/hasComplaintsTelemetry \? complaintsCount : '—'/);
+ assert.match(metrics,/hasComplaintsTelemetry && <SegmentedStatusBar/);
+ assert.match(hook,/complaintsData.length < 50/);
+});

@@ -7,12 +7,14 @@ import { useWowColors, useTheme } from '@wow/theme';
 export interface DashboardEligibilityBannerProps {
   isQualificationApproved: boolean;
   isSubscriptionActive: boolean;
+  isSubscriptionKnown?: boolean;
   subscriptionKindText?: string;
 }
 
 export function DashboardEligibilityBanner({
   isQualificationApproved,
   isSubscriptionActive,
+  isSubscriptionKnown = true,
   subscriptionKindText = 'الاشتراك تجريبي',
 }: DashboardEligibilityBannerProps) {
   const colors = useWowColors();
@@ -80,7 +82,7 @@ export function DashboardEligibilityBanner({
           <View
             className="rounded-full px-2.5 py-1"
             style={{
-              backgroundColor: isSubscriptionActive
+              backgroundColor: !isSubscriptionKnown ? colors.background : isSubscriptionActive
                 ? isDark
                   ? '#422006'
                   : '#FEF3C7'
@@ -93,7 +95,7 @@ export function DashboardEligibilityBanner({
               variant="caption"
               className="font-tajawal-bold text-[11px]"
               style={{
-                color: isSubscriptionActive
+                color: !isSubscriptionKnown ? colors.mutedForeground : isSubscriptionActive
                   ? isDark
                     ? '#FDE047'
                     : '#D97706'

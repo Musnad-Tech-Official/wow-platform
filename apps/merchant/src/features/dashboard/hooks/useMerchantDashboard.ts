@@ -11,7 +11,7 @@ import { useActiveBusiness } from '../../business/context/ActiveBusinessContext'
 import { formatArabicDate } from '../../business/hooks/useBusinessQualificationStatus';
 
 export function useMerchantDashboard() {
-  const { activeBusiness, activeBusinessId, isSyntheticPreview } = useActiveBusiness();
+  const { activeBusiness, activeBusinessId, isSyntheticPreview, isOwner } = useActiveBusiness();
   const [currentTimestamp, setCurrentTimestamp] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setCurrentTimestamp(Date.now()), 60_000);
@@ -23,7 +23,7 @@ export function useMerchantDashboard() {
     isSyntheticPreview ? null : activeBusinessId
   );
   const { data: billingData, isLoading: isBillingLoading, error: billingError, refetch: refetchBilling } = useBusinessBilling(
-    isSyntheticPreview ? null : activeBusinessId
+    isSyntheticPreview || !isOwner ? null : activeBusinessId
   );
   const { data: offersData = [], isLoading: isOffersLoading, error: offersError, refetch: refetchOffers } = useBusinessOffers(
     isSyntheticPreview ? null : activeBusinessId
@@ -41,6 +41,11 @@ export function useMerchantDashboard() {
     return businessData?.status === 'approved';
   }, [isSyntheticPreview, businessData]);
 
+  // Optional sources never block the authorized core dashboard.
+  const billingAvailable = isSyntheticPreview || (isOwner && !isBillingLoading && !billingError && !!billingData);
+  // The list is capped at 50; never present a full page as a verified total.
+  const complaintsAvailable = isSyntheticPreview || (!isComplaintsLoading && !complaintsError && complaintsData.length < 50);
+
   // Subscription status
   const subscriptionSummary = useMemo(() => {
     if (isSyntheticPreview) {
@@ -54,6 +59,10 @@ export function useMerchantDashboard() {
       };
     }
 
+    if (!billingAvailable) {
+      return { isActive: false, kindText: 'الاشتراك غير متاح', planName: 'بيانات الاشتراك غير متاحة',
+        daysRemaining: 0, endsAtText: '—', progressPercentage: 0 };
+    }
     const subs = billingData?.subscriptions ?? [];
     const activeSub = subs.find((s) => s.status === 'active' &&
       (!s.ends_at || new Date(s.ends_at).getTime() > currentTimestamp));
@@ -81,7 +90,7 @@ export function useMerchantDashboard() {
       endsAtText: formatArabicDate(activeSub.ends_at),
       progressPercentage: isTrial ? Math.min(100, Math.round(((30 - diffDays) / 30) * 100)) : 100,
     };
-  }, [isSyntheticPreview, billingData, currentTimestamp]);
+  }, [isSyntheticPreview, billingAvailable, billingData, currentTimestamp]);
 
   // Offer Metrics
   const offerMetrics = useMemo(() => {
@@ -176,24 +185,31 @@ export function useMerchantDashboard() {
         subtitle: o.status === 'draft' ? 'مسودة عرض لم تُرسل للمراجعة بعد' : 'قيد مراجعة الإدارة',
         actionText: o.status === 'draft' ? 'استكمال' : 'متابعة',
       }));
-  }, [isSyntheticPreview, offersData]);
+  }, [isSyntheticPreview, offersData, offerVersions]);
 
   const isLoading =
     !isSyntheticPreview &&
-    (isBusinessLoading || isBillingLoading || isOffersLoading || isComplaintsLoading || versionsLoading);
+    (isBusinessLoading || isOffersLoading || versionsLoading);
 
   return {
     activeBusiness,
     activeBusinessId,
     isQualificationApproved,
     subscriptionSummary,
+    billingAvailable,
+    complaintsAvailable,
+    isOwner,
     offerMetrics,
     complaintMetrics,
     inquiriesMetrics,
     attentionOffers,
     isLoading,
-    hasError: Boolean(!isSyntheticPreview && (businessError || billingError || offersError || complaintsError || versionsError)),
-    refetch: () => { void Promise.all([refetchBusiness(), refetchBilling(), refetchOffers(), refetchComplaints(), refetchVersions()]); },
+    hasError: Boolean(!isSyntheticPreview && (businessError || offersError || versionsError)),
+    refetch: () => {
+      if (isSyntheticPreview || !activeBusinessId) return;
+      void Promise.all([refetchBusiness(), refetchOffers(), refetchComplaints(), refetchVersions(),
+        ...(isOwner ? [refetchBilling()] : [])]);
+    },
     isSyntheticPreview,
   };
 }

@@ -15,6 +15,9 @@ export function MerchantDashboardScreen() {
     activeBusinessId,
     isQualificationApproved,
     subscriptionSummary,
+    billingAvailable,
+    complaintsAvailable,
+    isOwner,
     offerMetrics,
     complaintMetrics,
     inquiriesMetrics,
@@ -58,6 +61,7 @@ export function MerchantDashboardScreen() {
       <DashboardEligibilityBanner
         isQualificationApproved={isQualificationApproved}
         isSubscriptionActive={subscriptionSummary.isActive}
+        isSubscriptionKnown={billingAvailable}
         subscriptionKindText={subscriptionSummary.kindText}
       />
 
@@ -69,6 +73,7 @@ export function MerchantDashboardScreen() {
         inquiriesCount={inquiriesMetrics.count}
         inquiriesTrend={inquiriesMetrics.trendText}
         hasInquiriesTelemetry={inquiriesMetrics.isAvailable}
+        hasComplaintsTelemetry={complaintsAvailable}
         complaintsCount={complaintMetrics.totalCount}
         openComplaintsCount={complaintMetrics.openCount}
         closedComplaintsCount={complaintMetrics.closedCount}
@@ -79,12 +84,15 @@ export function MerchantDashboardScreen() {
       <NeedsAttentionSection items={attentionOffers} />
 
       {/* 5. Subscription Summary Card */}
-      <SubscriptionCard
+      {isOwner && billingAvailable ? <SubscriptionCard
         planName={subscriptionSummary.planName}
         daysRemaining={subscriptionSummary.daysRemaining}
         endsAtText={subscriptionSummary.endsAtText}
         progressPercentage={subscriptionSummary.progressPercentage}
-      />
+      /> : isOwner ? <View className="rounded-2xl border border-border p-4 gap-2">
+        <AppText variant="label">بيانات الاشتراك غير متاحة حاليًا</AppText>
+        <AppText variant="caption" muted>لا يمكن تأكيد حالة الاشتراك من المصدر.</AppText>
+      </View> : null}
 
       {/* 6. Quick Actions Section */}
       <QuickActionsSection />
