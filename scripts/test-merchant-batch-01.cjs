@@ -487,3 +487,34 @@ test('AUD-007/010: optional restricted dashboard sources do not block core and a
  assert.match(metrics,/hasComplaintsTelemetry && <SegmentedStatusBar/);
  assert.match(hook,/complaintsData.length < 50/);
 });
+
+
+test('AUD-014/029/049: zero flags, initial-only qualification, server-authorized quick draft', () => {
+ const team=read('apps/merchant/src/features/team/components/MerchantTeamEditorScreen.tsx');
+ const status=read('apps/merchant/src/features/business/hooks/useBusinessQualificationStatus.ts');
+ const quick=read('apps/merchant/src/features/dashboard/components/QuickActionsSection.tsx');
+ assert.doesNotMatch(team,/if \(permCount === 0\)/);
+ assert.match(team,/دون صلاحيات تشغيلية/);
+ assert.match(status,/requests\.filter\(r => r.request_type === 'initial'\)/);
+ assert.match(status,/latestInitialQualification\(serverVerifications\)/);
+ assert.match(quick,/await create\.mutateAsync\(\{ businessId: activeBusinessId \}\)/);
+ assert.match(quick,/creating\.current/);
+ assert.doesNotMatch(quick,/إنشاء عرض \(قيد التطوير\)/);
+});
+test('AUD-020/037: subscription time boundaries and server entitlement', () => {
+ const ts=require('typescript');
+ const h={};
+ new Function('exports',ts.transpileModule(read('apps/merchant/src/features/subscription/subscription-time.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ const s={status:'active',starts_at:'2026-11-01T00:00:00Z',ends_at:'2026-11-02T00:00:00Z'};
+ assert.equal(h.isSubscriptionInForce(s,Date.parse(s.starts_at)-1),false);
+ assert.equal(h.isSubscriptionInForce(s,Date.parse(s.starts_at)),true);
+ assert.equal(h.isSubscriptionInForce(s,Date.parse(s.ends_at)-1),true);
+ assert.equal(h.isSubscriptionInForce(s,Date.parse(s.ends_at)),false);
+ assert.equal(h.isSubscriptionExpired(s,Date.parse(s.ends_at)),true);
+ assert.equal(h.isSubscriptionInForce({...s,ends_at:null},Date.parse(s.starts_at)),false);
+ const billing=read('apps/merchant/src/features/subscription/components/MerchantSubscriptionScreen.tsx');
+ const dashboard=read('apps/merchant/src/features/dashboard/hooks/useMerchantDashboard.ts');
+ assert.match(billing,/billing\.has_publication_entitlement/);
+ assert.match(billing,/\{publicationLabel\}/);
+ assert.match(dashboard,/billingData\?\.has_publication_entitlement/);
+});

@@ -9,6 +9,7 @@ import {
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { formatArabicDate } from '../../business/hooks/useBusinessQualificationStatus';
+import { isSubscriptionInForce } from '../../subscription/subscription-time';
 
 export function useMerchantDashboard() {
   const { activeBusiness, activeBusinessId, isSyntheticPreview, isOwner } = useActiveBusiness();
@@ -64,8 +65,7 @@ export function useMerchantDashboard() {
         daysRemaining: 0, endsAtText: '—', progressPercentage: 0 };
     }
     const subs = billingData?.subscriptions ?? [];
-    const activeSub = subs.find((s) => s.status === 'active' &&
-      (!s.ends_at || new Date(s.ends_at).getTime() > currentTimestamp));
+    const activeSub = subs.find((s) => isSubscriptionInForce(s,currentTimestamp));
     if (!activeSub) {
       return {
         isActive: false,
@@ -197,6 +197,7 @@ export function useMerchantDashboard() {
     isQualificationApproved,
     subscriptionSummary,
     billingAvailable,
+    publicationEntitlement: isSyntheticPreview ? true : billingAvailable ? billingData?.has_publication_entitlement ?? null : null,
     complaintsAvailable,
     isOwner,
     offerMetrics,

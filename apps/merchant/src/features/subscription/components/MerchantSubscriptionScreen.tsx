@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Pressable, Modal, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -21,6 +21,7 @@ import {
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
+import { isSubscriptionInForce, isSubscriptionExpired } from '../subscription-time';
 
 export function MerchantSubscriptionScreen() {
   const { activeBusinessId } = useActiveBusiness();
@@ -45,8 +46,10 @@ function MerchantSubscriptionScreenContent() {
   const requestPaidMutation = useRequestPaidSubscription();
   const submitPaymentMutation = useSubmitSubscriptionPayment();
 
+  const [now,setNow] = useState(Date.now);
+  useEffect(() => { const timer=setInterval(() => setNow(Date.now()),1000); return () => clearInterval(timer); },[]);
   // Synthetic preview fallbacks
-  const currentSub = billing?.subscriptions?.find((sub) => sub.status === 'active')
+  const currentSub = billing?.subscriptions?.find((sub) => isSubscriptionInForce(sub,now))
     ?? billing?.subscriptions?.find((sub) => sub.status === 'pending')
     ?? billing?.subscriptions?.[0];
   const hasTrial = billing?.subscriptions?.some((s) => s.kind === 'trial');
@@ -56,8 +59,8 @@ function MerchantSubscriptionScreenContent() {
   const paymentAlreadySubmitted = !!pendingPaid && !!billing?.payments?.some(
     (p) => p.subscription_id === pendingPaid.id && p.status === 'submitted'
   );
-  const isTrialActive = isSyntheticPreview ? true : (currentSub?.kind === 'trial' && currentSub?.status === 'active');
-  const isPaidActive = currentSub?.kind === 'paid' && currentSub?.status === 'active';
+  const isTrialActive = isSyntheticPreview ? true : (currentSub?.kind === 'trial' && isSubscriptionInForce(currentSub,now));
+  const isPaidActive = currentSub?.kind === 'paid' && isSubscriptionInForce(currentSub,now);
   const isPendingVerification = !!pendingPaid && !!billing?.payments?.some(
     (p) => p.subscription_id === pendingPaid.id && p.status === 'submitted'
   );
@@ -67,8 +70,13 @@ function MerchantSubscriptionScreenContent() {
   if (isPendingVerification) statusChip = 'دفعة قيد التحقق';
   else if (isPaidActive) statusChip = 'اشتراك فعّال';
   else if (pendingPaid) statusChip = 'طلب مدفوع معلّق';
-  else if (currentSub?.status === 'expired') statusChip = 'منتهٍ';
+  else if (isSubscriptionExpired(currentSub,now)) statusChip = 'منتهٍ';
 
+  // Publication is the server's decision, including approved commercial agreements.
+  const publicationLabel = isSyntheticPreview ? 'أهلية النشر (معاينة)'
+    : billingLoading || billingError || !billing ? 'أهلية النشر غير مؤكدة'
+    : billing.has_publication_entitlement ? 'أهلية النشر مؤكدة من الخادم'
+    : 'لا توجد أهلية نشر مؤكدة من الخادم';
   // Request / Payment Modal State
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanCode>('BASIC');
@@ -256,7 +264,7 @@ function MerchantSubscriptionScreenContent() {
                   نموذج الاستحقاق
                 </AppText>
                 <AppText variant="heading" className="font-tajawal-bold text-lg">
-                  {isTrialActive ? 'تجربة نشطة' : isPaidActive ? 'اشتراك مدفوع' : 'غير مفعل'}
+                  {isTrialActive ? 'تجربة نشطة' : isPaidActive ? 'اشتراك مدفوع' : isSubscriptionExpired(currentSub,now) ? 'منتهٍ' : 'غير مفعل'}
                 </AppText>
               </View>
             </View>
@@ -324,6 +332,7 @@ function MerchantSubscriptionScreenContent() {
               <AppText variant="label" className="font-tajawal-bold text-sm">
                 بداية ونهاية الاشتراك
               </AppText>
+              <AppText variant="caption" muted className="text-xs mt-0.5">{publicationLabel}</AppText>
               <AppText variant="caption" muted className="text-xs mt-0.5">
                 {currentSub?.starts_at && currentSub?.ends_at
                   ? new Date(currentSub.starts_at).toLocaleDateString('ar')

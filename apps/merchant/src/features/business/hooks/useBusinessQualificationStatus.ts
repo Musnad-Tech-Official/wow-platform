@@ -48,6 +48,11 @@ export function formatArabicDate(dateString?: string | null): string {
   }
 }
 
+export function latestInitialQualification<T extends { request_type?: string; submitted_at?: string | null; created_at?: string | null }>(requests: readonly T[]): T | null {
+  return requests.filter(r => r.request_type === 'initial').sort((a,b) =>
+    (b.submitted_at || b.created_at || '').localeCompare(a.submitted_at || a.created_at || ''))[0] ?? null;
+}
+
 export function useBusinessQualificationStatus(props: UseBusinessQualificationStatusProps) {
   const isSyntheticPreview =
     __DEV__ &&
@@ -103,10 +108,7 @@ export function useBusinessQualificationStatus(props: UseBusinessQualificationSt
         }
       );
     }
-    return serverVerifications.length > 0
-      ? [...serverVerifications].sort((a, b) =>
-          (b.submitted_at || b.created_at || '').localeCompare(a.submitted_at || a.created_at || ''))[0]
-      : null;
+    return latestInitialQualification(serverVerifications);
   }, [isSyntheticPreview, props.fixtureVerification, serverVerifications]);
 
   const branches: Branch[] = useMemo(() => {
