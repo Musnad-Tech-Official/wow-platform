@@ -21,6 +21,7 @@ import { useAuth } from '@wow/auth';
 import {
   requireWowApiSession,
   usePublicOffer,
+  useCustomerAssessmentOffer,
   useRateOffer,
   useWowApiContext,
   type CustomerOfferRating,
@@ -54,16 +55,21 @@ export interface CustomerRateOfferScreenProps {
 
 export function CustomerRateOfferScreen({
   offerId,
-  initialAuthOverride,
-  mockOffer,
-  mockExistingRating,
-  previewMode = 'live',
+  initialAuthOverride: requestedAuthOverride,
+  mockOffer: requestedMockOffer,
+  mockExistingRating: requestedExistingRating,
+  previewMode: requestedPreviewMode = 'live',
 }: CustomerRateOfferScreenProps) {
   const router = useRouter();
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const rtlWebProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
+
+  const previewMode = __DEV__ ? requestedPreviewMode : 'live';
+  const initialAuthOverride = __DEV__ ? requestedAuthOverride : undefined;
+  const mockOffer = __DEV__ ? requestedMockOffer : undefined;
+  const mockExistingRating = __DEV__ ? requestedExistingRating : undefined;
 
   // 1. Auth check
   const { isLoaded: isAuthLoadedRaw, isSignedIn: isSignedInRaw } = useAuth();
@@ -78,7 +84,15 @@ export function CustomerRateOfferScreen({
 
   // 2. Fetch public offer
   const isUuidValid = Boolean(mockOffer) || isValidUuid(offerId);
-  const offerQuery = usePublicOffer(isUuidValid && !mockOffer ? offerId : null);
+  // Public discovery remains guest-only for the optional visible offer summary.
+  // An authenticated action uses the server's independent eligibility policy.
+  const assessmentQuery = useCustomerAssessmentOffer(
+    isUuidValid && !mockOffer && isAuthLoaded && isSignedIn ? offerId : null, 'rating',
+  );
+  const publicOfferQuery = usePublicOffer(
+    isUuidValid && !mockOffer && isAuthLoaded && !isSignedIn ? offerId : null,
+  );
+  const offerQuery = isSignedIn ? assessmentQuery : publicOfferQuery;
   const offer = mockOffer ?? offerQuery.data;
 
   // 3. Existing Rating Lookup & Asynchronous Hydration
@@ -245,6 +259,7 @@ export function CustomerRateOfferScreen({
 
   async function handleSubmit() {
     if (isSubmitting || isSubmittingRef.current) return;
+    if (!mockOffer && (!isAuthLoaded || !isSignedIn || !assessmentQuery.data || assessmentQuery.isError || assessmentQuery.isPending)) return;
     // Prevent writes while the authenticated owner's prior rating is unknown.
     if (lookupStatus !== 'ready') {
       setSubmitError('يرجى إكمال التحقق من تقييمك السابق قبل الإرسال.');
@@ -252,6 +267,11 @@ export function CustomerRateOfferScreen({
     }
     if (!conformity) {
       setSubmitError('يرجى اختيار مدى مطابقة العرض أولاً.');
+      return;
+    }
+
+    if (__DEV__ && mockOffer) {
+      setSubmittedRatingId('rating-preview-success');
       return;
     }
 
@@ -366,7 +386,7 @@ export function CustomerRateOfferScreen({
   // ---------------------------------------------------------------------------
   // Offer Loading State
   // ---------------------------------------------------------------------------
-  if (offerQuery.isLoading && !mockOffer) {
+  if (!mockOffer && (!isAuthLoaded || offerQuery.isPending)) {
     return (
       <View {...rtlWebProps} style={{ flex: 1, backgroundColor: colors.background }}>
         {renderHeader()}
@@ -419,6 +439,22 @@ export function CustomerRateOfferScreen({
   // ---------------------------------------------------------------------------
   // Offer Not Found State
   // ---------------------------------------------------------------------------
+  if (!offer && isAuthLoaded && !isSignedIn) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {renderHeader()}
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+          <DataState
+            kind="empty"
+            title="يلزم تسجيل الدخول للتحقق من أهلية تقييم هذا العرض"
+            actionLabel="تسجيل الدخول للمتابعة"
+            onAction={handleSignInRedirect}
+          />
+        </View>
+      </View>
+    );
+  }
+
   if (!offer) {
     return (
       <View {...rtlWebProps} style={{ flex: 1, backgroundColor: colors.background }}>

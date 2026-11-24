@@ -301,6 +301,7 @@ export function mapComplaintSubmissionError(err: unknown): {
 export interface ExecuteSubmitComplaintOptions {
   isSubmittingRef: { current: boolean };
   offerId: string;
+  offerVersionId?: string | null;
   complaintType: ComplaintType | null;
   description: string;
   branchId?: string | null;
@@ -308,6 +309,7 @@ export interface ExecuteSubmitComplaintOptions {
   eligibleBranchIds?: string[];
   mutateAsync: (input: {
     offerId: string;
+    offerVersionId?: string | null;
     complaintType: ComplaintType;
     description: string;
     branchId: string | null;
@@ -370,6 +372,7 @@ export async function executeComplaintSubmission(
   try {
     const complaintId = await options.mutateAsync({
       offerId: options.offerId,
+      ...(options.offerVersionId ? { offerVersionId: options.offerVersionId } : {}),
       complaintType: options.complaintType!,
       description: validation.normalizedDescription,
       branchId:
