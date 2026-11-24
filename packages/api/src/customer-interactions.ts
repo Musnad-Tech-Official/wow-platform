@@ -45,7 +45,8 @@ export async function getCustomerAssessmentOffer(
   if (error) throw error;
   if (data === null) return null;
   const value = data as Partial<CustomerAssessmentOffer>;
-  if (!value || typeof value !== 'object' || value.id !== offerId || !uuid(value.offer_version_id) ||
+  if (!value || typeof value !== 'object' || typeof value.id !== 'string' ||
+      value.id.toLowerCase() !== offerId.toLowerCase() || !uuid(value.offer_version_id) ||
       typeof value.title !== 'string' || typeof value.business?.name !== 'string' ||
       !Array.isArray(value.branches) || value.branches.some(branch =>
         !branch || !uuid(branch.id) || typeof branch.name !== 'string' ||
