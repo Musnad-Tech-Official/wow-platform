@@ -23,6 +23,7 @@ export interface DashboardMetricsProps {
   inquiriesCount?: number;
   inquiriesTrend?: string;
   hasInquiriesTelemetry?: boolean;
+  hasComplaintsTelemetry?: boolean;
   complaintsCount?: number;
   openComplaintsCount?: number;
   closedComplaintsCount?: number;
@@ -36,6 +37,7 @@ export function DashboardMetrics({
   inquiriesCount = 0,
   inquiriesTrend = '—',
   hasInquiriesTelemetry = false,
+  hasComplaintsTelemetry = false,
   complaintsCount = 0,
   openComplaintsCount = 0,
   closedComplaintsCount = 0,
@@ -232,7 +234,7 @@ export function DashboardMetrics({
               className="rounded-full px-2 py-0.5"
               style={{
                 backgroundColor:
-                  openComplaintsCount > 0
+                  hasComplaintsTelemetry && openComplaintsCount > 0
                     ? isDark
                       ? '#451B20'
                       : '#FEE2E2'
@@ -246,7 +248,7 @@ export function DashboardMetrics({
                 className="font-tajawal-bold text-[10px]"
                 style={{
                   color:
-                    openComplaintsCount > 0
+                    hasComplaintsTelemetry && openComplaintsCount > 0
                       ? isDark
                         ? '#FCA5A5'
                         : '#B91C1C'
@@ -255,14 +257,14 @@ export function DashboardMetrics({
                       : '#166534',
                 }}
               >
-                {openComplaintsCount > 0 ? 'تحتاج متابعة' : 'لا توجد شكاوى'}
+                {!hasComplaintsTelemetry ? 'غير متاح' : openComplaintsCount > 0 ? 'تحتاج متابعة' : 'لا توجد شكاوى'}
               </AppText>
             </View>
             <View
               className="w-7 h-7 rounded-lg items-center justify-center"
               style={{
                 backgroundColor:
-                  openComplaintsCount > 0
+                  hasComplaintsTelemetry && openComplaintsCount > 0
                     ? isDark
                       ? '#451B20'
                       : '#FEE2E2'
@@ -273,7 +275,7 @@ export function DashboardMetrics({
             >
               <AlertCircle
                 size={15}
-                color={openComplaintsCount > 0 ? '#DC2626' : '#166534'}
+                color={hasComplaintsTelemetry && openComplaintsCount > 0 ? '#DC2626' : '#166534'}
               />
             </View>
           </View>
@@ -283,18 +285,18 @@ export function DashboardMetrics({
               الشكاوى المرتبطة
             </AppText>
             <AppText variant="heading" className="font-tajawal-bold text-2xl mt-0.5">
-              {complaintsCount}
+              {hasComplaintsTelemetry ? complaintsCount : '—'}
             </AppText>
             <AppText variant="caption" muted className="text-[10px] mt-0.5">
-              توزيع الحالات الحالية
+              {hasComplaintsTelemetry ? 'توزيع الحالات الحالية' : 'تعذّر تأكيد العدد الكامل المصرح به'}
             </AppText>
           </View>
 
           {/* Segmented Status Bar */}
-          <SegmentedStatusBar
+          {hasComplaintsTelemetry && <SegmentedStatusBar
             openCount={openComplaintsCount}
             closedCount={closedComplaintsCount}
-          />
+          />}
         </View>
       </View>
     </View>
