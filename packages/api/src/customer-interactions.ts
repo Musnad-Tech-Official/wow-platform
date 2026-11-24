@@ -22,6 +22,40 @@ export type ComplaintType =
   | 'price_mismatch' | 'unavailable' | 'misleading_terms'
   | 'product_mismatch' | 'business_conduct' | 'other';
 
+export type AssessmentPurpose = 'rating' | 'complaint';
+
+/** Minimal, authenticated assessment target; never a public discovery result. */
+export interface CustomerAssessmentOffer {
+  id: string;
+  offer_version_id: string;
+  title: string;
+  business: { name: string };
+  branches: { id: string; name: string; city: string | null }[];
+}
+
+export async function getCustomerAssessmentOffer(
+  client: WowSupabaseClient,
+  offerId: string,
+  purpose: AssessmentPurpose,
+): Promise<CustomerAssessmentOffer | null> {
+  const { data, error } = await client.rpc('wow_customer_get_assessment_offer', {
+    p_offer_id: offerId,
+    p_purpose: purpose,
+  });
+  if (error) throw error;
+  if (data === null) return null;
+  const value = data as Partial<CustomerAssessmentOffer>;
+  if (!value || typeof value !== 'object' || typeof value.id !== 'string' ||
+      value.id.toLowerCase() !== offerId.toLowerCase() || !uuid(value.offer_version_id) ||
+      typeof value.title !== 'string' || typeof value.business?.name !== 'string' ||
+      !Array.isArray(value.branches) || value.branches.some(branch =>
+        !branch || !uuid(branch.id) || typeof branch.name !== 'string' ||
+        (branch.city !== null && typeof branch.city !== 'string'))) {
+    throw new Error('wow_customer_get_assessment_offer returned an unexpected result shape.');
+  }
+  return value as CustomerAssessmentOffer;
+}
+
 export interface CustomerOfferRating {
   id: string;
   offer_id: string;

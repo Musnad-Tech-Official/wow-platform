@@ -624,3 +624,33 @@ test('14. Live owner lookup gates submission through pending, failed and retried
   assert.match(myRatingsScreenSrc, /onPress=\{\(\) => void handleLoadMore\(true\)\}/);
   assert.match(myRatingsScreenSrc, /onEndReached=\{\(\) => \{ if \(!loadMoreError\) void handleLoadMore\(\); \}\}/);
 });
+
+
+test('AUD-025: authenticated rating targets use action-specific API, not public discovery', async () => {
+  const apiSrc = fs.readFileSync(path.join(repoRoot, 'packages/api/src/customer-interactions.ts'), 'utf8');
+  const hooks = fs.readFileSync(path.join(repoRoot, 'packages/api/src/query/hooks/use-customer-interactions.ts'), 'utf8');
+  const keys = fs.readFileSync(path.join(repoRoot, 'packages/api/src/query/query-keys.ts'), 'utf8');
+  const api = {};
+  new Function('exports', 'require', ts.transpileModule(apiSrc, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  }).outputText)(api, mod => mod.includes('integration/helpers') ? {
+    uuid: v => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v),
+  } : {});
+  const offerId = '11111111-2222-4333-8444-555555555555';
+  const version = '11111111-2222-4333-8444-666666666666';
+  const target = { id: offerId, offer_version_id: version, title: 'Approved ended offer', business: { name: 'QA' }, branches: [] };
+  const client = { rpc: async (rpc, params) => {
+    assert.equal(rpc, 'wow_customer_get_assessment_offer');
+    assert.deepEqual(params, { p_offer_id: offerId, p_purpose: 'rating' });
+    return { data: target, error: null };
+  } };
+  assert.deepEqual(await api.getCustomerAssessmentOffer(client, offerId, 'rating'), target);
+  assert.equal(await api.getCustomerAssessmentOffer({ rpc: async () => ({ data: null, error: null }) }, offerId, 'rating'), null);
+  await assert.rejects(api.getCustomerAssessmentOffer({ rpc: async () => ({ data: { ...target, id: 'another-offer' }, error: null }) }, offerId, 'rating'));
+  await assert.rejects(api.getCustomerAssessmentOffer({ rpc: async () => ({ data: null, error: new Error('denied') }) }, offerId, 'rating'), /denied/);
+  assert.match(rateScreenSrc, /useCustomerAssessmentOffer\([\s\S]*?isAuthLoaded && isSignedIn \? offerId : null, 'rating'/);
+  assert.match(rateScreenSrc, /isAuthLoaded && !isSignedIn \? offerId : null/);
+  assert.match(rateScreenSrc, /if \(!offer && isAuthLoaded && !isSignedIn\)/);
+  assert.match(hooks, /assessmentOffer\(context.userId, offerId, purpose\)/);
+  assert.match(keys, /\['interactions', 'assessment-offer', userId, offerId, purpose\]/);
+});

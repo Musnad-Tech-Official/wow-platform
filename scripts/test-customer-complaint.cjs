@@ -644,3 +644,25 @@ test('8. Outcome honesty: Executed successful UUID, failed mutation, draft prese
 });
 
 console.log('All 8 CUS-07 test suites passed successfully.');
+
+
+test('AUD-025: complaint action is independently scoped and preserves the approved version', async () => {
+  assert.match(complaintScreenSrc, /useCustomerAssessmentOffer\([\s\S]*?isAuthLoaded && isSignedIn \? offerId : null, 'complaint'/);
+  assert.match(complaintScreenSrc, /offerVersionId: assessmentQuery.data\?\.offer_version_id/);
+  assert.match(complaintScreenSrc, /returnTo: `\/offer\/\$\{offerId\}\/complaint`/);
+  assert.match(complaintDisplaySrc, /offerVersionId: options.offerVersionId/);
+  const captured = [];
+  const versionId = '11111111-2222-4333-8444-666666666666';
+  await complaintDisplay.executeComplaintSubmission({
+    isSubmittingRef: { current: false },
+    offerId: '11111111-2222-4333-8444-555555555555',
+    offerVersionId: versionId,
+    complaintType: 'other',
+    description: 'Valid complaint description for approved historical offer.',
+    mutateAsync: async input => { captured.push(input); return 'complaint-id'; },
+    onSuccess: () => {}, onError: error => assert.fail(error),
+    onValidationError: errors => assert.fail(JSON.stringify(errors)),
+  });
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0].offerVersionId, versionId);
+});
