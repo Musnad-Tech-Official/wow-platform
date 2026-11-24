@@ -939,3 +939,17 @@ test('W03.3 Production Hook (V4 Reconciliation): Additional create times out, re
   assert.match(hook.feedback?.text, /تم تأكيد إضافة الفرع في الخادم بنجاح/);
   assert.equal(createCallCount, 1, 'No duplicate mutation call must have occurred');
 });
+
+
+test('AUD-029/030: additional branch follows its own verification flow',()=>{
+ const editor=read('apps/merchant/src/features/branches/components/MerchantBranchEditorScreen.tsx');
+ const panel=read('apps/merchant/src/features/branches/components/BranchVerificationPanel.tsx');
+ assert.match(editor,/initialBranch.status === 'draft' \|\| initialBranch.status === 'rejected'/);
+ assert.match(editor,/if \(businessApproved\) \{ onReview\(savedId\); return; \}/);
+ assert.match(editor,/<BranchVerificationPanel/);
+ assert.match(panel,/v.request_type==='branch_addition'&&v.branch_id===branch.id/);
+ assert.match(panel,/requestType:'branch_addition',evidenceRefs:\[key\]/);
+ assert.match(panel,/resubmit\.mutateAsync/);
+ assert.match(panel,/scope:\{kind:'verification',businessId\}/);
+ assert.match(panel,/!confirmed\|\|!canSubmit/);
+});

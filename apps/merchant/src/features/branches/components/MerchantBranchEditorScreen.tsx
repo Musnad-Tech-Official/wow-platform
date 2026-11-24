@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, TextInput, Modal } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
@@ -15,6 +15,7 @@ import {
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
+import { BranchVerificationPanel } from './BranchVerificationPanel';
 
 interface BranchFormProps {
   initialBranch?: Branch;
@@ -23,6 +24,8 @@ interface BranchFormProps {
   businessId: string;
   isSyntheticPreview: boolean;
   onBack: () => void;
+  onReview: (id:string)=>void;
+  businessApproved:boolean;
 }
 
 function BranchEditorForm({
@@ -32,6 +35,8 @@ function BranchEditorForm({
   businessId,
   isSyntheticPreview,
   onBack,
+  onReview,
+  businessApproved,
 }: BranchFormProps) {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
@@ -49,6 +54,8 @@ function BranchEditorForm({
   const [lon, setLon] = useState(initialBranch?.longitude != null ? String(initialBranch.longitude) : '');
 
   const [saving, setSaving] = useState(false);
+  const busy=useRef(false);
+  const createdBranchId=useRef<string|null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
@@ -65,7 +72,7 @@ function BranchEditorForm({
   };
 
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || busy.current) return;
     if (!name.trim()) {
       setFormError('يرجى إدخال اسم الفرع.');
       return;
@@ -103,6 +110,7 @@ function BranchEditorForm({
 
     setFormError(null);
     setFormSuccess(null);
+    busy.current=true;
     setSaving(true);
 
     try {
@@ -127,15 +135,16 @@ function BranchEditorForm({
         if (initialBranch.status === 'approved') {
           await submitProfileRevision.mutateAsync({ businessId, branchId, patch });
           setFormSuccess('أُرسل مقترح تعديل الفرع إلى الإدارة؛ البيانات المنشورة لم تتغير.');
-        } else if (initialBranch.status === 'draft') {
+        } else if (initialBranch.status === 'draft' || initialBranch.status === 'rejected') {
           const saved = await updateBranchMutation.mutateAsync({ businessId, branchId, patch });
           if (saved !== true) throw new Error('لم تؤكد قاعدة البيانات حفظ مسودة الفرع.');
           setFormSuccess('تم حفظ مسودة الفرع.');
+          if (businessApproved) { onReview(branchId); return; }
         } else {
           throw new Error('الفرع في مرحلة مراجعة أو حالة لا تسمح بالتعديل.');
         }
       } else {
-        await createBranchMutation.mutateAsync({
+        const savedId = createdBranchId.current ?? await createBranchMutation.mutateAsync({
           businessId,
           name: name.trim(),
           city: city.trim(),
@@ -144,13 +153,16 @@ function BranchEditorForm({
           latitude: parsedLat,
           longitude: parsedLon,
         });
-        setFormSuccess('تمت إضافة الفرع بنجاح.');
+        createdBranchId.current=savedId;
+        setFormSuccess('تم حفظ الفرع كمسودة، ولم يُؤهّل بعد.');
+        if (businessApproved) { onReview(savedId); return; }
       }
 
       setTimeout(() => onBack(), 1200);
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'تعذر حفظ بيانات الفرع.');
     } finally {
+      busy.current=false;
       setSaving(false);
     }
   };
@@ -414,6 +426,7 @@ export function MerchantBranchEditorScreen() {
     branchId?: string;
     businessId?: string;
     preview?: string;
+    review?: string;
   }>();
 
   const isEditMode = params.mode === 'edit' || Boolean(params.branchId);
@@ -421,6 +434,7 @@ export function MerchantBranchEditorScreen() {
 
   const {
     activeBusinessId,
+    activeBusiness,
     isSyntheticPreview,
     isOwner,
   } = useActiveBusiness();
@@ -443,6 +457,12 @@ export function MerchantBranchEditorScreen() {
       : undefined
   );
 
+  const reviewMode = params.review === '1';
+  const businessApproved = activeBusiness?.status === 'approved';
+  const openReview=(id:string)=>router.replace({
+    pathname:'/business/branches/editor',
+    params:{mode:'edit',branchId:id,businessId:activeBusinessId || '',review:'1'},
+  });
   const unavailable = isEditMode && !isSyntheticPreview && !currentBranch;
   const handleBack = () => {
     router.replace({
@@ -480,6 +500,9 @@ export function MerchantBranchEditorScreen() {
           {branchesError ? <AppButton title="إعادة المحاولة" onPress={() => void refetchBranches()} /> : null}
           <AppButton title="العودة إلى الفروع" variant="outline" onPress={handleBack} />
         </View>
+      ) : !isSyntheticPreview && currentBranch && businessApproved && (reviewMode || currentBranch.status === 'pending_review') ? (
+        <BranchVerificationPanel key={currentBranch.id} businessId={activeBusinessId || ''} branch={currentBranch}
+          onBack={handleBack} onEdit={()=>router.replace({pathname:'/business/branches/editor',params:{mode:'edit',branchId:currentBranch.id,businessId:activeBusinessId || ''}})} />
       ) : <BranchEditorForm
         key={(activeBusinessId || 'no-business') + ':' + (currentBranch?.id || 'new-branch')}
         initialBranch={currentBranch}
@@ -488,6 +511,8 @@ export function MerchantBranchEditorScreen() {
         businessId={activeBusinessId || ''}
         isSyntheticPreview={isSyntheticPreview}
         onBack={handleBack}
+        onReview={openReview}
+        businessApproved={businessApproved}
       />}
     </MerchantScaffold>
   );

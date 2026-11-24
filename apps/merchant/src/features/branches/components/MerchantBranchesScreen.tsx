@@ -70,10 +70,13 @@ export function MerchantBranchesScreen() {
     switch (status) {
       case 'approved':
         return { label: 'مؤهل', bg: isDark ? '#064E3B' : '#DCFCE7', text: '#16A34A' };
+      case 'pending_review':
       case 'under_review':
       case 'submitted':
       case 'pending':
         return { label: 'قيد التأهيل', bg: isDark ? '#451A03' : '#FEF3C7', text: '#D97706' };
+      case 'draft':
+        return { label: 'مسودة — لم تُرسل', bg: isDark ? '#27272A' : '#F4F4F5', text: colors.foreground };
       case 'rejected':
         return { label: 'مرفوض', bg: isDark ? '#4C0519' : '#FFE4E6', text: '#E11D48' };
       default:
