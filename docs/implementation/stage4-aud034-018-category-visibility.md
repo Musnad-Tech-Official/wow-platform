@@ -25,7 +25,7 @@ Used `docs/sql/stage4-aud034-transacted-regression.sql` inside a transaction wit
 
 The transaction rolled back all temporary rows. The live database retained **2 existing business rows, 0 offers, 0 AUD-034 fixture users and 0 AUD-034 categories** after validation. A live function MD5 was recorded: `a3391cf5780d41d30d57de4a70c97853`. No public grants, role grants or other functions were changed.
 
-**Not yet tested:** a real visitor HTTP request to the REST discovery RPC and visual/browser/physical-device acceptance; these remain part of the end-of-Stage-4 verification and cannot be counted as passing.
+**Not yet tested:** a real visitor HTTP request to the REST discovery RPC and visual/browser/physical-device acceptance; these are assigned to Stage 6 under the owner-approved reschedule and cannot be counted as passing.
 
 ## AUD-018: existing category constraints, no migration
 
@@ -33,10 +33,10 @@ A live read-only inspection of the original database found that `public.categori
 - `categories_slug_check`: lowercase ASCII alphanumerics separated by single hyphens, max 100 characters.
 - `categories_sort_order_check`: integer `0..100000`.
 
-The upsert RPC delegates the final check to these table constraints. Do **not** create redundant category constraints or rewrite the existing upsert merely to close an outdated audit observation. The DB contract is already present; separate input-error UI/edge-case acceptance has not been run.
+The upsert RPC delegates the final check to these table constraints. Do **not** create redundant category constraints or rewrite the existing upsert merely to close an outdated audit observation. The DB contract is already present. On 2026-11-24, ten transaction-scoped RPC cases passed using [the AUD-018 regression](../sql/stage4-aud018-transacted-regression.sql): min/max sort order, 100/101-character slug, invalid syntax, duplicate slug, and atomic invalid update. No migration required; zero residual synthetic users/categories. UI and HTTP error presentation is deferred to Stage 6.
 
 ## Remaining security notices
 
 Supabase Security Advisor still reports generic `SECURITY DEFINER` accessibility warnings and an RLS policy coverage info notice. These were not introduced by this migration. They require a separate authorization/grant review; this fix does not waive them.
 
-Project gate: GitHub hosted runner allocation unresolved (AUD-001); do not claim full CI success.
+Project gate: hosted runner allocation resolved (AUD-001); main 17c3257 public CI passed run 45453598835. Full authenticated acceptance remains open.
