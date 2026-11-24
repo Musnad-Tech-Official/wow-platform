@@ -10,6 +10,7 @@ import { MerchantScaffold } from '../../navigation/MerchantScaffold';
 import { useOfferEditor } from '../context/OfferEditorContext';
 import { OfferEditorStepper } from './OfferEditorStepper';
 import { OfferBusinessConflictModal } from './OfferBusinessConflictModal';
+import { OfferMediaUploadPanel } from './OfferMediaUploadPanel';
 import { EvidencePicker, type SelectedEvidenceFile } from '../../business/components/EvidencePicker';
 
 export function OfferEvidenceScreen() {
@@ -310,6 +311,8 @@ export function OfferEvidenceScreen() {
           </View>
         </View>
       </View>
+
+      <OfferMediaUploadPanel />
 
       {/* Navigation Buttons */}
       <View className="w-full gap-2.5 pb-6">

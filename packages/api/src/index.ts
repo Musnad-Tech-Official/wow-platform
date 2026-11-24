@@ -119,6 +119,7 @@ export {
 export {
   usePublicOfferMedia,
   useBusinessMediaSignedUrl,
+  useOfferMediaSignedUrl,
   useUploadWowMedia,
   useAttachOfferMedia,
   useAttachComplaintEvidence,

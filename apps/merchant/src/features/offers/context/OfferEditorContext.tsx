@@ -12,6 +12,7 @@ import {
   useBusiness,
   type OfferDraftPayload,
   type OfferKind,
+  type OfferMedia,
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import type { SelectedEvidenceFile } from '../../business/components/EvidencePicker';
@@ -50,6 +51,8 @@ export interface OfferEditorContextValue {
   businessId: string | null;
   offerId: string | null;
   versionId: string | null;
+  media: OfferMedia[];
+  prepareOfferMediaUpload:()=>Promise<{businessId:string;versionId:string}|null>;
   isNewOffer: boolean;
   isSyntheticPreview: boolean;
 
@@ -170,6 +173,8 @@ export function OfferEditorProvider({
 
   // Persist the confirmed ID synchronously, even before a React render or a partial save failure.
   const confirmedOfferId = useRef(currentOfferId);
+  const confirmedVersionId=useRef<string|null>(null);
+  const [savedVersionId,setSavedVersionId]=useState<string|null>(null);
   const draftRequestId = useRef<string|null>(null);
   const [operationGate] = useState(createEditorOperationGate);
   const [operation,setOperation] = useState<'save'|'submit'|'upload'|null>(null);
@@ -202,7 +207,8 @@ export function OfferEditorProvider({
   const { data: businessDetail } = useBusiness(draftBusinessId);
   const { data: versions = [] } = useOfferVersions(currentOfferId);
   const draftVersion = versions.find((v) => v.review_status === 'draft') ?? versions[0] ?? null;
-  const { data: versionDetails } = useOfferVersionDetails(draftVersion?.id);
+  const effectiveVersionId=savedVersionId??draftVersion?.id??null;
+  const { data: versionDetails } = useOfferVersionDetails(effectiveVersionId);
   const { data: evidenceDocs = [] } = useOfferEvidenceDraft(currentOfferId);
 
   const createOfferMutation = useCreateOffer();
@@ -273,6 +279,8 @@ export function OfferEditorProvider({
         setDraftBusinessId(activeBusinessId);
         confirmedOfferId.current = null;
         draftRequestId.current = null;
+        confirmedVersionId.current=null;
+        setSavedVersionId(null);
         setCurrentOfferId(null);
         setDraft(DEFAULT_DRAFT_STATE);
         setIsDirty(false);
@@ -503,7 +511,9 @@ export function OfferEditorProvider({
 
       // 3. Persist even incomplete drafts. The database accepts zero branches
       // for drafts; submission still requires at least one approved branch.
-      await saveDraftMutation.mutateAsync({ offerId: targetOfferId, payload });
+      const savedVersion=await saveDraftMutation.mutateAsync({ offerId: targetOfferId, payload });
+      confirmedVersionId.current=savedVersion;
+      setSavedVersionId(savedVersion);
 
       // 4. Persist both attachments and explicit removal. Never report a
       // successful draft save when private evidence persistence fails.
@@ -537,6 +547,16 @@ export function OfferEditorProvider({
     saveEvidenceMutation,
     businessConflict,
   ]);
+
+  const prepareOfferMediaUpload=useCallback(async()=>{
+    if(isSyntheticPreview||!draftBusinessId||businessConflict||!beginOperation('upload'))return null;
+    try{
+      const saved=await persistDraft();
+      if(saved&&confirmedVersionId.current)return {businessId:draftBusinessId,versionId:confirmedVersionId.current};
+    }catch{/* persistDraft already reports failure */}
+    finishOperation('upload');
+    return null;
+  },[isSyntheticPreview,draftBusinessId,businessConflict,beginOperation,finishOperation,persistDraft]);
 
   const saveDraft = useCallback(async (): Promise<string | null> => {
     if (!beginOperation('save')) return null;
@@ -581,7 +601,9 @@ export function OfferEditorProvider({
     () => ({
       businessId: draftBusinessId,
       offerId: currentOfferId,
-      versionId: draftVersion?.id ?? null,
+      versionId:effectiveVersionId,
+      media:versionDetails?.version.id===effectiveVersionId?versionDetails.media:[],
+      prepareOfferMediaUpload,
       isNewOffer: !currentOfferId,
       isSyntheticPreview,
       draft,
@@ -607,7 +629,9 @@ export function OfferEditorProvider({
     [
       draftBusinessId,
       currentOfferId,
-      draftVersion?.id,
+      effectiveVersionId,
+      versionDetails,
+      prepareOfferMediaUpload,
       isSyntheticPreview,
       draft,
       updateDraft,

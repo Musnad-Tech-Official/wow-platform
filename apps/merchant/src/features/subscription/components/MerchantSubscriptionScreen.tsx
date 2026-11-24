@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useSubscriptionClock } from '../use-subscription-clock';
 import { View, Pressable, Modal, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -46,8 +47,7 @@ function MerchantSubscriptionScreenContent() {
   const requestPaidMutation = useRequestPaidSubscription();
   const submitPaymentMutation = useSubmitSubscriptionPayment();
 
-  const [now,setNow] = useState(Date.now);
-  useEffect(() => { const timer=setInterval(() => setNow(Date.now()),1000); return () => clearInterval(timer); },[]);
+  const now = useSubscriptionClock();
   // Synthetic preview fallbacks
   const currentSub = billing?.subscriptions?.find((sub) => isSubscriptionInForce(sub,now))
     ?? billing?.subscriptions?.find((sub) => sub.status === 'pending')
