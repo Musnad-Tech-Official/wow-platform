@@ -132,3 +132,13 @@ test('MERCHANT NESTED AUTH: preview scope is propagated to nested offer-editor l
   const pure = src('apps/merchant/src/features/navigation/merchant-route-access.ts');
   assert.match(pure, /isDevelopment && preview === '1'/);
 });
+
+test('Stage 5 access completion: dedicated merchant login route and shared legal links for all apps',()=>{
+ const route=src('apps/merchant/src/app/sign-in.tsx');
+ const gate=src('apps/merchant/src/features/navigation/MerchantRouteGate.tsx');
+ const admin=src('apps/admin/src/features/screens/AdminAccessScreen.tsx');
+ assert.match(route,/<MerchantRouteGate>/);assert.match(route,/<Redirect href="\/"/);
+ assert.match(gate,/wowBrand.logoNavy/);assert.match(gate,/wow-merchant-login-canvas/);
+ assert.match(gate,/viewport.isDesktop/);assert.match(gate,/LegalDocumentLinks/);assert.match(admin,/LegalDocumentLinks/);
+ assert.match(src('apps/customer/src/features/legal/LegalDocumentLinks.tsx'),/SharedLegalDocumentLinks/);
+});
