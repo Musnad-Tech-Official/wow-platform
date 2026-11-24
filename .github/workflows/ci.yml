@@ -97,7 +97,7 @@ jobs:
         run: node scripts/test-customer-web-deeplinks-playwright.cjs
 
   merchant-web-guest:
-    name: Merchant Expo web export and browser guest smoke
+    name: Merchant Expo dev-server browser guest smoke
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -124,20 +124,10 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
-      - name: Export actual merchant Expo web application
-        run: pnpm --filter merchant exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-merchant-web"
-      - name: Exercise real guest routes in Chromium
-        env:
-          WOW_MERCHANT_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-merchant-web
-        run: node scripts/test-merchant-guest-playwright.cjs
-      - name: Exercise all offer editing routes (MER-05-01 through MER-06) in Chromium
-        env:
-          WOW_MERCHANT_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-merchant-web
-        run: node scripts/test-merchant-batch-02-playwright.cjs
-      - name: Exercise final 8 merchant routes and capture actual browser screenshots
-        env:
-          WOW_MERCHANT_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-merchant-web
-        run: node scripts/test-merchant-final-8-playwright.cjs
+      - name: Verify Merchant live-server smoke script syntax
+        run: bash -n scripts/test-merchant-live-dev-server.sh
+      - name: Exercise Merchant guest and preview routes using real Expo Metro
+        run: bash scripts/test-merchant-live-dev-server.sh
       - name: Archive final 8 screenshots (development preview only)
         if: always()
         uses: actions/upload-artifact@v4
