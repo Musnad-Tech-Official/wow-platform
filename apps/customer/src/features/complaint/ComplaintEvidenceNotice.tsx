@@ -57,7 +57,7 @@ export function ComplaintEvidenceNotice() {
           >
             المرفقات والأدلة الداعمة
           </AppText>
-          <StatusBadge label="غير متاحة حالياً" tone="neutral" />
+          <StatusBadge label="بعد إرسال الشكوى" tone="neutral" />
         </View>
 
         <AppText
@@ -71,7 +71,7 @@ export function ComplaintEvidenceNotice() {
             maxWidth: 380,
           }}
         >
-          خدمة إرفاق الصور والإيصالات قيد التطوير وستتاح في تحديث قادم. يتم التحقق من البلاغ بناءً على إفادتك ومطابقتها مع شروط العرض المعتمدة لدى المنصة.
+          يمكنك إرفاق الأدلة من تفاصيل الشكوى بعد تسجيلها. لن تُرفع ملفات أثناء إرسال النموذج.
         </AppText>
       </View>
 
@@ -96,7 +96,7 @@ export function ComplaintEvidenceNotice() {
             textAlign: 'center',
           }}
         >
-          لا يُطلب منك تقديم إيصالات مالية أو معلومات حساسة في هذا النموذج.
+          أرفق المستندات اللازمة فقط، واحجب المعلومات الحساسة غير المتعلقة بالشكوى.
         </AppText>
       </View>
     </View>

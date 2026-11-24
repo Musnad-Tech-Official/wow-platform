@@ -30,6 +30,7 @@ import { ComplaintDescriptionCard } from './ComplaintDescriptionCard';
 import { ComplaintTimeline } from './ComplaintTimeline';
 import { ComplaintOutcomeCard } from './ComplaintOutcomeCard';
 import { ComplaintPrivacyNotice } from './ComplaintPrivacyNotice';
+import { ComplaintEvidenceUpload } from './ComplaintEvidenceUpload';
 import {
   FIXTURE_COMPLAINT_CLOSED_NO_OUTCOME,
   FIXTURE_COMPLAINT_CLOSED_WITH_OUTCOME,
@@ -901,6 +902,9 @@ export function CustomerComplaintDetailsScreen({
 
           {/* 3. Description Card */}
           <ComplaintDescriptionCard description={activeComplaint.description} />
+
+          {!isPreview && isSignedIn && activeComplaint.status !== 'closed' &&
+            <ComplaintEvidenceUpload key={activeComplaint.id} complaintId={activeComplaint.id} />}
 
           {/* 4. Timeline & Updates Card */}
           <ComplaintTimeline complaint={activeComplaint} />

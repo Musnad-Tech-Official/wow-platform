@@ -628,7 +628,7 @@ export function CustomerSubmitComplaintScreen({
 
               <InlineNotice
                 tone="info"
-                title="متابعة حالة الشكاوى (CUS-08) ستتاح قريباً في حسابك الشخصي لمتابعة الإجراءات المتخذة."
+                title="يمكن متابعة الشكوى وإرفاق الأدلة الخاصة من صفحة تفاصيل الشكوى."
               />
 
               {isFixture ? (
@@ -639,6 +639,8 @@ export function CustomerSubmitComplaintScreen({
               ) : null}
 
               <View style={{ width: '100%', gap: 10, marginTop: 8 }}>
+                {!isFixture && <AppButton title="متابعة الشكوى وإرفاق الأدلة" variant="primary"
+                  onPress={() => router.replace(`/complaints/${submittedComplaintId}`)} />}
                 <AppButton
                   title="العودة إلى تفاصيل العرض"
                   variant="primary"

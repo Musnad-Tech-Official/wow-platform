@@ -10,6 +10,7 @@ export * from './customer-interactions';
 export * from './billing';
 export * from './discovery';
 export * from './media';
+export { signAdminComplaintEvidence } from './admin-review-evidence';
 export * from './merchant-operations';
 export { createWowPublicSupabaseClient, useWowPublicSupabaseClient, type WowPublicSupabaseOptions } from './supabase/public-client';
 export {

@@ -82,3 +82,16 @@ test('W08 complaint decisions require role, validated notes and explicit confirm
   assert.match(action, /disabled=\{!readyRequest\}/);
   assert.doesNotMatch(action, /service_role|getPublicUrl|\.from\(/);
 });
+
+
+test('AUD-036: reviewer-only complaint evidence opens via short-lived signed storage URL',()=>{
+ const panel=read('apps/admin/src/features/w08/ComplaintEvidenceReview.tsx');
+ const api=read('packages/api/src/admin-review-evidence.ts');
+ assert.match(panel,/role==='reviewer'\|\|role==='super_admin'/);
+ assert.match(panel,/private_evidence_count/);
+ assert.match(panel,/requireWowApiSession\(api\)/);
+ assert.match(panel,/signAdminComplaintEvidence\(client,complaintId,refs\[i\]\)/);
+ assert.match(api,/parts\[2\] !== complaintId/);
+ assert.match(api,/storage\.from\(wowStorageBuckets\.complaint\)\s*\.createSignedUrl\(reference, 60\)/);
+ assert.doesNotMatch(panel,/console\.|getPublicUrl|JSON\.stringify\(complaint/);
+});

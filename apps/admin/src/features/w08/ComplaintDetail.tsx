@@ -5,6 +5,7 @@ import { AppText, Card } from '@wow/ui';
 import { W06Header, W06Message } from '../w06/W06Shared';
 import type { AdminRole } from '../auth/admin-access';
 import { ComplaintActions } from './ComplaintActions';
+import { ComplaintEvidenceReview } from './ComplaintEvidenceReview';
 
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ?
@@ -75,6 +76,7 @@ export function AdminComplaintDetail({ id, role }: { id: string; role: AdminRole
               );
             })}
           </Card>
+          <ComplaintEvidenceReview key={id} complaintId={id} complaint={item} role={role} />
           {status ? <ComplaintActions key={id + ':' + status}
             complaintId={id} status={status} role={role} /> :
             <W06Message kind="error" title="حالة الشكوى غير صالحة لاتخاذ قرار" />}

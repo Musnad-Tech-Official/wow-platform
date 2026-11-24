@@ -41,3 +41,21 @@ export async function signAdminVerificationEvidence(
   }
   return result;
 }
+
+/** Sign only the case-specific private reference; Storage rechecks the actor. */
+export async function signAdminComplaintEvidence(
+  client: WowSupabaseClient, complaintId: string, reference: string,
+): Promise<string> {
+  if (!uuid(complaintId)) throw new Error('Invalid complaint ID.');
+  const parts = reference.split('/');
+  if (parts.length !== 4 || parts[0] !== 'complaints' ||
+      !/^[A-Za-z0-9_-]{3,128}$/.test(parts[1]) || parts[2] !== complaintId ||
+      !/^[a-f0-9]{48}\.(pdf|jpg|jpeg|png|webp)$/.test(parts[3])) {
+    throw new Error('Invalid private complaint evidence reference.');
+  }
+  const { data, error } = await client.storage.from(wowStorageBuckets.complaint)
+    .createSignedUrl(reference, 60);
+  if (error) throw error;
+  if (!data?.signedUrl) throw new Error('Complaint evidence could not be signed.');
+  return data.signedUrl;
+}
