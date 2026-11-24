@@ -198,6 +198,12 @@ export function AdminShell({
                   الشكاوى والبلاغات
                 </AppText>
               </Pressable>
+              {currentRole === 'super_admin' && <Pressable onPress={() => navTo('/privacy-requests')}
+                accessibilityRole="button" accessibilityLabel="طلبات الخصوصية"
+                className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname === '/privacy-requests' ? 'bg-surface border-r-4 border-[#FACC15]' : 'hover:bg-surface'}`}>
+                <ShieldCheck size={18} color={colors.mutedForeground} />
+                <AppText className="flex-1 text-sm text-right font-tajawal-medium">طلبات الخصوصية</AppText>
+              </Pressable>}
               <Pressable onPress={() => navTo('/ratings')}
                 accessibilityRole="button" accessibilityLabel="مراجعة التقييمات"
                 className={`flex-row items-center gap-3 rounded-xl px-3 py-2.5 ${pathname === '/ratings'

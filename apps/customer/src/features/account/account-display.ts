@@ -136,4 +136,4 @@ export const IS_PUSH_NOTIFICATIONS_CONFIGURED = false;
  * Online privacy/account-closure submission capability check.
  * Deletion/erasure requires legal review and backend retention RPCs.
  */
-export const IS_ACCOUNT_CLOSURE_SUBMISSION_SUPPORTED = false;
+export const IS_ACCOUNT_CLOSURE_SUBMISSION_SUPPORTED = true;
