@@ -9,12 +9,14 @@ import {
   resolveCustomerEmail,
   resolveCustomerPhone,
   type CustomerUserLike,
+  type AccountStatusSource,
 } from './account-display';
 
 export interface AccountInformationModalProps {
   visible: boolean;
   user?: CustomerUserLike | null;
   accountStatus?: string | null;
+  accountStatusSource?: AccountStatusSource;
   onClose: () => void;
 }
 
@@ -22,6 +24,7 @@ export function AccountInformationModal({
   visible,
   user,
   accountStatus,
+  accountStatusSource,
   onClose,
 }: AccountInformationModalProps) {
   const colors = useWowColors();
@@ -46,7 +49,7 @@ export function AccountInformationModal({
   const email = resolveCustomerEmail(user) ?? 'غير مسجل';
   const phone = resolveCustomerPhone(user) ?? 'غير مسجل';
   const userId = user?.id ?? 'غير متوفر';
-  const statusInfo = resolveAccountStatusInfo(accountStatus, user);
+  const statusInfo = resolveAccountStatusInfo(accountStatus, accountStatusSource);
 
   return (
     <Modal

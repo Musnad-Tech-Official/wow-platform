@@ -7,17 +7,20 @@ import {
   resolveCustomerDisplayName,
   resolveCustomerEmail,
   type CustomerUserLike,
+  type AccountStatusSource,
 } from './account-display';
 
 export interface AccountSummaryCardProps {
   user?: CustomerUserLike | null;
   accountStatus?: string | null;
+  accountStatusSource?: AccountStatusSource;
   onPressViewProfile?: () => void;
 }
 
 export function AccountSummaryCard({
   user,
   accountStatus,
+  accountStatusSource,
   onPressViewProfile,
 }: AccountSummaryCardProps) {
   const colors = useWowColors();
@@ -27,7 +30,7 @@ export function AccountSummaryCard({
 
   const displayName = resolveCustomerDisplayName(user);
   const email = resolveCustomerEmail(user);
-  const statusInfo = resolveAccountStatusInfo(accountStatus, user);
+  const statusInfo = resolveAccountStatusInfo(accountStatus, accountStatusSource);
 
   return (
     <View

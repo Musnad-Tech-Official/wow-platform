@@ -59,58 +59,45 @@ export function resolveCustomerPhone(user?: CustomerUserLike | null): string | n
   return phone && phone.length > 0 ? phone : null;
 }
 
-/**
- * Resolves account status label without inventing fake security badges or ungrounded sync claims.
- * Unconditional security claims and unverified synchronization labels are strictly eliminated.
- * Displays only authoritative states backed by verified session/profile data.
- */
+export type AccountStatusSource = 'verified' | 'loading' | 'unknown' | 'error' | 'preview';
+
+/** Resolve only the active session's own successfully loaded Supabase profile. */
+export function resolveAccountStatusSource(input: {
+  userId?: string | null;
+  profile?: { id: string; account_status: string } | null;
+  isPending: boolean;
+  isError: boolean;
+}): { status: string | null; source: AccountStatusSource } {
+  if (input.isError) return { status: null, source: 'error' };
+  if (input.isPending) return { status: null, source: 'loading' };
+  if (!input.userId || input.profile?.id !== input.userId || !input.profile.account_status?.trim()) {
+    return { status: null, source: 'unknown' };
+  }
+  return { status: input.profile.account_status, source: 'verified' };
+}
+
+/** A Clerk identity by itself never proves the Supabase account is active. */
 export function resolveAccountStatusInfo(
   accountStatus?: string | null,
-  user?: CustomerUserLike | null,
+  source: AccountStatusSource = 'unknown',
 ): {
   label: string;
   tone: 'neutral' | 'success' | 'warning';
   isAuthoritative: boolean;
 } {
-  const normalized = accountStatus?.trim().toLowerCase();
+  if (source === 'loading') return { label: 'جارٍ التحقق من حالة الحساب', tone: 'neutral', isAuthoritative: false };
+  if (source === 'error') return { label: 'تعذّر التحقق من حالة الحساب', tone: 'warning', isAuthoritative: false };
+  if (source === 'preview') return { label: 'حساب تجريبي', tone: 'neutral', isAuthoritative: false };
+  if (source !== 'verified') return { label: 'حالة الحساب غير مؤكدة', tone: 'neutral', isAuthoritative: false };
 
-  if (normalized === 'active' || (!normalized && user?.id)) {
-    return {
-      label: 'حساب نشط',
-      tone: 'success',
-      isAuthoritative: true,
-    };
+  switch (accountStatus?.trim().toLowerCase()) {
+    case 'active': return { label: 'حساب نشط', tone: 'success', isAuthoritative: true };
+    case 'suspended': return { label: 'حساب موقوف مؤقتاً', tone: 'warning', isAuthoritative: true };
+    case 'pending': return { label: 'قيد المراجعة', tone: 'neutral', isAuthoritative: true };
+    case 'closed': return { label: 'حساب مغلق', tone: 'warning', isAuthoritative: true };
+    case 'deleted': return { label: 'حساب محذوف', tone: 'warning', isAuthoritative: true };
+    default: return { label: 'حالة الحساب غير مؤكدة', tone: 'neutral', isAuthoritative: false };
   }
-
-  if (normalized === 'suspended') {
-    return {
-      label: 'حساب موقوف مؤقتاً',
-      tone: 'warning',
-      isAuthoritative: true,
-    };
-  }
-
-  if (normalized === 'pending') {
-    return {
-      label: 'قيد المراجعة',
-      tone: 'neutral',
-      isAuthoritative: true,
-    };
-  }
-
-  if (normalized) {
-    return {
-      label: `حالة الحساب: ${accountStatus}`,
-      tone: 'neutral',
-      isAuthoritative: true,
-    };
-  }
-
-  return {
-    label: 'حساب نشط',
-    tone: 'success',
-    isAuthoritative: true,
-  };
 }
 
 /**
