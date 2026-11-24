@@ -301,7 +301,7 @@ test('BATCH-01: MER-03 dashboard satisfies UI fidelity, analytical metrics, and 
   assert.match(dashboardHook, /useBusiness/);
   assert.match(dashboardHook, /useBusinessBilling/);
   assert.match(dashboardHook, /useBusinessOffers/);
-  assert.match(dashboardHook, /useBusinessComplaints/);
+  assert.match(dashboardHook, /useMerchantComplaintCounts/);
 
   // Truthful telemetry: inquiriesMetrics distinguishes preview from production
   assert.match(dashboardHook, /inquiriesMetrics/);
@@ -485,7 +485,8 @@ test('AUD-007/010: optional restricted dashboard sources do not block core and a
  assert.match(screen,/hasComplaintsTelemetry=\{complaintsAvailable\}/);
  assert.match(metrics,/hasComplaintsTelemetry \? complaintsCount : '—'/);
  assert.match(metrics,/hasComplaintsTelemetry && <SegmentedStatusBar/);
- assert.match(hook,/complaintsData.length < 50/);
+ assert.match(hook,/useMerchantComplaintCounts/);
+  assert.doesNotMatch(hook,/complaintsData\.length/);
 });
 
 
@@ -497,7 +498,8 @@ test('AUD-014/029/049: zero flags, initial-only qualification, server-authorized
  assert.match(team,/دون صلاحيات تشغيلية/);
  assert.match(status,/requests\.filter\(r => r.request_type === 'initial'\)/);
  assert.match(status,/latestInitialQualification\(serverVerifications\)/);
- assert.match(quick,/await create\.mutateAsync\(\{ businessId: activeBusinessId \}\)/);
+ assert.match(quick,/await create\.mutateAsync\(\{ businessId: activeBusinessId,requestId \}\)/);
+ assert.match(quick,/requests\.current\.set\(activeBusinessId,requestId\)/);
  assert.match(quick,/creating\.current/);
  assert.doesNotMatch(quick,/إنشاء عرض \(قيد التطوير\)/);
 });

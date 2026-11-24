@@ -84,6 +84,7 @@ export {
   useMyComplaint,
   useSubmitComplaint,
   useBusinessComplaints,
+  useMerchantComplaintCounts,
   useMerchantComplaint,
   useMerchantRespondComplaint,
   useAdminRatings,

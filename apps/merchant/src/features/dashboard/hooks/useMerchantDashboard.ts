@@ -4,8 +4,7 @@ import {
   useBusinessBilling,
   useBusinessOffers,
   useBusinessOfferVersions,
-  useBusinessComplaints,
-  type MerchantComplaintSummary,
+  useMerchantComplaintCounts,
 } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { formatArabicDate } from '../../business/hooks/useBusinessQualificationStatus';
@@ -30,8 +29,8 @@ export function useMerchantDashboard() {
   const { data: offersData = [], isLoading: isOffersLoading, error: offersError, refetch: refetchOffers } = useBusinessOffers(
     isSyntheticPreview ? null : activeBusinessId
   );
-  const { data: complaintsData = [], isLoading: isComplaintsLoading, error: complaintsError, refetch: refetchComplaints } = useBusinessComplaints(
-    isSyntheticPreview || !activeBusinessId ? null : { businessId: activeBusinessId }
+  const { data: complaintsData, isLoading: isComplaintsLoading, error: complaintsError, refetch: refetchComplaints } = useMerchantComplaintCounts(
+    isSyntheticPreview ? null : activeBusinessId
   );
 
   const { data: offerVersions = [], isLoading: versionsLoading, error: versionsError, refetch: refetchVersions } =
@@ -45,8 +44,8 @@ export function useMerchantDashboard() {
 
   // Optional sources never block the authorized core dashboard.
   const billingAvailable = isSyntheticPreview || (isOwner && !isBillingLoading && !billingError && !!billingData);
-  // The list is capped at 50; never present a full page as a verified total.
-  const complaintsAvailable = isSyntheticPreview || (!isComplaintsLoading && !complaintsError && complaintsData.length < 50);
+  // Server aggregate uses the same owner/branch-monitor scope without pagination.
+  const complaintsAvailable = isSyntheticPreview || (!isComplaintsLoading && !complaintsError && !!complaintsData);
 
   // Subscription status
   const subscriptionSummary = useMemo(() => {
@@ -127,19 +126,7 @@ export function useMerchantDashboard() {
       };
     }
 
-    const totalCount = complaintsData.length;
-    const openCount = complaintsData.filter(
-      (c: MerchantComplaintSummary) => c.status === 'new' || c.status === 'investigating' || c.status === 'waiting'
-    ).length;
-    const closedCount = complaintsData.filter(
-      (c: MerchantComplaintSummary) => c.status === 'closed'
-    ).length;
-
-    return {
-      totalCount,
-      openCount,
-      closedCount,
-    };
+    return complaintsData ?? {totalCount:0,openCount:0,closedCount:0};
   }, [isSyntheticPreview, complaintsData]);
 
   // Inquiries Metrics (distinguish synthetic preview from truthful production telemetry)

@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import React, { createContext, useContext, useState, useMemo, useCallback, useRef, type PropsWithChildren } from 'react';
 import { useGlobalSearchParams } from 'expo-router';
 import {
@@ -169,6 +170,7 @@ export function OfferEditorProvider({
 
   // Persist the confirmed ID synchronously, even before a React render or a partial save failure.
   const confirmedOfferId = useRef(currentOfferId);
+  const draftRequestId = useRef<string|null>(null);
   const [operationGate] = useState(createEditorOperationGate);
   const [operation,setOperation] = useState<'save'|'submit'|'upload'|null>(null);
   const beginOperation = useCallback((kind:'save'|'submit'|'upload') => {
@@ -270,6 +272,7 @@ export function OfferEditorProvider({
         // Discard old draft, bind to newly selected business
         setDraftBusinessId(activeBusinessId);
         confirmedOfferId.current = null;
+        draftRequestId.current = null;
         setCurrentOfferId(null);
         setDraft(DEFAULT_DRAFT_STATE);
         setIsDirty(false);
@@ -459,7 +462,8 @@ export function OfferEditorProvider({
 
       // 1. Create offer if this is a fresh draft
       if (!targetOfferId) {
-        targetOfferId = await createOfferMutation.mutateAsync({ businessId: draftBusinessId });
+        draftRequestId.current ??= randomUUID();
+        targetOfferId = await createOfferMutation.mutateAsync({ businessId: draftBusinessId, requestId:draftRequestId.current });
         confirmedOfferId.current = targetOfferId;
         setCurrentOfferId(targetOfferId);
       }

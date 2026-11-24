@@ -130,6 +130,7 @@ export interface OfferVersionDetails {
 
 export interface CreateOfferInput {
   businessId: string;
+  requestId?: string;
 }
 
 export interface SaveOfferDraftInput {
@@ -317,9 +318,12 @@ export async function getOfferVersionDetails(
 }
 
 export async function createOffer(client: WowSupabaseClient, input: CreateOfferInput): Promise<string> {
-  const { data, error } = await client.rpc('wow_create_offer', { p_business_id: input.businessId });
+  const rpc = input.requestId ? 'wow_create_offer_once' : 'wow_create_offer';
+  const { data, error } = await client.rpc(rpc, input.requestId
+    ? { p_business_id: input.businessId, p_request_id: input.requestId }
+    : { p_business_id: input.businessId });
   if (error) throw error;
-  return checkedUuid(data, 'wow_create_offer');
+  return checkedUuid(data, rpc);
 }
 
 export async function saveOfferDraft(

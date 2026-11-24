@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import React, { useRef, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -9,6 +10,7 @@ export function QuickActionsSection() {
   const { activeBusinessId, isSyntheticPreview } = useActiveBusiness();
   const create = useCreateOffer();
   const creating = useRef(false);
+  const requests = useRef(new Map<string,string>());
   const [error,setError] = useState<string | null>(null);
 
   async function handleCreate() {
@@ -16,7 +18,13 @@ export function QuickActionsSection() {
     creating.current = true; setError(null);
     try {
       // Creating a draft is the explicit action; the existing RPC enforces owner/employee branch permission.
-      const offerId = isSyntheticPreview ? null : await create.mutateAsync({ businessId: activeBusinessId });
+      let offerId:string|null=null;
+      if(!isSyntheticPreview){
+        const requestId=requests.current.get(activeBusinessId)??randomUUID();
+        requests.current.set(activeBusinessId,requestId);
+        offerId=await create.mutateAsync({ businessId: activeBusinessId,requestId });
+        requests.current.delete(activeBusinessId);
+      }
       router.push({ pathname: '/offers/editor', params: { businessId: activeBusinessId,
         ...(offerId ? { offerId } : {}), ...(isSyntheticPreview ? { preview: '1' } : {}) } });
     } catch {

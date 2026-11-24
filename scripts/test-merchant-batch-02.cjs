@@ -436,3 +436,12 @@ test('AUD-027/044: one operation across editor routes; uploads block writes and 
  assert.match(evidence,/finally \{ endEvidenceUpload\(\); \}/);
  assert.match(evidence,/disabled=\{isSaving \|\| isUploadingEvidence \|\| !canProceed\(4\)\}/);
 });
+
+
+test('AUD-027: editor retains request identity across ambiguous create responses',()=>{
+ const state=read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
+ const api=read('packages/api/src/offers.ts');
+ assert.match(state,/draftRequestId\.current \?\?= randomUUID\(\)/);
+ assert.match(state,/requestId:draftRequestId\.current/);
+ assert.match(api,/wow_create_offer_once/);
+});
