@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -25,6 +25,7 @@ import {
   type DiscoverySortOption,
 } from './discovery-data';
 import { SearchMerchantCard } from './SearchMerchantCard';
+import { createPaginationRequestGate } from './pagination-request';
 import { OfferMediaImage } from '../home/OfferMediaImage';
 
 export function CustomerDiscoverScreen() {
@@ -42,6 +43,8 @@ export function CustomerDiscoverScreen() {
   const [offset, setOffset] = useState<number>(0);
   const [accumulatedMerchants, setAccumulatedMerchants] = useState<DiscoveryMerchantCard[]>([]);
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
+  const [paginationGate] = useState(createPaginationRequestGate);
+  useEffect(() => () => paginationGate.invalidate(), [paginationGate]);
 
   // Modals state
   const [showSortSheet, setShowSortSheet] = useState(false);
@@ -109,25 +112,30 @@ export function CustomerDiscoverScreen() {
     return rows;
   }, [displayedMerchants, isCompact]);
 
+  function resetPagination() {
+    // Invalidate before React commits the next filter state.
+    paginationGate.invalidate();
+    setOffset(0);
+    setAccumulatedMerchants([]);
+    setIsFetchingMore(false);
+  }
+
   // Search input handler
   function handleSearchChange(text: string) {
     setSearchQuery(text);
-    setOffset(0);
-    setAccumulatedMerchants([]);
+    resetPagination();
   }
 
   // Category select handler
   function handleSelectCategory(catId: string | null) {
     setSelectedCategoryId(catId);
-    setOffset(0);
-    setAccumulatedMerchants([]);
+    resetPagination();
   }
 
   // Sort select handler
   function handleSelectSort(newSort: DiscoverySortOption) {
     setSortBy(newSort);
-    setOffset(0);
-    setAccumulatedMerchants([]);
+    resetPagination();
   }
 
   // Reset all filters action
@@ -135,8 +143,7 @@ export function CustomerDiscoverScreen() {
     setSearchQuery('');
     setSelectedCategoryId(null);
     setSortBy('recent');
-    setOffset(0);
-    setAccumulatedMerchants([]);
+    resetPagination();
   }
 
   // Incremental pagination: fetch next 20 items without duplicates
@@ -144,6 +151,8 @@ export function CustomerDiscoverScreen() {
     if (!hasMore || isFetchingMore) return;
     const client = getClient();
     if (!client) return;
+    const request = paginationGate.begin();
+    if (request === null) return;
 
     try {
       setIsFetchingMore(true);
@@ -156,6 +165,7 @@ export function CustomerDiscoverScreen() {
         offset: nextOffset,
       });
 
+      if (!paginationGate.isCurrent(request)) return;
       const newCards = res.items.map(mapPublicBusinessToDiscoveryCard);
       const baseList = offset === 0 ? initialCards : accumulatedMerchants;
       const existingIds = new Set(baseList.map((m) => m.id));
@@ -166,7 +176,7 @@ export function CustomerDiscoverScreen() {
     } catch {
       // Error in loading more will leave current results intact
     } finally {
-      setIsFetchingMore(false);
+      if (paginationGate.finish(request)) setIsFetchingMore(false);
     }
   }
 
