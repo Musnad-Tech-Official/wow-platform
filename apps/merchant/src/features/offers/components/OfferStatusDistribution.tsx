@@ -11,6 +11,8 @@ export interface OfferStatusDistributionProps {
   needsChangesCount?: number;
   totalCount?: number;
   pausedCount?: number;
+  scheduledCount?: number;
+  unavailableCount?: number;
   isSyntheticPreview?: boolean;
 }
 
@@ -22,13 +24,15 @@ export function OfferStatusDistribution({
   needsChangesCount = 0,
   totalCount = 0,
   pausedCount = 0,
+  scheduledCount = 0,
+  unavailableCount = 0,
   isSyntheticPreview = false,
 }: OfferStatusDistributionProps) {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const total = totalCount > 0 ? totalCount : visibleCount + pendingCount + draftCount + expiredCount + needsChangesCount + pausedCount;
+  const total = totalCount > 0 ? totalCount : visibleCount + pendingCount + draftCount + expiredCount + needsChangesCount + pausedCount + scheduledCount + unavailableCount;
   const safeTotal = total > 0 ? total : 1;
 
   const visiblePct = (visibleCount / safeTotal) * 100;
@@ -73,6 +77,8 @@ export function OfferStatusDistribution({
             <View style={{ width: `${expiredPct}%`, backgroundColor: '#475569' }} />
             {/* متوقف: Neutral gray */}
             <View style={{ width: `${pausedPct}%`, backgroundColor: '#94A3B8' }} />
+            <View style={{ width: `${scheduledCount / safeTotal * 100}%`, backgroundColor: '#8B5CF6' }} />
+            <View style={{ width: `${unavailableCount / safeTotal * 100}%`, backgroundColor: '#CBD5E1' }} />
             {/* يحتاج تعديل: Red / Rose */}
             <View style={{ width: `${needsChangesPct}%`, backgroundColor: '#F43F5E' }} />
           </>
@@ -81,6 +87,7 @@ export function OfferStatusDistribution({
         )}
       </View>
 
+      {(scheduledCount>0 || unavailableCount>0) && <AppText variant="caption" muted>مجدول: {scheduledCount} • غير مؤكد: {unavailableCount}</AppText>}
       {/* 5 Status Pill Boxes */}
       <View className="flex-row items-center justify-between gap-1.5 pt-1">
         {/* 1. يحتاج تعديل */}
@@ -199,7 +206,7 @@ export function OfferStatusDistribution({
             className="font-tajawal-medium text-[10px] mt-0.5"
             style={{ color: '#059669' }}
           >
-            ظاهر
+            مفعّل ضمن المدة
           </AppText>
         </View>
       </View>

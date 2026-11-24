@@ -10,6 +10,7 @@ import {
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import { formatArabicDate } from '../../business/hooks/useBusinessQualificationStatus';
 import { isSubscriptionInForce } from '../../subscription/subscription-time';
+import { resolveMerchantOfferStatus } from '../../offers/merchant-offer-status';
 
 export function useMerchantDashboard() {
   const { activeBusiness, activeBusinessId, isSyntheticPreview, isOwner } = useActiveBusiness();
@@ -103,7 +104,7 @@ export function useMerchantDashboard() {
       };
     }
 
-    const visibleCount = offersData.filter((o) => o.status === 'active' && o.merchant_available).length;
+    const visibleCount = offersData.filter(o => resolveMerchantOfferStatus(o,offerVersions.find(v=>v.id===o.current_version_id),undefined,currentTimestamp)==='visible').length;
     const pendingCount = offersData.filter((o) => o.status === 'pending').length;
     const draftCount = offersData.filter((o) => o.status === 'draft').length;
     const totalCount = offersData.length;
@@ -114,7 +115,7 @@ export function useMerchantDashboard() {
       draftCount,
       totalCount,
     };
-  }, [isSyntheticPreview, offersData, offerVersions]);
+  }, [isSyntheticPreview, offersData, offerVersions,currentTimestamp]);
 
   // Complaint Metrics
   const complaintMetrics = useMemo(() => {

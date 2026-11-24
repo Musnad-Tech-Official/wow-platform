@@ -518,3 +518,25 @@ test('AUD-020/037: subscription time boundaries and server entitlement', () => {
  assert.match(billing,/\{publicationLabel\}/);
  assert.match(dashboard,/billingData\?\.has_publication_entitlement/);
 });
+
+
+test('AUD-028: active offer state checks approved current version and real time boundaries',()=>{
+ const ts=require('typescript'),h={};
+ new Function('exports',ts.transpileModule(read('apps/merchant/src/features/offers/merchant-offer-status.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ const o={status:'active',merchant_available:true,current_version_id:'v'};
+ const v={id:'v',review_status:'approved',starts_at:'2026-11-01T00:00:00Z',ends_at:'2026-11-02T00:00:00Z'};
+ const start=Date.parse(v.starts_at),end=Date.parse(v.ends_at),status=h.resolveMerchantOfferStatus;
+ assert.equal(status(o,v,undefined,start-1),'scheduled');
+ assert.equal(status(o,v,undefined,start),'visible');
+ assert.equal(status(o,v,undefined,end-1),'visible');
+ assert.equal(status(o,v,undefined,end),'expired');
+ assert.equal(status({...o,status:'paused'},v,undefined,end),'expired');
+ assert.equal(status(o,undefined,undefined,start),'unavailable');
+ assert.equal(status(o,{...v,review_status:'draft'},undefined,start),'unavailable');
+ assert.equal(status(o,{...v,id:'other'},undefined,start),'unavailable');
+ assert.equal(status({...o,merchant_available:false},v,undefined,start),'paused');
+ assert.equal(status({...o,status:'draft'},undefined,'rejected',start),'needs_changes');
+ const hook=read('apps/merchant/src/features/offers/hooks/useMerchantOffers.ts');
+ assert.match(hook,/resolveMerchantOfferStatus\(offer/);
+ assert.match(hook,/serverVersions,now/);
+});

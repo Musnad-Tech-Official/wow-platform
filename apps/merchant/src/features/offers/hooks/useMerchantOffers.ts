@@ -1,12 +1,13 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useBusinessOffers, useBusinessOfferVersions, useSetOfferAvailability } from '@wow/api';
 import { useActiveBusiness } from '../../business/context/ActiveBusinessContext';
 import {
   type MerchantOfferItem,
   type OfferCardStatus,
 } from '../components/MerchantOfferCard';
+import { resolveMerchantOfferStatus } from '../merchant-offer-status';
 
-export type OfferFilterStatus = 'all' | 'visible' | 'paused' | 'pending' | 'draft' | 'expired' | 'needs_changes';
+export type OfferFilterStatus = 'all' | OfferCardStatus;
 export type OfferSortOption = 'newest' | 'price_desc' | 'price_asc';
 
 export const PREVIEW_OFFERS_FIXTURE: MerchantOfferItem[] = [
@@ -82,6 +83,8 @@ export function useMerchantOffers() {
     error: versionsError,
   } = useBusinessOfferVersions(isSyntheticPreview ? [] : serverOffers);
 
+  const [now,setNow] = useState(Date.now);
+  useEffect(() => { const timer=setInterval(() => setNow(Date.now()),1000); return () => clearInterval(timer); },[]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<OfferFilterStatus>('all');
   const [sortOption, setSortOption] = useState<OfferSortOption>('newest');
@@ -93,22 +96,12 @@ export function useMerchantOffers() {
       return PREVIEW_OFFERS_FIXTURE;
     }
 
-    return serverOffers.map((offer, idx) => {
+    return serverOffers.map((offer) => {
       const versions = serverVersions.filter((version) => version.offer_id === offer.id);
       const version = versions.find((v) => v.id === offer.current_version_id) ?? versions[0];
       const latestReview = versions[0]?.review_status;
-      let cardStatus: OfferCardStatus = 'draft';
-      if (offer.status === 'active') {
-        cardStatus = offer.merchant_available ? 'visible' : 'paused';
-      } else if (offer.status === 'paused') {
-        cardStatus = 'paused';
-      } else if (offer.status === 'pending') {
-        cardStatus = 'pending';
-      } else if (offer.status === 'closed') {
-        cardStatus = 'expired';
-      } else if (latestReview === 'rejected') {
-        cardStatus = 'needs_changes';
-      }
+      const cardStatus = resolveMerchantOfferStatus(offer,
+        versions.find(v=>v.id===offer.current_version_id),latestReview,now);
       const kind = version?.offer_kind;
       const category = kind === 'product' ? 'منتج'
         : kind === 'service' ? 'خدمة'
@@ -132,12 +125,14 @@ export function useMerchantOffers() {
           : cardStatus === 'paused' ? 'متوقف مؤقتًا'
           : cardStatus === 'pending' ? 'بانتظار قرار الإدارة'
           : cardStatus === 'needs_changes' ? 'مطلوب تعديل'
+          : cardStatus === 'scheduled' ? 'لم يبدأ سريان العرض بعد'
+          : cardStatus === 'unavailable' ? 'تعذّر تأكيد النسخة المعتمدة والمدة'
           : 'غير ظاهر للعملاء',
         iconType: 'general' as const,
         updatedAt: offer.updated_at,
       };
     });
-  }, [isSyntheticPreview, serverOffers, serverVersions]);
+  }, [isSyntheticPreview, serverOffers, serverVersions,now]);
 
   // Counts
   const counts = useMemo(() => {
@@ -156,6 +151,8 @@ export function useMerchantOffers() {
       draft,
       expired,
       needs_changes,
+      scheduled: allOffers.filter(o=>o.status==='scheduled').length,
+      unavailable: allOffers.filter(o=>o.status==='unavailable').length,
     };
   }, [allOffers]);
 
