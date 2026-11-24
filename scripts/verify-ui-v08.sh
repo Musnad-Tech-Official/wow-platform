@@ -24,6 +24,7 @@ node scripts/test-stage4-breakpoints.cjs
 node scripts/test-stage4-web-deep-links.cjs
 node --experimental-strip-types scripts/test-stage4-theme-persistence.cjs
 node scripts/test-stage4-clerk-redirects.cjs
+node scripts/test-stage6-live-harness.cjs
 echo '== Workspace type, lint, API and integration checks =='
 pnpm --filter @wow/ui exec tsc --noEmit
 pnpm typecheck

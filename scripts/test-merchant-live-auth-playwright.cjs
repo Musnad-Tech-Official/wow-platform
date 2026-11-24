@@ -248,10 +248,11 @@ async function captureW06AdminViews(browser, adminIdentity) {
   root=path.resolve(adminDir);
   const context=await browser.newContext({viewport:{width:1440,height:900}});
   const page=await context.newPage();
+  const authPage=await context.newPage();
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   try {
-    const signed=await login(page,adminIdentity[0]);
+    const signed=await login(authPage,adminIdentity[0]);
     assert.equal(sub(signed),adminIdentity[1]);
     const shots=[
       ['/verifications','الأنشطة والفروع وطلبات المراجعة','01_adm03_verifications_desktop.png',1440],
@@ -278,7 +279,7 @@ async function captureW06AdminViews(browser, adminIdentity) {
     console.log('PASS: signed Clerk reviewer opened six real W06 Expo Web views.');
   } finally {
     root=priorRoot;
-    try { await endSession(page); } finally { await context.close(); }
+    try { await endSession(authPage); } finally { await context.close(); }
   }
 }
 
@@ -367,10 +368,11 @@ async function captureW07AdminViews(browser, reviewerToken, nonAdminToken) {
   root=path.resolve(adminDir);
   const context=await browser.newContext({viewport:{width:1440,height:900}});
   const page=await context.newPage();
+  const authPage=await context.newPage();
   const issues=[];
   page.on('pageerror',e=>issues.push(e.message));
   try {
-    const loginToken=await login(page,users[2][0]);
+    const loginToken=await login(authPage,users[2][0]);
     assert.equal(sub(loginToken),users[2][1]);
     const shots=[
       ['/offer-review','قائمة انتظار العروض','01_w07_offers_desktop.png',1440],
@@ -393,7 +395,7 @@ async function captureW07AdminViews(browser, reviewerToken, nonAdminToken) {
     console.log('PASS: real Clerk reviewer opens W07 offer/category routes on desktop and mobile; non-admin W07 RPCs denied.');
   }finally{
     root=previousRoot;
-    try { await endSession(page); } finally { await context.close(); }
+    try { await endSession(authPage); } finally { await context.close(); }
   }
 }
 
