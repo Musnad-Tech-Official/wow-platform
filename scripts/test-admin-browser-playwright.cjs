@@ -102,8 +102,26 @@ async function main() {
         }
       });
       try {
-        const response = await page.goto(base + url, { waitUntil: 'networkidle' });
-        assert.equal(response.status(), 200, 'HTML route should load');
+        const response = await page.goto(base + url, { waitUntil: 'domcontentloaded' });
+        assert.equal(response?.status(), 200, 'HTML route should load');
+        // Auth providers can hold long-lived requests open; networkidle is not a
+        // reliable readiness signal. Wait for actual visible application content.
+        try {
+          await page.getByText(expected, { exact: false }).first()
+            .waitFor({ state: 'visible', timeout: 20_000 });
+        } catch (error) {
+          const bodyText = await page.locator('body').innerText({ timeout: 2_000 })
+            .catch(() => '<unavailable>');
+          throw new Error(
+            'Admin route did not render ' + JSON.stringify({
+              route: url,
+              expected,
+              body: bodyText.slice(0, 600),
+              browserErrors: errors.slice(0, 5),
+            }),
+            { cause: error }
+          );
+        }
         await page.waitForTimeout(600);
         const body = await page.locator('body').innerText();
         assert(body.includes(expected), url + ' did not render expected screen: ' + expected);
@@ -150,7 +168,7 @@ async function main() {
             return canvas && getComputedStyle(canvas).backgroundColor === expectedColor;
           }, { testId, expectedColor }, { timeout: 15000 });
         };
-        await page.goto(base + '/?preview=adm02', { waitUntil: 'networkidle' });
+        await page.goto(base + '/?preview=adm02', { waitUntil: 'domcontentloaded' });
         await page.getByText('نظرة واضحة على ما يحتاج إجراء', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
         await page.getByRole('button', { name: 'المظهر: فاتح' }).click();
@@ -160,7 +178,7 @@ async function main() {
 
         // AUD-039: the manual choice must survive a real browser reload and
         // must not accidentally continue following changes in OS preference.
-        await page.reload({ waitUntil: 'networkidle' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.getByText('نظرة واضحة على ما يحتاج إجراء', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
         assert.equal(await page.evaluate(() => localStorage.getItem('wow.theme.mode.v1')), 'dark');
@@ -174,12 +192,12 @@ async function main() {
         await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
         console.log('PASS development: manual and system modes persist and react to OS changes');
 
-        await page.goto(base + '/?preview=adm01', { waitUntil: 'networkidle' });
+        await page.goto(base + '/?preview=adm01', { waitUntil: 'domcontentloaded' });
         await page.getByText('الدخول إلى منصة الإدارة', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-login-canvas', 'rgb(16, 16, 20)');
         await page.getByRole('button', { name: 'المظهر: فاتح' }).click();
         await verifyCanvas('wow-admin-login-canvas', 'rgb(246, 247, 246)');
-        await page.reload({ waitUntil: 'networkidle' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.getByText('الدخول إلى منصة الإدارة', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-login-canvas', 'rgb(246, 247, 246)');
         assert.equal(await page.evaluate(() => localStorage.getItem('wow.theme.mode.v1')), 'light');
