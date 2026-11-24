@@ -427,8 +427,8 @@ test('AUD-027/044: one operation across editor routes; uploads block writes and 
  assert.equal(gate.finish('save'),true);assert.equal(gate.begin('submit'),true);assert.equal(gate.begin('upload'),false);
  const state=read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
  const evidence=read('apps/merchant/src/features/offers/components/OfferEvidenceScreen.tsx');
- assert.match(state,/let targetOfferId = confirmedOfferId.current/);
- assert.match(state,/confirmedOfferId.current = targetOfferId;\s*setCurrentOfferId/);
+ assert.match(state,/let targetOfferId = identity\.offerId\(\)/);
+ assert.match(state,/identity\.confirmOffer\(targetOfferId\);\s*setCurrentOfferId/);
  assert.match(state,/if \(!beginOperation\('save'\)\) return null/);
  assert.match(state,/if \(!beginOperation\('submit'\)\) return null/);
  assert.match(state,/draft.evidenceFile && !draft.evidenceFile.isUploaded/);
@@ -441,7 +441,22 @@ test('AUD-027/044: one operation across editor routes; uploads block writes and 
 test('AUD-027: editor retains request identity across ambiguous create responses',()=>{
  const state=read('apps/merchant/src/features/offers/context/OfferEditorContext.tsx');
  const api=read('packages/api/src/offers.ts');
- assert.match(state,/draftRequestId\.current \?\?= randomUUID\(\)/);
- assert.match(state,/requestId:draftRequestId\.current/);
+ assert.match(state,/identity\.requestId\(randomUUID\)/);
+ assert.match(state,/businessId: draftBusinessId, requestId/);
  assert.match(api,/wow_create_offer_once/);
+});
+
+test('AUD-027/044: draft identity survives retries, partial failures and resets only explicitly',()=>{
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]})),h={};
+ new Function('exports',ts.transpileModule(read('apps/merchant/src/features/offers/editor-operation-gate.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ const identity=h.createDraftIdentity(null), existing=h.createDraftIdentity('existing');
+ let calls=0;const generate=()=>String(++calls);
+ assert.equal(existing.offerId(),'existing');
+ assert.equal(identity.requestId(generate),'1');assert.equal(identity.requestId(generate),'1');
+ assert.equal(identity.offerId(),null);identity.confirmOffer('offer-1');
+ assert.equal(identity.offerId(),'offer-1');assert.equal(identity.versionId(),null);
+ identity.confirmVersion('version-1');assert.equal(identity.versionId(),'version-1');
+ assert.equal(identity.requestId(generate),'1');assert.equal(calls,1);
+ identity.reset();assert.equal(identity.offerId(),null);assert.equal(identity.versionId(),null);
+ assert.equal(identity.requestId(generate),'2');assert.equal(existing.offerId(),'existing');
 });
