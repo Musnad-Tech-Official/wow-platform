@@ -7,11 +7,18 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
 const root = process.env.WOW_ADMIN_WEB_EXPORT_DIR;
+const liveUrl = process.env.WOW_ADMIN_WEB_URL;
 const production = process.env.WOW_EXPECT_PRODUCTION_PREVIEW_DENIED === '1';
-if (!root || !fs.existsSync(path.join(root, 'index.html'))) {
+if (liveUrl) {
+  const parsed = new URL(liveUrl);
+  if (production || !['127.0.0.1', 'localhost'].includes(parsed.hostname)) {
+    throw new Error('Admin development browser tests require a localhost server without production mode.');
+  }
+}
+if (!liveUrl && (!root || !fs.existsSync(path.join(root, 'index.html')))) {
   throw new Error('WOW_ADMIN_WEB_EXPORT_DIR must point to a fresh Expo Web export.');
 }
-const rootPath = path.resolve(root);
+const rootPath = root ? path.resolve(root) : null;
 const mime = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -25,7 +32,7 @@ const mime = {
   '.ico': 'image/x-icon',
 };
 
-const server = http.createServer((req, res) => {
+const server = liveUrl ? null : http.createServer((req, res) => {
   let url;
   try { url = new URL(req.url, 'http://127.0.0.1'); }
   catch { res.writeHead(400); res.end(); return; }
@@ -87,9 +94,9 @@ const tests = [
 ];
 
 async function main() {
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  if (server) await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true });
-  const base = 'http://127.0.0.1:' + server.address().port;
+  const base = liveUrl ? new URL(liveUrl).origin : 'http://127.0.0.1:' + server.address().port;
   try {
     for (const [url, expected, width] of tests) {
       const page = await browser.newPage({ viewport: { width, height: width === 390 ? 844 : 1000 } });
@@ -207,7 +214,7 @@ async function main() {
     }
   } finally {
     await browser.close();
-    await new Promise((resolve) => server.close(resolve));
+    if (server) await new Promise((resolve) => server.close(resolve));
   }
 }
-main().catch((err) => { console.error(err); process.exitCode = 1; server.close(); });
+main().catch((err) => { console.error(err); process.exitCode = 1; if (server) server.close(); });
