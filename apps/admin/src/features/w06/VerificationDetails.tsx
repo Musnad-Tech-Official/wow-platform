@@ -1,3 +1,4 @@
+import { isReviewSignatureFresh } from './review-freshness';
 import React, { useState } from 'react';
 import { Linking, Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -61,7 +62,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
     // Approval requires fresh, RLS-signed evidence and reviewer attestation.
     if (!canDecide || !decision || !confirming || !validReason ||
         (decision === 'approved' && !approvalEvidenceVerified)) return;
-    if (decision === 'approved' && Date.now() - evidenceQuery.dataUpdatedAt >= 45_000) {
+    if (decision === 'approved' && !isReviewSignatureFresh(evidenceQuery.dataUpdatedAt)) {
       setReviewedScope(null);
       setConfirming(false);
       void evidenceQuery.refetch();
@@ -132,7 +133,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                   variant="outline" size="sm"
                   title={`فتح المستند ${item.keyIndex + 1} (${item.mimeType === 'application/pdf' ? 'PDF' : 'صورة'})`}
                   onPress={() => {
-                    if (Date.now() - evidenceQuery.dataUpdatedAt >= 45_000) {
+                    if (!isReviewSignatureFresh(evidenceQuery.dataUpdatedAt)) {
                       setReviewedScope(null);
                       void evidenceQuery.refetch();
                       return;

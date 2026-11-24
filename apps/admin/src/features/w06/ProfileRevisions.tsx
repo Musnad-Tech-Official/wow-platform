@@ -1,3 +1,4 @@
+import { isReviewSignatureFresh } from './review-freshness';
 import React, { useState } from 'react';
 import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 import { UserRoundCog, FileClock } from 'lucide-react-native';
@@ -74,7 +75,7 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
     // Approval requires the trusted, server-verified published baseline for this revision.
     if (!canDecide || !selected || !decision || !validReason || !confirming ||
         (decision === 'approved' && !canApprove)) return;
-    if (decision === 'approved' && mediaEntries.length && Date.now() - mediaQuery.dataUpdatedAt >= 45_000) {
+    if (decision === 'approved' && mediaEntries.length && !isReviewSignatureFresh(mediaQuery.dataUpdatedAt)) {
       setReviewedMediaScope(null); setConfirming(false); void mediaQuery.refetch(); return;
     }
     try {
@@ -167,7 +168,7 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
                       <AppText variant="caption" muted className="text-xs text-right">{side === 'current' ? 'المنشور حالياً' : 'المرشح'}</AppText>
                       {item?.url ? <><Image source={{uri:item.url}} resizeMode="contain" accessibilityLabel={LABELS[key]} style={{width:'100%',height:120}} />
                         <AppButton title="فتح الصورة" size="sm" variant="outline" onPress={() => {
-                          if (Date.now() - mediaQuery.dataUpdatedAt >= 45_000) {setReviewedMediaScope(null);void mediaQuery.refetch();return;}
+                          if (!isReviewSignatureFresh(mediaQuery.dataUpdatedAt)) {setReviewedMediaScope(null);void mediaQuery.refetch();return;}
                           void Linking.openURL(item.url!);
                         }} /></> : <AppText variant="caption" muted>{item ? 'لا توجد صورة / إزالة القيمة' : 'لم تثبت الصورة بعد'}</AppText>}
                     </View>;

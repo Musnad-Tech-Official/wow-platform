@@ -176,3 +176,9 @@ test('AUD-041: semantic colors provide at least 4.5:1 for affected text in both 
  assert.match(read('apps/merchant/src/features/complaints/components/MerchantComplaintDetailsScreen.tsx'),/tracking-wider my-1"\s*style=\{\{ color: colors.foreground \}\}/);
  assert.match(read('apps/merchant/src/features/offers/components/OfferEvidenceScreen.tsx'),/isEvidenceRequired \? colors.warning : colors.neutral/);
 });
+
+test('Stage 5 review links expire at the exact boundary',()=>{
+ const ts=require(require.resolve('typescript',{paths:[require('node:path').resolve(__dirname,'../apps/admin')]}));
+ const h={};new Function('exports',ts.transpileModule(read('apps/admin/src/features/w06/review-freshness.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ assert.equal(h.isReviewSignatureFresh(1000,45999),true);assert.equal(h.isReviewSignatureFresh(1000,46000),false);assert.equal(h.isReviewSignatureFresh(0,1000),false);assert.equal(h.isReviewSignatureFresh(1000,999),false);
+});
