@@ -160,6 +160,20 @@ async function main() {
         await page.close();
       }
     }
+    // Stage 6: exact contract boundaries on the real login surface.
+    {
+      const {checkResponsiveWidths}=require('./lib/stage6-responsive-check.cjs');
+      const page=await browser.newPage({viewport:{width:320,height:900}});
+      const errors=[];page.on('pageerror',e=>errors.push(e.message));
+      try {
+        await page.goto(base+'/verifications',{waitUntil:'domcontentloaded'});
+        const ready=page.getByText('الدخول إلى منصة الإدارة',{exact:true});
+        await checkResponsiveWidths(page,ready,'Admin guest access');
+        await page.reload({waitUntil:'domcontentloaded'});
+        await ready.waitFor({timeout:20000});
+        assert.deepEqual(errors,[]);
+      }finally{await page.close();}
+    }
     // AUD-039: visual manual/system theme state matches the saved preference,
     // including reloads and live OS preference changes in Chromium.
     if (!production) {

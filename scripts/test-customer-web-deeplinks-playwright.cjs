@@ -150,3 +150,21 @@ test('AUD-024: crafted complaint preview URLs cannot bypass real Customer onboar
     }
   }
 });
+
+test('Stage 6: Customer welcome at all agreed responsive boundaries and reload', async () => {
+ const {checkResponsiveWidths}=require('./lib/stage6-responsive-check.cjs');
+ const context=await browser.newContext({viewport:{width:320,height:900}});
+ const page=await context.newPage();const errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ try{
+  await page.goto(origin+'/welcome',{waitUntil:'domcontentloaded'});
+  const next=page.getByRole('button',{name:'التالي ←',exact:true});
+  await checkResponsiveWidths(page,next,'Customer welcome step 1');
+  await next.click();
+  const start=page.getByRole('button',{name:'ابدأ الآن ←',exact:true});
+  await checkResponsiveWidths(page,start,'Customer welcome step 2');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await next.or(start).first().waitFor({state:'visible',timeout:20000});
+  assert.deepEqual(errors,[]);
+ }finally{await context.close();}
+});

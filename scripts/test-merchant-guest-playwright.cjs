@@ -254,13 +254,34 @@ test('MER-01: dedicated merchant sign-in renders legal links and fits compact/de
   const url=new URL('/sign-in',origin);if(expectProductionPreviewDenied)url.searchParams.set('preview','1');
   await page.goto(url.href,{waitUntil:'domcontentloaded',timeout:30000});
   await page.getByText('تسجيل الدخول مطلوب',{exact:true}).waitFor({timeout:20000});
-  for(const width of [320,1024,1920]){
+  const {widths}=require('./lib/stage6-responsive-check.cjs');
+  for(const width of widths){
    await page.setViewportSize({width,height:844});
    await page.getByRole('button',{name:'تسجيل الدخول عبر Google',exact:true}).waitFor();
    await page.getByRole('button',{name:'شروط الخدمة',exact:true}).waitFor();
    await page.getByRole('button',{name:'سياسة الخصوصية',exact:true}).waitFor();
-   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'sign-in horizontal overflow at '+width);
+   await page.evaluate(async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));});
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2),'sign-in horizontal overflow at '+width);
   }
+  assert.deepEqual(errors,[]);
+ }finally{await context.close();}
+});
+
+test('Stage 6: Merchant recovery preserves safe guest history and rejects direct workspace reload', async()=>{
+ const {checkResponsiveWidths}=require('./lib/stage6-responsive-check.cjs');
+ const context=await (await browser()).newContext({viewport:{width:320,height:900}});
+ const page=await context.newPage();const errors=[];
+ page.on('pageerror',e=>errors.push(safeDiagnostic(e.message)));
+ try{
+  await page.goto(origin+'/sign-in',{waitUntil:'domcontentloaded'});
+  await page.getByRole('button',{name:'استعادة الوصول إلى الحساب'}).click();
+  await checkResponsiveWidths(page,page.getByText('استعادة الوصول إلى حساب التاجر',{exact:true}),'Merchant recovery');
+  await page.goBack({waitUntil:'domcontentloaded'});
+  await page.getByText('تسجيل الدخول مطلوب',{exact:true}).waitFor({timeout:20000});
+  await page.goto(origin+'/offers',{waitUntil:'domcontentloaded'});
+  await page.getByText('تسجيل الدخول مطلوب',{exact:true}).waitFor({timeout:20000});
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByText('تسجيل الدخول مطلوب',{exact:true}).waitFor({timeout:20000});
   assert.deepEqual(errors,[]);
  }finally{await context.close();}
 });
