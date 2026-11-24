@@ -216,20 +216,14 @@ export function OfferEvidenceScreen() {
           <View
             className="px-2.5 py-1 rounded-full border"
             style={{
-              backgroundColor: isEvidenceRequired
-                ? isDark
-                  ? '#422006'
-                  : '#FEF3C7'
-                : isDark
-                ? '#1E293B'
-                : '#F1F5F9',
-              borderColor: isEvidenceRequired ? '#F59E0B' : colors.border,
+              backgroundColor: isEvidenceRequired ? colors.warningSurface : colors.neutralSurface,
+              borderColor: isEvidenceRequired ? colors.warning : colors.border,
             }}
           >
             <AppText
               variant="caption"
               className="font-tajawal-bold text-[11px]"
-              style={{ color: isEvidenceRequired ? '#D97706' : colors.foreground }}
+              style={{ color: isEvidenceRequired ? colors.warning : colors.neutral }}
             >
               {isEvidenceRequired ? 'مطلوب إثبات معتمد' : 'مستند اختياري'}
             </AppText>

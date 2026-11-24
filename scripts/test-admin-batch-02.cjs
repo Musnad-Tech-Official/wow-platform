@@ -149,3 +149,30 @@ test('Profile revision SQL regression checks role conflicts and audit writes', (
   assert.match(sql, /profile_revision_reject/);
   assert.match(sql, /ROLLBACK;/);
 });
+
+test('AUD-009: review acknowledgement is bound to exact submission, evidence, and signed generation', () => {
+ const s=read('apps/admin/src/features/w06/VerificationDetails.tsx');
+ const h=read('packages/api/src/query/hooks/use-admin-review-evidence.ts');
+ const api=read('packages/api/src/verifications.ts');
+ assert.match(s,/reviewedScope === attestationScope/);
+ assert.match(s,/evidenceQuery.data.scope === evidenceScope/);
+ assert.match(s,/expectedSubmissionId: submissionId/);
+ assert.match(s,/expectedEvidenceRefs: evidenceKeys/);
+ assert.match(h,/reviewScopeFingerprint\(scope\)/);
+ assert.match(api,/wow_admin_decide_business_verification_checked/);
+});
+test('AUD-031: media comparison requires independent reviewer, signed assets and attestation', () => {
+ const s=read('apps/admin/src/features/w06/ProfileRevisions.tsx');
+ const h=read('packages/api/src/query/hooks/use-admin-profile-revision-context.ts');
+ assert.match(s,/logo_url: 'شعار النشاط'/);assert.match(s,/cover_url: 'غلاف النشاط'/);
+ assert.match(s,/media_review_allowed/);assert.match(s,/mediaReady && mediaReviewed/);
+ assert.match(s,/reviewedMediaScope === mediaAttestation/);assert.match(s,/source=\{\{uri:item.url\}\}/);
+ assert.match(h,/createSignedUrl\(key,60\)/);assert.match(h,/reviewScopeFingerprint\(scope\)/);
+});
+test('AUD-041: semantic colors provide at least 4.5:1 for affected text in both themes',()=>{
+ const tokens=read('packages/theme/src/tokens.ts');
+ const contrast=(fg,bg)=>{const l=h=>{const a=h.slice(1).match(/../g).map(x=>parseInt(x,16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return .2126*a[0]+.7152*a[1]+.0722*a[2]};const x=l(fg),y=l(bg);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+ for(const theme of ['light','dark']){const block=tokens.split(theme+': {')[1].split('},')[0];const get=k=>block.match(new RegExp(k+": '(#[A-Fa-f0-9]{6})'"))[1];for(const fg of ['foreground','warning'])assert(contrast(get(fg),get('warningSurface'))>=4.5);assert(contrast(get('neutral'),get('neutralSurface'))>=4.5);}
+ assert.match(read('apps/merchant/src/features/complaints/components/MerchantComplaintDetailsScreen.tsx'),/tracking-wider my-1"\s*style=\{\{ color: colors.foreground \}\}/);
+ assert.match(read('apps/merchant/src/features/offers/components/OfferEvidenceScreen.tsx'),/isEvidenceRequired \? colors.warning : colors.neutral/);
+});
