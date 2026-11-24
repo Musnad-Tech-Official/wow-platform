@@ -283,7 +283,7 @@ test('6. Account Settings: Working theme switcher and honest push notification p
 // ===========================================================================
 test('7. Profile Action Clarity & Privacy Policy: Honest view-only labelling without fake update operations', () => {
   const { IS_ACCOUNT_CLOSURE_SUBMISSION_SUPPORTED, IS_PROFILE_DIRECT_EDIT_SUPPORTED } = accountDisplay;
-  assert.equal(IS_ACCOUNT_CLOSURE_SUBMISSION_SUPPORTED, false);
+  assert.equal(IS_ACCOUNT_CLOSURE_SUBMISSION_SUPPORTED, true);
   assert.equal(IS_PROFILE_DIRECT_EDIT_SUPPORTED, false);
 
   assert.ok(
@@ -313,8 +313,8 @@ test('7. Profile Action Clarity & Privacy Policy: Honest view-only labelling wit
   );
 
   assert.ok(
-    privacyClosureSectionSrc.includes('تقديم طلب (غير متاح)'),
-    'Submit button must be honestly disabled',
+    privacyClosureSectionSrc.includes('<PrivacyRequestPanel'),
+    'Privacy requests must use the real request workflow',
   );
   assert.ok(
     privacyPolicyModalSrc.includes('سياسة الخصوصية وحفظ البيانات'),
@@ -489,4 +489,23 @@ test('AUD-051: legal documents use configured HTTPS URLs and never claim unavail
   assert.match(signIn,/<LegalDocumentLinks \/>/);
   assert.match(privacyPolicyModalSrc,/<LegalDocumentLinks \/>/);
   assert.doesNotMatch(signIn,/بتسجيلك فإنك توافق/);
+});
+
+
+test('AUD-053: privacy request intake is server-backed and not automatic deletion',()=>{
+ const read=p=>fs.readFileSync(path.join(repoRoot,p),'utf8');
+ const panel=read('apps/customer/src/features/account/PrivacyRequestPanel.tsx');
+ const admin=read('apps/admin/src/app/privacy-requests.tsx');
+ const api=read('packages/api/src/privacy-requests.ts');
+ const hooks=read('packages/api/src/query/hooks/use-privacy-requests.ts');
+ assert.match(accountScreenSrc,/requestsEnabled=\{!isPreview && accountStatus.source === 'verified' && accountStatus.status === 'active'\}/);
+ assert.match(panel,/if\(!enabled\|\|!kind\|\|!confirm\|\|busy.current\)return/);
+ assert.match(panel,/await submit.mutateAsync/);
+ assert.match(api,/wow_submit_privacy_request/);
+ assert.match(api,/wow_list_my_privacy_requests/);
+ assert.match(hooks,/\['privacy','own',ctx.userId,offset\]/);
+ assert.match(hooks,/retry:false/);
+ assert.match(admin,/role==='super_admin'\?<Queue/);
+ assert.match(admin,/تأكيد وتسجيل الحالة/);
+ assert.doesNotMatch(api,/deleteUser|account_status|\.delete\(/);
 });

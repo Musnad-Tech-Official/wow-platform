@@ -1,22 +1,26 @@
+import { useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { ChevronLeft, FileSpreadsheet, Lock, ShieldAlert, UserX } from 'lucide-react-native';
 import { useTheme, useWowColors, wowBrandColors } from '@wow/theme';
-import { AppButton, AppText, InlineNotice } from '@wow/ui';
+import { AppText, InlineNotice } from '@wow/ui';
+import type { PrivacyRequestKind } from '@wow/api';
+import { PrivacyRequestPanel } from './PrivacyRequestPanel';
 
 export interface PrivacyClosureSectionProps {
   onPressViewPolicy: () => void;
-  onPressRequestAction: (actionTitle: string, description: string) => void;
+  requestsEnabled: boolean;
 }
 
 export function PrivacyClosureSection({
   onPressViewPolicy,
-  onPressRequestAction,
+  requestsEnabled,
 }: PrivacyClosureSectionProps) {
   const colors = useWowColors();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const rtlWebProps = Platform.OS === 'web' ? { dir: 'rtl' as const } : {};
 
+  const [selectedKind,setSelectedKind] = useState<PrivacyRequestKind|null>(null);
   const privacyItems = [
     {
       id: 'access',
@@ -129,7 +133,9 @@ export function PrivacyClosureSection({
             return (
               <Pressable
                 key={item.id}
-                onPress={() => onPressRequestAction(item.title, item.description)}
+                disabled={!requestsEnabled || selectedKind !== null}
+                accessibilityState={{ disabled: !requestsEnabled || selectedKind !== null }}
+                onPress={() => { if (requestsEnabled && selectedKind === null) setSelectedKind(item.id as PrivacyRequestKind); }}
                 accessibilityRole="button"
                 accessibilityLabel={item.title}
                 accessibilityHint={item.description}
@@ -200,21 +206,8 @@ export function PrivacyClosureSection({
           })}
         </View>
 
-        {/* Bottom Submission Actions (Disabled / Honest State) */}
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-          <AppButton
-            title="تقديم طلب (غير متاح)"
-            variant="outline"
-            disabled
-            style={{ flex: 1, minHeight: 44, borderRadius: 10 }}
-          />
-          <AppButton
-            title="متابعة الطلبات (غير متاح)"
-            variant="secondary"
-            disabled
-            style={{ flex: 1, minHeight: 44, borderRadius: 10 }}
-          />
-        </View>
+        <PrivacyRequestPanel kind={selectedKind} enabled={requestsEnabled}
+          onCancel={()=>setSelectedKind(null)} />
       </View>
     </View>
   );

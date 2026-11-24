@@ -133,3 +133,6 @@ export {
   useAdminProfileRevisions,
   useAdminDecideProfileRevision,
 } from './query/hooks/use-merchant-operations';
+
+export * from './privacy-requests';
+export * from './query/hooks/use-privacy-requests';

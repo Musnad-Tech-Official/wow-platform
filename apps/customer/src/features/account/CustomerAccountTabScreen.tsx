@@ -149,10 +149,6 @@ export function CustomerAccountTabScreen({
     router.push('/ratings');
   }
 
-  function handlePrivacyRequestAction(title: string) {
-    setNoticeTone('info');
-    setNoticeMessage(`ميزة "${title}" قيد التجهيز الإلكتروني وفق المتطلبات التنظيمية وسياسات الاحتفاظ المعتمدة.`);
-  }
 
   // Responsive container width: max 640px centered for desktop, 100% for mobile
   const contentMaxWidth = Math.min(viewport.width - 32, 640);
@@ -298,7 +294,7 @@ export function CustomerAccountTabScreen({
               {/* Section 4: Privacy Requests & Account Closure near the end */}
               <PrivacyClosureSection
                 onPressViewPolicy={() => setShowPrivacyModal(true)}
-                onPressRequestAction={handlePrivacyRequestAction}
+                requestsEnabled={!isPreview && accountStatus.source === 'verified' && accountStatus.status === 'active'}
               />
 
               {/* Section 5: Session & Sign Out */}
