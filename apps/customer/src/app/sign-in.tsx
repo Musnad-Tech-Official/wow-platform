@@ -15,6 +15,8 @@ import { useSSO } from '@wow/auth';
 import { useTheme, useWowColors, useWowViewport } from '@wow/theme';
 import { AppButton, AppText, Card } from '@wow/ui';
 import { resolveAuthErrorMessage, validateInternalReturnPath } from '../features/auth/auth-display';
+import { LegalDocumentLinks } from '../features/legal/LegalDocumentLinks';
+import { legalDocuments } from '../features/legal/legal-documents';
 
 type Provider = 'oauth_google' | 'oauth_facebook';
 
@@ -371,8 +373,11 @@ export default function SignInScreen() {
               lineHeight: 16,
             }}
           >
-            بتسجيلك فإنك توافق على شروط الخدمة وسياسة الخصوصية الخاصة بمنصة WOW
+            {legalDocuments.terms && legalDocuments.privacy
+              ? 'راجع شروط الخدمة وسياسة الخصوصية قبل المتابعة.'
+              : 'هذه البيئة مخصصة للتطوير؛ لا يُسجل قبول لوثائق قانونية غير منشورة.'}
           </AppText>
+          <LegalDocumentLinks />
         </View>
       </View>
     </View>
