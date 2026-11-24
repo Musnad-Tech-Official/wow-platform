@@ -310,30 +310,8 @@ BEGIN
         IF v_patch ? v_media_field AND v_patch->>v_media_field IS NOT NULL THEN
           v_media_key := v_patch->>v_media_field;
           IF NOT EXISTS(SELECT 1 FROM public.businesses b WHERE b.id=v_business AND b.owner_user_id=v_requester)
-             OR v_media_key !~ ('^'||v_business::text||'/'||v_requester||'/[a-f0-9]{48}[.](jpg|png|webp)(v_business,v_branch,v_patch);
-  END IF;
-  UPDATE public.business_profile_revisions SET status=p_decision,
-    reviewed_by_user_id=v_reviewer,review_reason=v_reason,decided_at=now()
-    WHERE id=p_revision_id;
-  INSERT INTO wow_private.merchant_operation_events(
-    business_id,actor_user_id,operation,target_id,metadata
-  ) VALUES(v_business,v_reviewer,
-    CASE WHEN p_decision='approved' THEN 'profile_revision_approve' ELSE 'profile_revision_reject' END,
-    p_revision_id::text,jsonb_build_object('reason',v_reason,'branch_id',v_branch));
-  RETURN p_revision_id;
-END; $function$)
-             OR NOT EXISTS(SELECT 1 FROM storage.objects o WHERE o.bucket_id='wow-business-media' AND o.name=v_media_key AND o.metadata->>'mimetype' IN ('image/jpeg','image/png','image/webp') AND CASE WHEN o.metadata->>'size' ~ '^[0-9]{1,9}(v_business,v_branch,v_patch);
-  END IF;
-  UPDATE public.business_profile_revisions SET status=p_decision,
-    reviewed_by_user_id=v_reviewer,review_reason=v_reason,decided_at=now()
-    WHERE id=p_revision_id;
-  INSERT INTO wow_private.merchant_operation_events(
-    business_id,actor_user_id,operation,target_id,metadata
-  ) VALUES(v_business,v_reviewer,
-    CASE WHEN p_decision='approved' THEN 'profile_revision_approve' ELSE 'profile_revision_reject' END,
-    p_revision_id::text,jsonb_build_object('reason',v_reason,'branch_id',v_branch));
-  RETURN p_revision_id;
-END; $function$ THEN (o.metadata->>'size')::bigint BETWEEN 1 AND 5242880 ELSE false END) THEN
+             OR v_media_key !~ ('^'||v_business::text||'/'||v_requester||'/[a-f0-9]{48}[.](jpg|png|webp)$')
+             OR NOT EXISTS(SELECT 1 FROM storage.objects o WHERE o.bucket_id='wow-business-media' AND o.name=v_media_key AND o.metadata->>'mimetype' IN ('image/jpeg','image/png','image/webp') AND CASE WHEN o.metadata->>'size' ~ '^[0-9]{1,9}$' THEN (o.metadata->>'size')::bigint BETWEEN 1 AND 5242880 ELSE false END) THEN
             RAISE EXCEPTION 'Referenced business image is no longer authorized or available' USING ERRCODE='22023';
           END IF;
         END IF;
