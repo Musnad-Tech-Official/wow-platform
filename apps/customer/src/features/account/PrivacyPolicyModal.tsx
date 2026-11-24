@@ -3,6 +3,7 @@ import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Lock, ShieldCheck, X } from 'lucide-react-native';
 import { useTheme, useWowColors, wowBrandColors } from '@wow/theme';
 import { AppButton, AppText, InlineNotice } from '@wow/ui';
+import { LegalDocumentLinks } from '../legal/LegalDocumentLinks';
 
 export interface PrivacyPolicyModalProps {
   visible: boolean;
@@ -134,6 +135,8 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
             style={{ flex: 1, flexShrink: 1 }}
             contentContainerStyle={{ gap: 14, paddingBottom: 6 }}
           >
+            <LegalDocumentLinks />
+            <AppText variant="caption" muted>الإرشادات التالية ملخص تشغيلي وليست بديلاً عن الوثيقة القانونية المعتمدة.</AppText>
             <InlineNotice
               title="طلب إغلاق الحساب لا يعني الحذف الفوري لسجلات التحقيق أو العمليات المسموح بالاحتفاظ بها نظاماً."
               tone="warning"

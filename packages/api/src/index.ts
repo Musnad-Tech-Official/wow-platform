@@ -77,6 +77,7 @@ export {
   useSetSavedOffer,
   useSetSavedBusiness,
   useMyRatings,
+  useCustomerAssessmentOffer,
   useRateOffer,
   useMyComplaints,
   useMyComplaint,
