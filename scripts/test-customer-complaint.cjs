@@ -347,36 +347,31 @@ test('4. Branch & Incident Date: Validates branch eligibility, strict calendar b
 // ===========================================================================
 // 5. Evidence & Attachment Honesty
 // ===========================================================================
-test('5. Evidence honesty: Explains attachment unavailability and preserves empty array contract', () => {
-  // Capability flag must be strictly false
-  assert.equal(complaintDisplay.IS_EVIDENCE_ATTACHMENT_SUPPORTED, false);
-
-  // Evidence notice component must render honest text and no file inputs
-  assert.ok(
-    evidenceNoticeSrc.includes('غير متاحة حالياً'),
-    'EvidenceNotice must display honest status badge',
-  );
-  assert.ok(
-    evidenceNoticeSrc.includes('خدمة إرفاق الصور والإيصالات قيد التطوير'),
-    'EvidenceNotice must inform user that file attachments are coming in future',
-  );
-  assert.equal(
-    evidenceNoticeSrc.includes('type="file"'),
-    false,
-    'Must not include working file upload inputs',
-  );
-  assert.equal(
-    evidenceNoticeSrc.includes('uploadWowMedia'),
-    false,
-    'Must not upload unverified media in this phase',
-  );
-
-  // API submitComplaint implementation in packages/api must hardcode empty evidence array
-  assert.match(
-    apiInteractionsSrc,
-    /p_private_evidence_keys:\s*\[\]/,
-    'API submitComplaint must enforce empty evidence keys array',
-  );
+test('AUD-036: post-create evidence upload and attachment recovery', async () => {
+  assert.equal(complaintDisplay.IS_EVIDENCE_ATTACHMENT_SUPPORTED,true);
+  assert.match(evidenceNoticeSrc,/بعد إرسال الشكوى/);
+  assert.match(apiInteractionsSrc,/p_private_evidence_keys:\s*\[\]/);
+  const read = name=>fs.readFileSync(path.join(repoRoot,'apps/customer/src/features/complaint',name),'utf8');
+  assert.match(read('CustomerComplaintDetailsScreen.tsx'),/!isPreview && isSignedIn && activeComplaint.status !== 'closed'/);
+  assert.match(complaintScreenSrc,/متابعة الشكوى وإرفاق الأدلة/);
+  assert.match(read('ComplaintEvidenceUpload.tsx'),/scope:\{kind:'complaint',complaintId\}/);
+  const h={};
+  new Function('exports',ts.transpileModule(read('evidence-upload.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+  const pdf=Uint8Array.from([37,80,68,70,45,49]).buffer;
+  assert.equal(h.validateComplaintEvidence('test.pdf','application/pdf',pdf).contentType,'application/pdf');
+  assert.throws(()=>h.validateComplaintEvidence('test.png','image/png',pdf));
+  assert.throws(()=>h.validateComplaintEvidence('test.pdf','image/png',pdf));
+  assert.throws(()=>h.validateComplaintEvidence('test.pdf','application/pdf',new ArrayBuffer(0)));
+  assert.throws(()=>h.validateComplaintEvidence('test.pdf','application/pdf',new ArrayBuffer(10*1024*1024+1)));
+  const busy={current:false};let uploads=0;
+  const first=await h.submitComplaintEvidence({busy,pendingKey:null,upload:async()=>{uploads++;return {key:'test-key'};},attach:async()=>{throw Error('uncertain');}});
+  assert.deepEqual(first,{kind:'attach_unconfirmed',storageKey:'test-key'});
+  const retry=await h.submitComplaintEvidence({busy,pendingKey:first.storageKey,upload:async()=>{uploads++;throw Error('duplicate');},attach:async key=>{assert.equal(key,'test-key');return false;}});
+  assert.equal(retry.kind,'attached');assert.equal(uploads,1);
+  const failed=await h.submitComplaintEvidence({busy,pendingKey:null,upload:async()=>{throw Error('unknown');},attach:async()=>assert.fail('must not attach')});
+  assert.equal(failed.kind,'upload_unconfirmed');
+  busy.current=true;
+  assert.equal((await h.submitComplaintEvidence({busy,pendingKey:null,upload:async()=>assert.fail('duplicate'),attach:async()=>assert.fail('duplicate')})).kind,'busy');
 });
 
 // ===========================================================================

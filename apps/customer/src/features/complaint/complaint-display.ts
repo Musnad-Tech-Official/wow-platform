@@ -392,9 +392,9 @@ export async function executeComplaintSubmission(
 }
 
 /**
- * Honest capability check: evidence upload is not enabled in Migration 005.
+ * Evidence attachment is a separate post-create operation.
  */
-export const IS_EVIDENCE_ATTACHMENT_SUPPORTED = false;
+export const IS_EVIDENCE_ATTACHMENT_SUPPORTED = true;
 
 /**
  * Honest navigation capability check: CUS-08 and CUS-09 are not implemented in this phase.
