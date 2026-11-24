@@ -603,7 +603,7 @@ export function OfferEditorProvider({
       offerId: currentOfferId,
       versionId:effectiveVersionId,
       media:versionDetails?.version.id===effectiveVersionId?versionDetails.media:[],
-      prepareOfferMediaUpload,
+      prepareOfferMediaUpload: () => prepareOfferMediaUpload(),
       isNewOffer: !currentOfferId,
       isSyntheticPreview,
       draft,
@@ -623,7 +623,7 @@ export function OfferEditorProvider({
       saveDraft,
       submitOfferForReview,
       businessConflict,
-      resolveBusinessConflict,
+      resolveBusinessConflict: (action) => resolveBusinessConflict(action),
       draftBusinessName: businessDetail?.name || activeBusiness?.name || 'النشاط التجاري الحالي',
     }),
     [
