@@ -6,6 +6,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_live_auth:
+        description: 'Run isolated Development Clerk / Supabase authenticated checks'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -155,11 +161,9 @@ jobs:
   merchant-live-clerk-auth:
     name: Real Clerk OTP and Supabase profile RLS (development only)
     needs: verify
-    # Run real Clerk OTP + Supabase RLS for trusted merchant PRs and the W06 review PR.
-    # No hard-coded PR numbers: future merchant batches must be tested too.
-    # Only same-repository PRs can use the dedicated development test identities.
-    # Existing fixture only; no new business or branch is created; no elevated admin identity.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'feat/merchant-') || (github.head_ref == 'feat/admin-w06-main-sync-review-20261114' || github.head_ref == 'feat/admin-w07-offer-review-categories-20261115'))
+    # Explicit opt-in on trusted main only; credentials must be protected.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.run_live_auth == true
+    environment: wow-merchant-e2e
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -197,6 +201,14 @@ jobs:
         if: env.WOW_E2E_CAPTURE_ADMIN_VIEWS == 'true' || env.WOW_E2E_CAPTURE_W07 == 'true'
         run: pnpm --filter admin exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-admin-web"
       - name: Verify real Clerk sessions, Supabase RLS, and W06 reviewer UI
+        env:
+          WOW_E2E_OWNER_EMAIL: ${{ secrets.WOW_E2E_OWNER_EMAIL }}
+          WOW_E2E_OWNER_USER_ID: ${{ secrets.WOW_E2E_OWNER_USER_ID }}
+          WOW_E2E_NONOWNER_EMAIL: ${{ secrets.WOW_E2E_NONOWNER_EMAIL }}
+          WOW_E2E_NONOWNER_USER_ID: ${{ secrets.WOW_E2E_NONOWNER_USER_ID }}
+          WOW_E2E_CANDIDATE_EMAIL: ${{ secrets.WOW_E2E_CANDIDATE_EMAIL }}
+          WOW_E2E_CANDIDATE_USER_ID: ${{ secrets.WOW_E2E_CANDIDATE_USER_ID }}
+          WOW_E2E_TEST_OTP: ${{ secrets.WOW_E2E_TEST_OTP }}
         run: WOW_MERCHANT_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-merchant-web" WOW_ADMIN_WEB_EXPORT_DIR="$RUNNER_TEMP/wow-admin-web" node scripts/test-merchant-live-auth-playwright.cjs
       - name: Archive W07 real Clerk screenshots
         if: always() && env.WOW_E2E_CAPTURE_W07 == 'true'
