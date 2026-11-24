@@ -56,6 +56,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
   const evidenceReviewed = reviewedScope === attestationScope;
   const approvalEvidenceVerified = evidenceReady && evidenceReviewed;
 
+  // Invoked only by AppButton's confirmation event, never by render.
   async function submit() {
     // Approval requires fresh, RLS-signed evidence and reviewer attestation.
     if (!canDecide || !decision || !confirming || !validReason ||
@@ -241,7 +242,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                   <AppText className="text-sm font-tajawal-bold text-right">
                     تأكيد نهائي: {decision === 'approved' ? 'اعتماد' : decision === 'rejected' ? 'رفض' : 'طلب استكمال'} هذا الطلب؟
                   </AppText>
-                  <AppButton title="تأكيد وإرسال القرار للخادم" loading={mutation.isPending} disabled={!canDecide || (decision === 'approved' && !approvalEvidenceVerified) || !validReason} onPress={() => void submit()} />
+                  <AppButton title="تأكيد وإرسال القرار للخادم" loading={mutation.isPending} disabled={!canDecide || (decision === 'approved' && !approvalEvidenceVerified) || !validReason} onPress={submit} />
                   <AppButton title="إلغاء التأكيد" variant="outline" disabled={mutation.isPending} onPress={() => setConfirming(false)} />
                 </View>
               ) : (
