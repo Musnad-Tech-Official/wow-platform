@@ -1,5 +1,7 @@
-/* Tailwind v4/NativeWind v5: web manual dark mode uses the html.dark class.
-   Native theme changes are also propagated through Appearance.setColorScheme. */
+/* Tailwind v4/NativeWind v5: web manual dark mode uses html.dark.
+   Keep the dark variable selector as .dark (not :root.dark): native CSS
+   compilation rejects class-qualified :root selectors. The same class
+   applies to the ThemeProvider View on native and html on web. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -38,7 +40,7 @@
   --color-border: #e8ebf0;
 }
 
-:root.dark {
+.dark {
   --color-primary: #facc15;
   --color-primary-foreground: #0f172d;
   --color-background: #101014;
