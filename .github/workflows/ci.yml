@@ -336,18 +336,13 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
-      - name: Export development Admin Expo Web
-        run: pnpm --filter admin exec expo export -p web --dev --output-dir "$RUNNER_TEMP/wow-admin-dev"
-      - name: Verify development Admin routes hydrate without errors
-        env:
-          WOW_ADMIN_WEB_EXPORT_DIR: ${{ runner.temp }}/wow-admin-dev
-        run: node scripts/test-admin-browser-playwright.cjs
-      - name: Capture 16 verified Admin review screenshots
-        env:
-          WOW_ADMIN_CAPTURE_SKIP_EXPORT: '1'
-          WOW_ADMIN_CAPTURE_SKIP_ZIP: '1'
-          WOW_ADMIN_CAPTURE_EXPORT_DIR: ${{ runner.temp }}/wow-admin-dev
-        run: node scripts/capture-admin-batch01-screenshots.cjs
+      - name: Check Admin dev browser harness syntax
+        run: |
+          bash -n scripts/test-admin-live-dev-server.sh
+          node --check scripts/test-admin-browser-playwright.cjs
+          node --check scripts/capture-admin-batch01-screenshots.cjs
+      - name: Verify development Admin routes and capture screenshots on live Expo Metro
+        run: bash scripts/test-admin-live-dev-server.sh
       - name: Upload Admin visual-review screenshots and manifest
         uses: actions/upload-artifact@v4
         with:
