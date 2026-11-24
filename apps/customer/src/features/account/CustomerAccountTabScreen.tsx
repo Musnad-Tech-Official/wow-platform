@@ -26,7 +26,7 @@ import { CustomerActivitySection } from './CustomerActivitySection';
 import { AccountSettingsSection } from './AccountSettingsSection';
 import { PrivacyClosureSection } from './PrivacyClosureSection';
 import { GuestAccountView } from './GuestAccountView';
-import type { CustomerUserLike } from './account-display';
+import { resolveAccountStatusSource, type CustomerUserLike } from './account-display';
 
 export interface CustomerAccountTabScreenProps {
   previewMode?: 'live' | 'signed-in' | 'guest' | 'privacy' | 'profile' | 'sign-out';
@@ -56,17 +56,17 @@ export function CustomerAccountTabScreen({
   }, [forcedTheme, mode, setMode]);
 
   // Auth & Session
-  const { isSignedIn: realIsSignedIn } = useAuth();
+  const { isSignedIn: realIsSignedIn, userId: realUserId } = useAuth();
   const { user: realUser } = useUser();
   const clerk = useClerk();
   const enterGuest = useGuestStore((s) => s.enterGuest);
   const exitGuest = useGuestStore((s) => s.exitGuest);
 
   // Profile data from Supabase users table
-  const { data: currentUserData } = useCurrentUser();
+  const currentUserQuery = useCurrentUser();
 
   // Determine state based on previewMode or live auth
-  const isPreview = previewMode !== 'live';
+  const isPreview = __DEV__ && previewMode !== 'live';
   const effectiveIsSignedIn = isPreview
     ? previewMode !== 'guest'
     : Boolean(realIsSignedIn);
@@ -88,9 +88,14 @@ export function CustomerAccountTabScreen({
     : (realUser as unknown as CustomerUserLike | null);
 
   // Authoritative account status backed by verified session/profile data
-  const effectiveAccountStatus = isPreview
-    ? (syntheticUser?.id ? 'active' : 'active')
-    : (currentUserData?.account_status ?? (realIsSignedIn ? 'active' : null));
+  const accountStatus = isPreview
+    ? { status: null, source: 'preview' as const }
+    : resolveAccountStatusSource({
+        userId: realIsSignedIn ? realUserId : null,
+        profile: currentUserQuery.data,
+        isPending: currentUserQuery.isPending,
+        isError: currentUserQuery.isError,
+      });
 
   // UI state
   const [signingOut, setSigningOut] = useState(false);
@@ -274,7 +279,8 @@ export function CustomerAccountTabScreen({
 
                 <AccountSummaryCard
                   user={effectiveUser}
-                  accountStatus={effectiveAccountStatus}
+                  accountStatus={accountStatus.status}
+                  accountStatusSource={accountStatus.source}
                   onPressViewProfile={() => setShowProfileModal(true)}
                 />
               </View>
@@ -340,7 +346,8 @@ export function CustomerAccountTabScreen({
       <AccountInformationModal
         visible={showProfileModal}
         user={effectiveUser}
-        accountStatus={effectiveAccountStatus}
+        accountStatus={accountStatus.status}
+                  accountStatusSource={accountStatus.source}
         onClose={() => setShowProfileModal(false)}
       />
 
