@@ -63,7 +63,8 @@ BEGIN
  IF public.wow_admin_decide_profile_revision(rev,'rejected','Image unavailable for review') IS DISTINCT FROM rev OR (SELECT logo_url FROM public.businesses WHERE id=b) IS DISTINCT FROM oldimg THEN RAISE EXCEPTION 'rejection changed published image'; END IF;
  INSERT INTO stage5c_cases VALUES('rejection-preserves-published-media');
  INSERT INTO public.business_profile_revisions(id,business_id,patch,status,requested_by_user_id) VALUES(rev2,b,jsonb_build_object('logo_url',NULL),'submitted',own);
- IF public.wow_admin_decide_profile_revision(rev2,'approved',NULL) IS DISTINCT FROM rev2 OR (SELECT logo_url FROM public.businesses WHERE id=b) IS NOT NULL THEN RAISE EXCEPTION 'explicit media removal failed'; END IF;
+ IF public.wow_admin_decide_profile_revision(rev2,'approved',NULL) IS DISTINCT FROM rev2 THEN RAISE EXCEPTION 'explicit media removal decision failed'; END IF;
+ IF (SELECT logo_url FROM public.businesses WHERE id=b) IS NOT NULL THEN RAISE EXCEPTION 'explicit media removal failed to persist'; END IF;
  INSERT INTO stage5c_cases VALUES('explicit-removal-approved');
  INSERT INTO public.businesses(id,owner_user_id,name,status,approved_at) VALUES(b2,own,'QA business two','approved',now());
  INSERT INTO public.business_members(business_id,user_id,role,status,can_draft,can_submit,can_pause,can_monitor) VALUES(b2,own,'owner','active',true,true,true,true);
