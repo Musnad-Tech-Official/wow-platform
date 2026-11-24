@@ -203,7 +203,7 @@ BEGIN
     WHERE v.id=p_version_id AND v.review_status='draft' FOR UPDATE;
   IF v_business IS NULL
      OR NOT wow_private.can_manage_offer_business(v_business,'draft')
-     OR NOT wow_private.can_read_offer_version(p_version_id) THEN
+     OR NOT wow_private.can_edit_offer_draft_version(p_version_id) THEN
     RAISE EXCEPTION 'Editable offer version required' USING ERRCODE='42501';
   END IF;
   v_prefix:=v_business::text || '/' || p_version_id::text || '/' || v_user || '/';
@@ -229,5 +229,70 @@ BEGIN
     IF v_media IS NULL THEN RAISE EXCEPTION 'Existing attachment metadata differs' USING ERRCODE='22023'; END IF;
   END IF;
   RETURN v_media;
+END;
+$function$;
+
+-- Upload must use the same creator/branch authorization as attaching or editing a draft.
+CREATE OR REPLACE FUNCTION wow_private.can_upload_wow_object(p_bucket text, p_key text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_user TEXT := wow_private.storage_active_user_id();
+  v_parts TEXT[] := string_to_array(p_key,'/');
+  v_business UUID;
+  v_version UUID;
+  v_complaint UUID;
+BEGIN
+  IF v_user IS NULL OR NOT wow_private.storage_safe_key(
+    p_key,p_bucket IN ('wow-verification-evidence','wow-complaint-evidence')
+  ) THEN RETURN false; END IF;
+
+  CASE p_bucket
+    WHEN 'wow-business-media' THEN
+      IF cardinality(v_parts)<>3 OR v_parts[2]<>v_user OR
+         v_parts[1] !~ '^[0-9a-f-]{36}$' THEN RETURN false; END IF;
+      v_business:=v_parts[1]::UUID;
+      RETURN wow_private.is_business_owner(v_business);
+
+    WHEN 'wow-offer-media' THEN
+      IF cardinality(v_parts)<>4 OR v_parts[3]<>v_user OR
+         v_parts[1] !~ '^[0-9a-f-]{36}$' OR
+         v_parts[2] !~ '^[0-9a-f-]{36}$' THEN RETURN false; END IF;
+      v_business:=v_parts[1]::UUID;
+      v_version:=v_parts[2]::UUID;
+      RETURN wow_private.can_manage_offer_business(v_business,'draft')
+        AND EXISTS (SELECT 1 FROM public.offer_versions v
+          WHERE v.id=v_version AND v.business_id=v_business
+            AND v.review_status='draft'
+            AND wow_private.can_edit_offer_draft_version(v.id));
+
+    WHEN 'wow-verification-evidence' THEN
+      IF cardinality(v_parts)<>4 OR
+         v_parts[1] NOT IN ('business-verifications','offer-verifications') OR
+         v_parts[3]<>v_user OR v_parts[2] !~ '^[0-9a-f-]{36}$' THEN
+        RETURN false; END IF;
+      v_business:=v_parts[2]::UUID;
+      IF v_parts[1]='offer-verifications' THEN
+        RETURN wow_private.can_manage_offer_business(v_business,'draft');
+      END IF;
+      RETURN wow_private.is_business_owner(v_business);
+
+    WHEN 'wow-complaint-evidence' THEN
+      IF cardinality(v_parts)<>4 OR v_parts[1]<>'complaints' OR
+         v_parts[2]<>v_user OR v_parts[3] !~ '^[0-9a-f-]{36}$' THEN
+        RETURN false; END IF;
+      v_complaint:=v_parts[3]::UUID;
+      RETURN EXISTS (SELECT 1 FROM public.complaints c
+        JOIN public.offers o ON o.id=c.offer_id
+        WHERE c.id=v_complaint AND c.status<>'closed'
+          AND (c.user_id=v_user OR wow_private.is_business_owner(o.business_id)));
+
+    ELSE RETURN false;
+  END CASE;
+EXCEPTION WHEN invalid_text_representation THEN
+  RETURN false;
 END;
 $function$;
