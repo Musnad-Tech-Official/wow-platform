@@ -13,6 +13,10 @@ const repoRoot = path.resolve(__dirname, '..');
 const outputDir = path.join(repoRoot, 'artifacts', 'admin-batch01-review');
 const zipPath = path.join(repoRoot, 'ADMIN_BATCH01_VISUAL_REVIEW.zip');
 const distDir = process.env.WOW_ADMIN_CAPTURE_EXPORT_DIR || path.join(repoRoot, 'apps', 'admin', 'dist', 'admin-web');
+const liveUrl = process.env.WOW_ADMIN_CAPTURE_WEB_URL;
+if (liveUrl && !['127.0.0.1', 'localhost'].includes(new URL(liveUrl).hostname)) {
+  throw new Error('Admin screenshot capture only permits a local Metro development server.');
+}
 
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -94,7 +98,7 @@ async function run() {
   console.log('[1/5] Checking development export for visual capture...');
   // CI builds the exact export in a previous verified step; never rebuild over it.
   // Local captures still require a fresh successful build and a cleaned output folder.
-  if (process.env.WOW_ADMIN_CAPTURE_SKIP_EXPORT !== '1') {
+  if (!liveUrl && process.env.WOW_ADMIN_CAPTURE_SKIP_EXPORT !== '1') {
     if (fs.existsSync(distDir)) fs.rmSync(distDir, { recursive: true, force: true });
     execSync('pnpm --filter admin exec expo export -p web --dev --output-dir dist/admin-web', {
       cwd: repoRoot,
@@ -104,16 +108,15 @@ async function run() {
 
   const indexHtml = path.join(distDir, 'index.html');
   const rolesHtml = path.join(distDir, 'roles.html');
-  if (!fs.existsSync(indexHtml) || !fs.existsSync(rolesHtml)) {
-    throw new Error('Export completed without required HTML entrypoints');
+  if (!liveUrl && !fs.existsSync(indexHtml)) {
+    throw new Error('Export completed without index.html');
   }
-  console.log('Admin web bundle successfully exported at', distDir);
+  if (!liveUrl) console.log('Admin web bundle exported at', distDir);
 
-  console.log('[2/5] Starting static HTTP server...');
-  const server = createStaticServer(distDir);
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const port = server.address().port;
-  const baseUrl = `http://127.0.0.1:${port}`;
+  console.log('[2/5] Preparing Admin preview server...');
+  const server = liveUrl ? null : createStaticServer(distDir);
+  if (server) await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const baseUrl = liveUrl ? new URL(liveUrl).origin : `http://127.0.0.1:${server.address().port}`;
   console.log(`Server listening on ${baseUrl}`);
 
   console.log('[3/5] Initializing Playwright browser...');
@@ -330,15 +333,22 @@ async function run() {
     });
 
     const targetUrl = `${baseUrl}${t.path}`;
-    await page.goto(targetUrl, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
-
-    const pageText = await page.locator('body').innerText();
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
     const expectedHeading = t.path.startsWith('/roles')
       ? 'المشرفون وأدوار الإدارة'
       : t.path.includes('adm02')
         ? 'نظرة واضحة على ما يحتاج إجراء'
         : 'الدخول إلى منصة الإدارة';
+    try {
+      await page.getByText(expectedHeading, { exact: false }).first()
+        .waitFor({ state: 'visible', timeout: 25_000 });
+    } catch (error) {
+      failures.push('Expected heading never appeared: ' + expectedHeading);
+      const shortText = await page.locator('body').innerText({ timeout: 2_000 }).catch(() => '');
+      failures.push('Visible body: ' + shortText.slice(0, 400));
+    }
+    await page.waitForTimeout(500);
+    const pageText = await page.locator('body').innerText();
     if (!pageText.includes(expectedHeading)) {
       failures.push('Expected screen was not rendered: ' + expectedHeading);
     }
@@ -391,7 +401,7 @@ async function run() {
   }
 
   await browser.close();
-  server.close();
+  if (server) server.close();
 
   console.log('[5/5] Generating MANIFEST.json and REPORT.md...');
 
@@ -400,7 +410,7 @@ async function run() {
     scope: ['ADM-01', 'ADM-02', 'ADM-14'],
     generatedAt: new Date().toISOString(),
     sourceCommit: process.env.GITHUB_SHA || null,
-    buildType: 'development-export (--dev) with strict __DEV__ isolation',
+    buildType: liveUrl ? 'live Expo/Metro development server (__DEV__)' : 'development export (--dev)',
     itemCount: capturedFiles.length,
     files: capturedFiles,
   };
