@@ -54,6 +54,8 @@ printf 'WOW local verification | UTC: %s | SHA: %s | mode: %s\n' "$(date -u +%FT
 pnpm install --frozen-lockfile
 node scripts/test-repository-integrity.cjs
 node --check scripts/test-admin-browser-playwright.cjs
+bash -n scripts/test-admin-live-dev-server.sh
+node --check scripts/capture-admin-batch01-screenshots.cjs
 node --check scripts/test-customer-web-deeplinks-playwright.cjs
 node --check scripts/test-merchant-live-auth-playwright.cjs
 node --check scripts/test-stage4-offer-scope-staging.cjs
@@ -76,11 +78,9 @@ if [[ "$mode" == web || "$mode" == all ]]; then
   WOW_MERCHANT_WEB_EXPORT_DIR="$temp_dir/merchant-dev" node scripts/test-merchant-batch-02-playwright.cjs
   WOW_MERCHANT_WEB_EXPORT_DIR="$temp_dir/merchant-dev" node scripts/test-merchant-final-8-playwright.cjs
 
-  pnpm --filter admin exec expo export -p web --dev --output-dir "$temp_dir/admin-dev"
-  WOW_ADMIN_WEB_EXPORT_DIR="$temp_dir/admin-dev" node scripts/test-admin-browser-playwright.cjs
-  WOW_ADMIN_CAPTURE_SKIP_EXPORT=1 WOW_ADMIN_CAPTURE_SKIP_ZIP=1 \
-    WOW_ADMIN_CAPTURE_EXPORT_DIR="$temp_dir/admin-dev" \
-    node scripts/capture-admin-batch01-screenshots.cjs
+  # Development-mode dynamic routes load Metro-managed modules: use the
+  # real server for visual and authorization preview tests.
+  bash scripts/test-admin-live-dev-server.sh
 
   pnpm --filter merchant exec expo export -p web --output-dir "$temp_dir/merchant-prod"
   WOW_MERCHANT_WEB_EXPORT_DIR="$temp_dir/merchant-prod" WOW_EXPECT_PRODUCTION_PREVIEW_DENIED=1 \

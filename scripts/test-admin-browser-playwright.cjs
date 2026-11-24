@@ -7,11 +7,18 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
 const root = process.env.WOW_ADMIN_WEB_EXPORT_DIR;
+const liveUrl = process.env.WOW_ADMIN_WEB_URL;
 const production = process.env.WOW_EXPECT_PRODUCTION_PREVIEW_DENIED === '1';
-if (!root || !fs.existsSync(path.join(root, 'index.html'))) {
+if (liveUrl) {
+  const parsed = new URL(liveUrl);
+  if (production || !['127.0.0.1', 'localhost'].includes(parsed.hostname)) {
+    throw new Error('Admin development browser tests require a localhost server without production mode.');
+  }
+}
+if (!liveUrl && (!root || !fs.existsSync(path.join(root, 'index.html')))) {
   throw new Error('WOW_ADMIN_WEB_EXPORT_DIR must point to a fresh Expo Web export.');
 }
-const rootPath = path.resolve(root);
+const rootPath = root ? path.resolve(root) : null;
 const mime = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -25,7 +32,7 @@ const mime = {
   '.ico': 'image/x-icon',
 };
 
-const server = http.createServer((req, res) => {
+const server = liveUrl ? null : http.createServer((req, res) => {
   let url;
   try { url = new URL(req.url, 'http://127.0.0.1'); }
   catch { res.writeHead(400); res.end(); return; }
@@ -42,11 +49,10 @@ const server = http.createServer((req, res) => {
       pathname += '.html';
     } else if (fs.existsSync(path.join(pathname, 'index.html'))) {
       pathname = path.join(pathname, 'index.html');
-    } else if (new RegExp('^/verification/[0-9a-f-]{36}$', 'i').test(route) ||
-               new RegExp('^/offer-review/[0-9a-f-]{36}$', 'i').test(route) ||
-               new RegExp('^/complaints/[0-9a-f-]{36}$', 'i').test(route)) {
-      // Expo static HTML cannot preregister an arbitrary verification UUID;
-      // the actual client router still enforces the protected route guard.
+    } else if (!/^\/(?:_expo|assets|fonts|images)(?:\/|$)/.test(route)) {
+      // Expo Router web.output='single' is an SPA. All extensionless app
+      // routes (including /roles and previously unknown UUIDs) must return
+      // index.html, while missing scripts, CSS and other assets stay 404.
       pathname = path.join(rootPath, 'index.html');
     }
   }
@@ -88,9 +94,9 @@ const tests = [
 ];
 
 async function main() {
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  if (server) await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true });
-  const base = 'http://127.0.0.1:' + server.address().port;
+  const base = liveUrl ? new URL(liveUrl).origin : 'http://127.0.0.1:' + server.address().port;
   try {
     for (const [url, expected, width] of tests) {
       const page = await browser.newPage({ viewport: { width, height: width === 390 ? 844 : 1000 } });
@@ -102,8 +108,26 @@ async function main() {
         }
       });
       try {
-        const response = await page.goto(base + url, { waitUntil: 'networkidle' });
-        assert.equal(response.status(), 200, 'HTML route should load');
+        const response = await page.goto(base + url, { waitUntil: 'domcontentloaded' });
+        assert.equal(response?.status(), 200, 'HTML route should load');
+        // Auth providers can hold long-lived requests open; networkidle is not a
+        // reliable readiness signal. Wait for actual visible application content.
+        try {
+          await page.getByText(expected, { exact: false }).first()
+            .waitFor({ state: 'visible', timeout: 20_000 });
+        } catch (error) {
+          const bodyText = await page.locator('body').innerText({ timeout: 2_000 })
+            .catch(() => '<unavailable>');
+          throw new Error(
+            'Admin route did not render ' + JSON.stringify({
+              route: url,
+              expected,
+              body: bodyText.slice(0, 600),
+              browserErrors: errors.slice(0, 5),
+            }),
+            { cause: error }
+          );
+        }
         await page.waitForTimeout(600);
         const body = await page.locator('body').innerText();
         assert(body.includes(expected), url + ' did not render expected screen: ' + expected);
@@ -150,7 +174,7 @@ async function main() {
             return canvas && getComputedStyle(canvas).backgroundColor === expectedColor;
           }, { testId, expectedColor }, { timeout: 15000 });
         };
-        await page.goto(base + '/?preview=adm02', { waitUntil: 'networkidle' });
+        await page.goto(base + '/?preview=adm02', { waitUntil: 'domcontentloaded' });
         await page.getByText('نظرة واضحة على ما يحتاج إجراء', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
         await page.getByRole('button', { name: 'المظهر: فاتح' }).click();
@@ -160,7 +184,7 @@ async function main() {
 
         // AUD-039: the manual choice must survive a real browser reload and
         // must not accidentally continue following changes in OS preference.
-        await page.reload({ waitUntil: 'networkidle' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.getByText('نظرة واضحة على ما يحتاج إجراء', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
         assert.equal(await page.evaluate(() => localStorage.getItem('wow.theme.mode.v1')), 'dark');
@@ -174,12 +198,12 @@ async function main() {
         await verifyCanvas('wow-admin-canvas', 'rgb(16, 16, 20)');
         console.log('PASS development: manual and system modes persist and react to OS changes');
 
-        await page.goto(base + '/?preview=adm01', { waitUntil: 'networkidle' });
+        await page.goto(base + '/?preview=adm01', { waitUntil: 'domcontentloaded' });
         await page.getByText('الدخول إلى منصة الإدارة', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-login-canvas', 'rgb(16, 16, 20)');
         await page.getByRole('button', { name: 'المظهر: فاتح' }).click();
         await verifyCanvas('wow-admin-login-canvas', 'rgb(246, 247, 246)');
-        await page.reload({ waitUntil: 'networkidle' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.getByText('الدخول إلى منصة الإدارة', { exact: true }).waitFor();
         await verifyCanvas('wow-admin-login-canvas', 'rgb(246, 247, 246)');
         assert.equal(await page.evaluate(() => localStorage.getItem('wow.theme.mode.v1')), 'light');
@@ -190,7 +214,7 @@ async function main() {
     }
   } finally {
     await browser.close();
-    await new Promise((resolve) => server.close(resolve));
+    if (server) await new Promise((resolve) => server.close(resolve));
   }
 }
-main().catch((err) => { console.error(err); process.exitCode = 1; server.close(); });
+main().catch((err) => { console.error(err); process.exitCode = 1; if (server) server.close(); });
