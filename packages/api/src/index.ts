@@ -27,7 +27,7 @@ export { useCurrentUser } from './query/hooks/use-current-user';
 export { useAdminEffectiveRole, type EffectiveAdminRole } from './query/hooks/use-admin-effective-role';
 export { useAdminVerificationEvidence } from './query/hooks/use-admin-review-evidence';
 export { useAdminOfferAssets } from './query/hooks/use-admin-offer-assets';
-export { useAdminProfileRevisionContext, type AdminProfileRevisionContext } from './query/hooks/use-admin-profile-revision-context';
+export { useAdminProfileRevisionContext, useAdminProfileMedia, type AdminProfileRevisionContext } from './query/hooks/use-admin-profile-revision-context';
 export {
   useMyBusinesses,
   useAccessibleMerchantBusinesses,

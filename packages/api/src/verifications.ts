@@ -44,6 +44,8 @@ export interface DecideBusinessVerificationInput {
   verificationId: string;
   decision: 'approved' | 'rejected' | 'needs_info';
   reason?: string | null;
+  expectedSubmissionId?: string;
+  expectedEvidenceRefs?: string[];
 }
 
 function requiredUuid(data: unknown, name: string): string {
@@ -119,11 +121,13 @@ export async function decideAdminBusinessVerification(
   client: WowSupabaseClient,
   input: DecideBusinessVerificationInput,
 ): Promise<string> {
-  const { data, error } = await client.rpc('wow_admin_decide_business_verification', {
-    p_verification_id: input.verificationId,
-    p_decision: input.decision,
-    p_reason: input.reason ?? null,
-  });
+  if (input.decision === 'approved' && (!input.expectedSubmissionId || !input.expectedEvidenceRefs?.length)) {
+    throw new Error('Approval requires a reviewed submission and evidence set.');
+  }
+  const args = { p_verification_id: input.verificationId, p_decision: input.decision, p_reason: input.reason ?? null };
+  const { data, error } = input.decision === 'approved'
+    ? await client.rpc('wow_admin_decide_business_verification_checked', { ...args, p_expected_submission_id: input.expectedSubmissionId, p_expected_evidence_refs: input.expectedEvidenceRefs })
+    : await client.rpc('wow_admin_decide_business_verification', args);
   if (error) throw error;
   return requiredUuid(data, 'wow_admin_decide_business_verification');
 }

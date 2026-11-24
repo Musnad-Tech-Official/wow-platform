@@ -1,8 +1,9 @@
+import { isReviewSignatureFresh } from './review-freshness';
 import React, { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Image, Linking, Pressable, TextInput, View } from 'react-native';
 import { UserRoundCog, FileClock } from 'lucide-react-native';
 import {
-  useAdminProfileRevisions, useAdminDecideProfileRevision, useAdminProfileRevisionContext,
+  useAdminProfileRevisions, useAdminDecideProfileRevision, useAdminProfileRevisionContext, useAdminProfileMedia,
 } from '@wow/api';
 import { useWowColors } from '@wow/theme';
 import { AppButton, AppText, Badge, Card } from '@wow/ui';
@@ -16,7 +17,7 @@ const PAGE_SIZE = 25;
 const LABELS: Record<string, string> = {
   name: 'الاسم', description: 'الوصف', contact_phone: 'هاتف التواصل',
   city: 'المدينة', district: 'الحي', address_line: 'العنوان',
-  latitude: 'خط العرض', longitude: 'خط الطول',
+  latitude: 'خط العرض', longitude: 'خط الطول', logo_url: 'شعار النشاط', cover_url: 'غلاف النشاط',
 };
 
 export function ProfileRevisions({ role }: { role: AdminRole | null }) {
@@ -46,7 +47,19 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
   const canDecide = canSubmitW06Decision(role) && selected?.status === 'submitted' && !mutation.isPending;
   const baselineValid = baselineQuery.isSuccess && baselineQuery.data?.revision_id === selected?.id &&
     baselineQuery.data?.business_id === selected?.business_id && baselineQuery.data?.branch_id === selected?.branch_id;
-  const canApprove = canDecide && baselineValid && patchEntries.length > 0 && unrecognizedFields.length === 0;
+  const mediaEntries = patchEntries.filter(([key]) => key === 'logo_url' || key === 'cover_url');
+  const mediaAllowed = Boolean(baselineValid && baselineQuery.data?.media_review_allowed && canSubmitW06Decision(role));
+  const mediaFields = mediaEntries.flatMap(([key,value]) => [
+    { slot: `${key}:current`, key: baselineQuery.data?.current[key] ?? null },
+    { slot: `${key}:candidate`, key: value },
+  ]);
+  const mediaScope = JSON.stringify([selected?.id, selected?.business_id, mediaFields]);
+  const mediaQuery = useAdminProfileMedia(selected?.id ?? null, selected?.business_id ?? null, mediaFields, mediaAllowed, mediaScope);
+  const mediaReady = mediaEntries.length === 0 || (mediaAllowed && mediaQuery.isSuccess && !mediaQuery.isFetching && mediaQuery.data.scope === mediaScope);
+  const [reviewedMediaScope, setReviewedMediaScope] = useState<string | null>(null);
+  const mediaAttestation = JSON.stringify([mediaScope, mediaQuery.dataUpdatedAt]);
+  const mediaReviewed = mediaEntries.length === 0 || reviewedMediaScope === mediaAttestation;
+  const canApprove = canDecide && baselineValid && patchEntries.length > 0 && unrecognizedFields.length === 0 && mediaReady && mediaReviewed;
   const validReason = decision === 'rejected' ? note.length >= 5 && note.length <= 2000 : note.length <= 2000;
 
   const pick = (id: string) => {
@@ -54,6 +67,7 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
     setDecision(null);
     setReason('');
     setConfirming(false);
+    setReviewedMediaScope(null);
     mutation.reset();
   };
 
@@ -61,6 +75,9 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
     // Approval requires the trusted, server-verified published baseline for this revision.
     if (!canDecide || !selected || !decision || !validReason || !confirming ||
         (decision === 'approved' && !canApprove)) return;
+    if (decision === 'approved' && mediaEntries.length && !isReviewSignatureFresh(mediaQuery.dataUpdatedAt)) {
+      setReviewedMediaScope(null); setConfirming(false); void mediaQuery.refetch(); return;
+    }
     try {
       await mutation.mutateAsync({ revisionId: selected.id, decision, reason: note || null });
       setSelectedId(null);
@@ -142,7 +159,22 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
               <AppText variant="caption" muted className="text-xs text-right">
                 التغييرات المطلوبة فقط؛ يجب مقارنة البيانات بالملف الحالي قبل الاعتماد.
               </AppText>
-              {patchEntries.map(([key, value]) => (
+              {patchEntries.map(([key, value]) => (key === 'logo_url' || key === 'cover_url') ? (
+                <View key={key} className="rounded-xl bg-background border border-border p-3 gap-2">
+                  <AppText className="font-tajawal-bold text-sm text-right">{LABELS[key]}</AppText>
+                  {!mediaAllowed ? <W06Message title="الوسائط محجوبة عن هذه الجلسة" /> : (['current','candidate'] as const).map(side => {
+                    const item = mediaQuery.data?.scope === mediaScope ? mediaQuery.data.items.find(x => x.slot === `${key}:${side}`) : undefined;
+                    return <View key={side} className="gap-1">
+                      <AppText variant="caption" muted className="text-xs text-right">{side === 'current' ? 'المنشور حالياً' : 'المرشح'}</AppText>
+                      {item?.url ? <><Image source={{uri:item.url}} resizeMode="contain" accessibilityLabel={LABELS[key]} style={{width:'100%',height:120}} />
+                        <AppButton title="فتح الصورة" size="sm" variant="outline" onPress={() => {
+                          if (!isReviewSignatureFresh(mediaQuery.dataUpdatedAt)) {setReviewedMediaScope(null);void mediaQuery.refetch();return;}
+                          void Linking.openURL(item.url!);
+                        }} /></> : <AppText variant="caption" muted>{item ? 'لا توجد صورة / إزالة القيمة' : 'لم تثبت الصورة بعد'}</AppText>}
+                    </View>;
+                  })}
+                </View>
+              ) : (
                 <View key={key} className="rounded-xl bg-background border border-border p-3 gap-1">
                   <AppText variant="caption" muted className="text-xs text-right">{LABELS[key]}</AppText>
                   <AppText variant="caption" muted className="text-xs text-right">
@@ -153,6 +185,16 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
                   </AppText>
                 </View>
               ))}
+              {mediaEntries.length > 0 && mediaAllowed && (
+                <View className="gap-2">
+                  {mediaQuery.isError && <W06Message kind="error" title="تعذر التحقق من صور التعديل" retry={() => void mediaQuery.refetch()} />}
+                  <AppButton title="تجديد معاينة الصور" variant="outline" size="sm" disabled={mediaQuery.isFetching} onPress={() => {setReviewedMediaScope(null);setConfirming(false);void mediaQuery.refetch();}} />
+                  <Pressable accessibilityRole="checkbox" accessibilityState={{checked:mediaReviewed,disabled:!mediaReady}} disabled={!mediaReady}
+                    onPress={() => {setReviewedMediaScope(mediaReviewed ? null : mediaAttestation);setConfirming(false);}} className="p-3 border border-border rounded-xl">
+                    <AppText className="text-sm text-right">{mediaReviewed ? 'تم تأكيد مقارنة الصور' : 'أؤكد أنني قارنت الصور المنشورة والمرشحة'}</AppText>
+                  </Pressable>
+                </View>
+              )}
               {unrecognizedFields.length > 0 && (
                 <W06Message kind="error" title="يتضمن الطلب حقولاً لا تدعم هذه الواجهة مراجعتها"
                   detail="لا تُعتمد التعديلات التي تتطلب فحص بيانات أو وسائط غير معروضة هنا." />
@@ -197,7 +239,7 @@ export function ProfileRevisions({ role }: { role: AdminRole | null }) {
                     </View>
                   ) : (
                     <AppButton title="متابعة إلى التأكيد" variant="secondary"
-                      disabled={!canDecide || !validReason || (decision === 'approved' && unrecognizedFields.length > 0)}
+                      disabled={!canDecide || !validReason || (decision === 'approved' && !canApprove)}
                       onPress={() => setConfirming(true)} />
                   )}
                 </View>

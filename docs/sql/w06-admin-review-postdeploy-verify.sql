@@ -5,7 +5,7 @@ WITH expected AS (
   SELECT
     to_regprocedure('public.wow_admin_get_effective_role()') AS role_rpc,
     to_regprocedure('public.wow_admin_get_profile_revision_context(uuid)') AS baseline_rpc,
-    to_regprocedure('wow_private.admin_decide_verification_internal(uuid,text,text)') AS decision_fn
+    to_regprocedure('wow_private.admin_decide_verification_checked_internal(uuid,text,text,uuid,jsonb)') AS decision_fn
 )
 SELECT
   (SELECT COUNT(*) = 1 FROM supabase_migrations.schema_migrations WHERE version = '20261114202307')

@@ -9,7 +9,7 @@ import { Image } from 'expo-image';
 import * as AuthSession from 'expo-auth-session';
 import { ShieldCheck, Lock, AlertTriangle, CheckCircle2 } from 'lucide-react-native';
 import { wowBrand } from '@wow/assets';
-import { AppText, AppButton } from '@wow/ui';
+import { AppText, AppButton, LegalDocumentLinks } from '@wow/ui';
 import { useTheme } from '@wow/theme';
 import { useSSO } from '@wow/auth';
 import type { AdminAccessStatus } from '../auth/admin-access';
@@ -254,6 +254,7 @@ export function AdminAccessScreen({
                 </View>
 
                 {ssoLoading && <ActivityIndicator color="#FACC15" />}
+                <LegalDocumentLinks termsUrl={process.env.EXPO_PUBLIC_WOW_TERMS_URL} privacyUrl={process.env.EXPO_PUBLIC_WOW_PRIVACY_URL} />
 
                 <View className="pt-2">
                   <AppText variant="caption" muted className="text-center font-tajawal text-xs">

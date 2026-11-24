@@ -47,3 +47,6 @@ export { BottomSheet, type BottomSheetProps } from './BottomSheet';
 export { Stepper, type StepperProps } from './Stepper';
 
 export { WowAppHeader, type WowAppHeaderProps } from './WowAppHeader';
+
+export { LegalDocumentLinks } from './LegalDocumentLinks';
+export { validateLegalDocumentUrl } from './legal-documents';

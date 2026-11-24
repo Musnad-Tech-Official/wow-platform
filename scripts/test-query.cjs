@@ -540,14 +540,17 @@ test('verification APIs use migration 003 RPC names and exact request fields', a
   assert.deepEqual(await api.getBusinessVerifications(client, id), []);
   assert.deepEqual(await api.listAdminBusinessVerifications(client, { status: 'submitted', limit: 20, offset: 10 }), []);
   assert.deepEqual(await api.getAdminBusinessVerification(client, id), { id, status: 'submitted' });
-  assert.equal(await api.decideAdminBusinessVerification(client, { verificationId: id, decision: 'approved' }), id);
+  await assert.rejects(api.decideAdminBusinessVerification(client, { verificationId: id, decision: 'approved' }), /reviewed submission/);
+  assert.equal(await api.decideAdminBusinessVerification(client, { verificationId: id, decision: 'approved', expectedSubmissionId: otherId, expectedEvidenceRefs: evidence }), id);
+  assert.equal(await api.decideAdminBusinessVerification(client, { verificationId: id, decision: 'rejected', reason: 'Invalid evidence' }), id);
   assert.deepEqual(requests, [
     { path: '/rest/v1/rpc/wow_submit_business_verification', body: { p_business_id: id, p_branch_id: otherId, p_request_type: 'initial', p_evidence_refs: evidence } },
     { path: '/rest/v1/rpc/wow_resubmit_business_verification', body: { p_verification_id: id, p_evidence_refs: evidence } },
     { path: '/rest/v1/rpc/wow_get_my_business_verifications', body: { p_business_id: id } },
     { path: '/rest/v1/rpc/wow_admin_list_business_verifications', body: { p_status: 'submitted', p_limit: 20, p_offset: 10 } },
     { path: '/rest/v1/rpc/wow_admin_get_business_verification', body: { p_verification_id: id } },
-    { path: '/rest/v1/rpc/wow_admin_decide_business_verification', body: { p_verification_id: id, p_decision: 'approved', p_reason: null } },
+    { path: '/rest/v1/rpc/wow_admin_decide_business_verification_checked', body: { p_verification_id: id, p_decision: 'approved', p_reason: null, p_expected_submission_id: otherId, p_expected_evidence_refs: evidence } },
+    { path: '/rest/v1/rpc/wow_admin_decide_business_verification', body: { p_verification_id: id, p_decision: 'rejected', p_reason: 'Invalid evidence' } },
   ]);
 });
 

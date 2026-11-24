@@ -216,7 +216,7 @@ export function MerchantComplaintDetailsScreen() {
         {/* Hero Card with Case ID & Required Status (Matching Reference MER-09) */}
         <View
           className="rounded-2xl border p-5 gap-3"
-          style={{ backgroundColor: isDark ? '#451A03' : '#FEF9C3', borderColor: '#FDE047' }}
+          style={{ backgroundColor: colors.warningSurface, borderColor: colors.warning }}
         >
           <View className="flex-row items-center justify-between">
             <View
@@ -240,7 +240,7 @@ export function MerchantComplaintDetailsScreen() {
           <AppText
             variant="heading"
             className="font-tajawal-bold text-2xl text-center tracking-wider my-1"
-            style={{ color: '#0F172D' }}
+            style={{ color: colors.foreground }}
           >
             {isSyntheticPreview ? 'CASE-018' : detail.id.slice(0, 8).toUpperCase()}
           </AppText>
@@ -303,12 +303,12 @@ export function MerchantComplaintDetailsScreen() {
 
             <View
               className="rounded-xl p-2.5 items-center justify-center"
-              style={{ backgroundColor: isDark ? '#451A03' : '#FEF3C7' }}
+              style={{ backgroundColor: colors.warningSurface }}
             >
               <AppText
                 variant="caption"
                 className="font-tajawal-bold text-xs"
-                style={{ color: '#D97706' }}
+                style={{ color: colors.warning }}
               >
                 {responseRequested ? 'طلب توضيح مطلوب من المالك' : 'لا يوجد طلب رد جديد'}
               </AppText>

@@ -10,7 +10,7 @@
 | UI | Route | Server-backed contract |
 | --- | --- | --- |
 | ADM-03 Merchant/branch verification queue | `/verifications` | `wow_admin_list_business_verifications` (status, pagination) |
-| ADM-04 Verification review workspace | `/verification/[id]` | `wow_admin_get_business_verification`; `wow_admin_decide_business_verification` |
+| ADM-04 Verification review workspace | `/verification/[id]` | `wow_admin_get_business_verification`; `wow_admin_decide_business_verification_checked` for approval; legacy decision RPC for rejection / needs-info |
 | Approved merchant/branch profile change queue | `/profile-revisions` | `wow_admin_list_profile_revisions`; `wow_admin_decide_profile_revision` |
 | ADM-10 Subscription/payment review | `/payments` | `wow_admin_list_subscription_payments`; `wow_admin_decide_subscription_payment` |
 

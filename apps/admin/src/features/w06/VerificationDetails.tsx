@@ -1,3 +1,4 @@
+import { isReviewSignatureFresh } from './review-freshness';
 import React, { useState } from 'react';
 import { Linking, Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -25,7 +26,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
   const [decision, setDecision] = useState<Decision | null>(null);
   const [reason, setReason] = useState('');
   const [confirming, setConfirming] = useState(false);
-  const [evidenceReviewed, setEvidenceReviewed] = useState(false);
+  const [reviewedScope, setReviewedScope] = useState<string | null>(null);
 
   const detail = query.data && !Array.isArray(query.data) && typeof query.data === 'object'
     ? (query.data as JsonObject)
@@ -41,22 +42,28 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
   const history = asArray(detail?.decision_history);
   const evidenceKeys: string[] = Array.isArray(detail?.evidence_refs)
     ? detail.evidence_refs.filter((item): item is string => typeof item === 'string') : [];
-  const evidenceRefs = evidenceKeys.length;
+  const evidenceRefs = typeof detail?.evidence_count === 'number' ? detail.evidence_count : evidenceKeys.length;
+  const latestSubmission = submissions[submissions.length - 1];
+  const submissionId = typeof latestSubmission?.id === 'string' ? latestSubmission.id : null;
+  const evidenceScope = JSON.stringify([id, detail?.business_id, submissionId, detail?.submitted_at, evidenceKeys]);
   const evidenceQuery = useAdminVerificationEvidence(
     id, typeof detail?.business_id === 'string' ? detail.business_id : null,
-    evidenceKeys, canSubmitW06Decision(role),
+    evidenceKeys, canSubmitW06Decision(role), evidenceScope,
   );
   // A signed URL is a temporary credential; force a refresh after 45 seconds.
-  const evidenceReady = evidenceRefs > 0 && evidenceQuery.isSuccess &&
-    evidenceQuery.data.length === evidenceRefs;
+  const evidenceReady = Boolean(submissionId && evidenceRefs > 0 && evidenceQuery.isSuccess &&
+    !evidenceQuery.isFetching && evidenceQuery.data.scope === evidenceScope && evidenceQuery.data.items.length === evidenceRefs);
+  const attestationScope = JSON.stringify([evidenceScope, evidenceQuery.dataUpdatedAt]);
+  const evidenceReviewed = reviewedScope === attestationScope;
   const approvalEvidenceVerified = evidenceReady && evidenceReviewed;
 
+  // Invoked only by AppButton's confirmation event, never by render.
   async function submit() {
     // Approval requires fresh, RLS-signed evidence and reviewer attestation.
     if (!canDecide || !decision || !confirming || !validReason ||
         (decision === 'approved' && !approvalEvidenceVerified)) return;
-    if (decision === 'approved' && Date.now() - evidenceQuery.dataUpdatedAt >= 45_000) {
-      setEvidenceReviewed(false);
+    if (decision === 'approved' && !isReviewSignatureFresh(evidenceQuery.dataUpdatedAt)) {
+      setReviewedScope(null);
       setConfirming(false);
       void evidenceQuery.refetch();
       return;
@@ -66,11 +73,14 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
         verificationId: id,
         decision,
         reason: reasonTrim || null,
+        ...(decision === 'approved' ? { expectedSubmissionId: submissionId!, expectedEvidenceRefs: evidenceKeys } : {}),
       });
       // A database confirmation was returned; other lists are invalidated by the API hook.
       router.replace('/verifications' as any);
     } catch {
       setConfirming(false);
+      setReviewedScope(null);
+      void query.refetch();
     }
   }
 
@@ -117,14 +127,14 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
               </AppText>
               {evidenceQuery.isPending && canSubmitW06Decision(role) && <AppText variant="caption" muted className="text-xs text-right">جارٍ التحقق من صلاحية عرض المستندات…</AppText>}
               {evidenceQuery.isError && <W06Message kind="error" title="تعذر فتح الأدلة بشكل آمن" detail="لا يمكن اعتماد الطلب قبل إعادة التحقق من صلاحيات التخزين والمستندات." />}
-              {evidenceQuery.isSuccess && evidenceReady && evidenceQuery.data.map((item) => (
+              {evidenceQuery.isSuccess && evidenceReady && evidenceQuery.data.items.map((item) => (
                 <AppButton
                   key={item.keyIndex}
                   variant="outline" size="sm"
                   title={`فتح المستند ${item.keyIndex + 1} (${item.mimeType === 'application/pdf' ? 'PDF' : 'صورة'})`}
                   onPress={() => {
-                    if (Date.now() - evidenceQuery.dataUpdatedAt >= 45_000) {
-                      setEvidenceReviewed(false);
+                    if (!isReviewSignatureFresh(evidenceQuery.dataUpdatedAt)) {
+                      setReviewedScope(null);
                       void evidenceQuery.refetch();
                       return;
                     }
@@ -134,11 +144,11 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
               ))}
               {canSubmitW06Decision(role) && evidenceRefs > 0 && (
                 <AppButton variant="quiet" size="sm" title="تجديد صلاحية روابط المستندات"
-                  onPress={() => { setEvidenceReviewed(false); void evidenceQuery.refetch(); }} />
+                  onPress={() => { setReviewedScope(null); void evidenceQuery.refetch(); }} />
               )}
               {evidenceReady && (
                 <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: evidenceReviewed }}
-                  onPress={() => setEvidenceReviewed((value) => !value)}
+                  onPress={() => { setReviewedScope(evidenceReviewed ? null : attestationScope); setConfirming(false); }}
                   className="flex-row items-center gap-3 rounded-xl bg-[#FEFCE8] dark:bg-[#422E12] p-3">
                   <View className="rounded h-5 w-5 border border-[#A16207] items-center justify-center">
                     {evidenceReviewed && <ShieldCheck size={16} color="#A16207" />}
@@ -233,7 +243,7 @@ export function VerificationDetails({ id, role }: { id: string; role: AdminRole 
                   <AppText className="text-sm font-tajawal-bold text-right">
                     تأكيد نهائي: {decision === 'approved' ? 'اعتماد' : decision === 'rejected' ? 'رفض' : 'طلب استكمال'} هذا الطلب؟
                   </AppText>
-                  <AppButton title="تأكيد وإرسال القرار للخادم" loading={mutation.isPending} disabled={!canDecide || (decision === 'approved' && !approvalEvidenceVerified) || !validReason} onPress={() => void submit()} />
+                  <AppButton title="تأكيد وإرسال القرار للخادم" loading={mutation.isPending} disabled={!canDecide || (decision === 'approved' && !approvalEvidenceVerified) || !validReason} onPress={submit} />
                   <AppButton title="إلغاء التأكيد" variant="outline" disabled={mutation.isPending} onPress={() => setConfirming(false)} />
                 </View>
               ) : (
