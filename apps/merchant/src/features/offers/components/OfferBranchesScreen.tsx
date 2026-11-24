@@ -7,7 +7,7 @@ import { useWowColors, useTheme } from '@wow/theme';
 import { wowIllustrations } from '@wow/assets';
 import { useBusinessBranches, type Branch } from '@wow/api';
 import { MerchantScaffold } from '../../navigation/MerchantScaffold';
-import { useOfferEditor } from '../context/OfferEditorContext';
+import { useOfferEditor, formatOfferLocalDate } from '../context/OfferEditorContext';
 import { OfferEditorStepper } from './OfferEditorStepper';
 import { OfferBusinessConflictModal } from './OfferBusinessConflictModal';
 
@@ -371,7 +371,7 @@ export function OfferBranchesScreen() {
             >
               <Calendar size={18} color={isDark ? '#A1A1AA' : '#64748B'} />
               <TextInput
-                value={draft.endsAt ? draft.endsAt.slice(0, 10) : ''}
+                value={draft.endsAt ? formatOfferLocalDate(draft.endsAt) : ''}
                 onChangeText={(text) => {
                   // Keep the partially typed date as-is; serialize on save only.
                   updateDraft({ endsAt: text });
@@ -400,7 +400,7 @@ export function OfferBranchesScreen() {
             >
               <Calendar size={18} color={isDark ? '#A1A1AA' : '#64748B'} />
               <TextInput
-                value={draft.startsAt ? draft.startsAt.slice(0, 10) : ''}
+                value={draft.startsAt ? formatOfferLocalDate(draft.startsAt) : ''}
                 onChangeText={(text) => {
                   updateDraft({ startsAt: text });
                 }}
