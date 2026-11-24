@@ -1120,3 +1120,71 @@ test('20. CUS-02 Responsive layout branches and honest states', () => {
     'Sort button must enforce 48pt minimum touch target',
   );
 });
+
+
+// AUD-023: behavioral race tests against the exact request gate used by CUS-02.
+const paginationSource = fs.readFileSync(path.join(root,
+  'apps/customer/src/features/discovery/pagination-request.ts'), 'utf8');
+const paginationExports = {};
+new Function('exports', ts.transpileModule(paginationSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS },
+}).outputText)(paginationExports);
+const { createPaginationRequestGate } = paginationExports;
+
+test('AUD-023: old page cannot append or clear the new loading state after a filter change', async () => {
+  const gate = createPaginationRequestGate();
+  const rows = [];
+  let loading = false;
+  let resolveOld, resolveNew;
+  const oldResponse = new Promise(resolve => { resolveOld = resolve; });
+  const newResponse = new Promise(resolve => { resolveNew = resolve; });
+  async function load(response) {
+    const request = gate.begin();
+    if (request === null) return;
+    loading = true;
+    try {
+      const page = await response;
+      if (gate.isCurrent(request)) rows.push(...page);
+    } finally {
+      if (gate.finish(request)) loading = false;
+    }
+  }
+  const old = load(oldResponse);
+  gate.invalidate();
+  loading = false;
+  const current = load(newResponse);
+  resolveOld(['stale']);
+  await old;
+  assert.deepEqual(rows, []);
+  assert.equal(loading, true);
+  resolveNew(['current']);
+  await current;
+  assert.deepEqual(rows, ['current']);
+  assert.equal(loading, false);
+});
+
+test('AUD-023: returning to the same filter never revives its abandoned page', () => {
+  const gate = createPaginationRequestGate();
+  const old = gate.begin();
+  assert.ok(old);
+  assert.equal(gate.begin(), null, 'Duplicate tap must not start a second page');
+  gate.invalidate();
+  gate.invalidate();
+  const current = gate.begin();
+  assert.ok(current);
+  assert.notEqual(current, old);
+  assert.equal(gate.isCurrent(old), false);
+  assert.equal(gate.finish(old), false);
+  assert.equal(gate.isCurrent(current), true);
+  assert.equal(gate.finish(current), true);
+  assert.equal(gate.isCurrent(current), false);
+  assert.ok(gate.begin(), 'Retry can acquire the gate');
+});
+
+test('AUD-023: every filter handler resets pagination and stale commits are guarded', () => {
+  assert.equal((discoverScreenSrc.match(/resetPagination\(\);/g) || []).length, 4);
+  assert.match(discoverScreenSrc, /paginationGate\.invalidate\(\);\s*setOffset\(0\)/);
+  assert.match(discoverScreenSrc, /if \(!paginationGate\.isCurrent\(request\)\) return;/);
+  assert.match(discoverScreenSrc, /if \(paginationGate\.finish\(request\)\) setIsFetchingMore\(false\)/);
+  assert.match(discoverScreenSrc, /useEffect\(\(\) => \(\) => paginationGate\.invalidate\(\)/);
+});
