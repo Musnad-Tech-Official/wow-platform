@@ -42,7 +42,7 @@ const server = http.createServer((req, res) => {
       pathname += '.html';
     } else if (fs.existsSync(path.join(pathname, 'index.html'))) {
       pathname = path.join(pathname, 'index.html');
-    } else if (!/^\\/(?:_expo|assets|fonts|images)(?:\\/|$)/.test(route)) {
+    } else if (!/^\/(?:_expo|assets|fonts|images)(?:\/|$)/.test(route)) {
       // Expo Router web.output='single' is an SPA. All extensionless app
       // routes (including /roles and previously unknown UUIDs) must return
       // index.html, while missing scripts, CSS and other assets stay 404.
