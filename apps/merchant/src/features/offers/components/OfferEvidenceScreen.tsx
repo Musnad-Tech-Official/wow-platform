@@ -146,6 +146,7 @@ export function OfferEvidenceScreen() {
       <OfferEditorStepper
         currentStep={4}
         onStepPress={(s) => {
+          if (isSaving || isUploadingEvidence) return;
           if (s === 1) {
             router.push({
               pathname: '/offers/editor',

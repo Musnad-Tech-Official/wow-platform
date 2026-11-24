@@ -406,7 +406,7 @@ test('BATCH-02: Date fields retain partial input and validate before local-day s
 
 
 test('AUD-026: local date boundaries in UTC+3, UTC-8 and DST; stored instants round-trip',()=>{
- const ts=require('typescript'),{execFileSync}=require('node:child_process');
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]})),{execFileSync}=require('node:child_process');
  const compiled=ts.transpileModule(read('apps/merchant/src/features/offers/offer-local-date.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
  for(const [TZ,day,start,end] of [
   ['Asia/Aden','2026-11-24','2026-11-23T21:00:00.000Z','2026-11-24T20:59:59.999Z'],
@@ -418,7 +418,7 @@ test('AUD-026: local date boundaries in UTC+3, UTC-8 and DST; stored instants ro
  }
 });
 test('AUD-027/044: one operation across editor routes; uploads block writes and known draft ID survives partial failure',()=>{
- const ts=require('typescript'),h={};
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]})),h={};
  new Function('exports',ts.transpileModule(read('apps/merchant/src/features/offers/editor-operation-gate.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
  const gate=h.createEditorOperationGate();
  assert.equal(gate.begin('upload'),true);assert.equal(gate.begin('save'),false);assert.equal(gate.begin('submit'),false);

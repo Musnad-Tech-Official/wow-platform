@@ -354,7 +354,8 @@ test('BATCH-01: MER-04 offers management satisfies UI fidelity, status distribut
 
   // Real RPC mutation and DB field merchant_available
   assert.match(offersHook, /useSetOfferAvailability/);
-  assert.match(offersHook, /merchant_available/);
+  assert.match(offersHook, /resolveMerchantOfferStatus/);
+  assert.match(read('apps/merchant/src/features/offers/merchant-offer-status.ts'), /merchant_available/);
   assert.match(offersHook, /available:\s*!isCurrentlyAvailable/);
   assert.match(offersHook, /paused:\s*isCurrentlyAvailable/);
   assert.match(offersHook, /لا يمكن تفعيل أو إيقاف العرض إلا بعد اعتماده من الإدارة/);
@@ -504,7 +505,7 @@ test('AUD-014/029/049: zero flags, initial-only qualification, server-authorized
  assert.doesNotMatch(quick,/إنشاء عرض \(قيد التطوير\)/);
 });
 test('AUD-020/037: subscription time boundaries and server entitlement', () => {
- const ts=require('typescript');
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]}));
  const h={};
  new Function('exports',ts.transpileModule(read('apps/merchant/src/features/subscription/subscription-time.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
  const s={status:'active',starts_at:'2026-11-01T00:00:00Z',ends_at:'2026-11-02T00:00:00Z'};
@@ -523,7 +524,7 @@ test('AUD-020/037: subscription time boundaries and server entitlement', () => {
 
 
 test('AUD-028: active offer state checks approved current version and real time boundaries',()=>{
- const ts=require('typescript'),h={};
+ const ts=require(require.resolve('typescript',{paths:[resolve(repoRoot,'apps/merchant')]})),h={};
  new Function('exports',ts.transpileModule(read('apps/merchant/src/features/offers/merchant-offer-status.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
  const o={status:'active',merchant_available:true,current_version_id:'v'};
  const v={id:'v',review_status:'approved',starts_at:'2026-11-01T00:00:00Z',ends_at:'2026-11-02T00:00:00Z'};
