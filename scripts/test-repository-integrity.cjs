@@ -71,14 +71,30 @@ test('lockfile registry tarball entries have verified integrity', () => {
   assert.match(picker[1], /integrity: sha512-[A-Za-z0-9+/]+={0,2}/);
 });
 
-test('CI has no secret-dependent tests and calls the actual verification suite', () => {
+test('CI public gates need no secrets; live auth is explicitly isolated', () => {
   const ci=read('.github/workflows/ci.yml');
   assert.match(ci,/pull_request:/);
   assert.match(ci,/pnpm install --frozen-lockfile/);
   assert.match(ci,/scripts\/test-repository-integrity\.cjs/);
   assert.match(ci,/scripts\/test-design-foundation\.cjs/);
   assert.match(ci,/scripts\/verify-ui-v08\.sh/);
-  assert.doesNotMatch(ci,/\$\{\{\s*secrets\.|supabase db push|service_role|deploy:/i);
+  // Ordinary PR/push gates must remain independent of secrets.
+  const live = ci.match(/^  merchant-live-clerk-auth:\n[\s\S]*?(?=^  [a-z][a-z0-9-]*:\s*$|(?![\s\S]))/m);
+  assert(live, 'Dedicated live-auth job must exist');
+  assert.doesNotMatch(ci.replace(live[0], ''), /\$\{\{\s*secrets\./i);
+  assert.doesNotMatch(ci, /supabase db push|service_role|deploy:|pull_request_target:/i);
+  assert.match(live[0], /if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main' && inputs\.run_live_auth == true/);
+  assert.match(live[0], /^    environment: wow-merchant-e2e$/m);
+  assert.match(live[0], /^      contents: read$/m);
+  const refs = [...live[0].matchAll(/\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}/g)].map(m => m[1]).sort();
+  assert.deepEqual(refs, [
+    'WOW_E2E_CANDIDATE_EMAIL', 'WOW_E2E_CANDIDATE_USER_ID',
+    'WOW_E2E_NONOWNER_EMAIL', 'WOW_E2E_NONOWNER_USER_ID',
+    'WOW_E2E_OWNER_EMAIL', 'WOW_E2E_OWNER_USER_ID', 'WOW_E2E_TEST_OTP',
+  ]);
+  const auth = read('scripts/test-merchant-live-auth-playwright.cjs');
+  assert.doesNotMatch(auth, /\+clerk_test@|code:\s*['"]\d{6}['"]/i);
+  assert.match(auth, /process\.env\.WOW_E2E_TEST_OTP/);
 });
 
 test('Codex and Antigravity discover the same focused WOW skills', () => {

@@ -19,11 +19,18 @@ if(!/^[a-z0-9-]+\.clerk\.accounts\.dev$/.test(domain))
   throw Error('Only Clerk development domains are accepted.');
 if(new URL(supabase).hostname!=='jfqmdnffqwkqevdhmtfi.supabase.co')
   throw Error('Only the approved WOW development database is accepted.');
-const users=[
- ['wow-merchant-a+clerk_test@example.com','user_3Lu62fhmntVfPUGUTuX05TO4mIz'],
- ['wow-merchant-b+clerk_test@example.com','user_3Lu62ldAYl5V6AI6ytTayeRzwyq'],
- ['wow-admin+clerk_test@example.com','user_3Lu69csg3PeHmXa5Y8bqXn0jyQ8'],
-];
+// Credentials belong to the protected CI environment, never to the repository.
+const fixtureNames=['OWNER','NONOWNER','CANDIDATE'];
+const users=fixtureNames.map(name=>[
+  process.env['WOW_E2E_'+name+'_EMAIL'],
+  process.env['WOW_E2E_'+name+'_USER_ID'],
+]);
+const otp=process.env.WOW_E2E_TEST_OTP;
+if(users.some(([email,id])=>!email||!id||!/^user_[A-Za-z0-9]+$/.test(id))||
+   new Set(users.map(u=>u[1])).size!==3||new Set(users.map(u=>u[0])).size!==3||
+   !otp||!/^\d{6}$/.test(otp)) {
+  throw Error('Missing or invalid isolated Clerk test credentials. Configure protected environment secrets before running.');
+}
 const adminDir=process.env.WOW_ADMIN_WEB_EXPORT_DIR;
 let root=path.resolve(dir);
 if(!fs.existsSync(path.join(root,'index.html')))throw Error('Missing Expo web export.');
@@ -51,7 +58,7 @@ async function rows(token,table,params){
 async function login(page,email){
  await page.goto(origin()+'/__wow_e2e_auth',{waitUntil:'domcontentloaded'});
  await page.waitForFunction(()=>Boolean(window.Clerk),null,{timeout:30000});
- return page.evaluate(async email=>{
+ return page.evaluate(async ({email,otp})=>{
    const clerk=window.Clerk;if(!clerk.loaded)await clerk.load();
    const si=clerk.client.signIn;
    const created=await si.create({identifier:email});
@@ -59,21 +66,21 @@ async function login(page,email){
    const flow=created&&typeof created.prepareFirstFactor==='function'?created:si;
    if(flow.emailCode&&typeof flow.emailCode.sendCode==='function'){
      const sent=await flow.emailCode.sendCode();if(sent?.error)throw Error('Email code refused: '+sent.error.code);
-     const tried=await flow.emailCode.verifyCode({code:'424242'});if(tried?.error)throw Error('OTP rejected: '+tried.error.code);
+     const tried=await flow.emailCode.verifyCode({code:otp});if(tried?.error)throw Error('OTP rejected: '+tried.error.code);
      if(flow.status!=='complete')throw Error('OTP sign-in not complete: '+flow.status);
      await flow.finalize({navigate:async()=>{}});
    }else{
      const factor=(flow.supportedFirstFactors||[]).find(f=>f.strategy==='email_code');
      if(!factor)throw Error('Clerk email code not offered.');
      await flow.prepareFirstFactor({strategy:'email_code',emailAddressId:factor.emailAddressId});
-     const result=await flow.attemptFirstFactor({strategy:'email_code',code:'424242'});
+     const result=await flow.attemptFirstFactor({strategy:'email_code',code:otp});
      if(result.status!=='complete')throw Error('OTP not complete: '+result.status);
      await clerk.setActive({session:result.createdSessionId});
    }
    const token=await clerk.session?.getToken();
    if(!token)throw Error('Clerk session token unavailable.');
    return token;
- },email);
+ },{email,otp});
 }
 function sub(token){
  const parts=token.split('.');if(parts.length!==3)throw Error('Invalid token shape');
