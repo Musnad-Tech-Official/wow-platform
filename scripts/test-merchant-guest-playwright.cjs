@@ -11,6 +11,11 @@ const { chromium } = require('playwright');
 const rootUrl = process.env.WOW_MERCHANT_WEB_URL;
 const exportDir = process.env.WOW_MERCHANT_WEB_EXPORT_DIR;
 const expectProductionPreviewDenied = process.env.WOW_EXPECT_PRODUCTION_PREVIEW_DENIED === '1';
+// Cold Metro development sessions must compile the first web bundle on demand.
+// Keep the static-export diagnostic bounded to its original 12 seconds.
+const bootstrapTimeoutMs = rootUrl
+  ? Math.min(60000, Math.max(12000, Number(process.env.WOW_MERCHANT_BOOTSTRAP_TIMEOUT_MS) || 60000))
+  : 12000;
 if (!rootUrl && !exportDir) {
   throw new Error('Provide WOW_MERCHANT_WEB_URL or WOW_MERCHANT_WEB_EXPORT_DIR.');
 }
@@ -120,7 +125,7 @@ test('MER-BOOTSTRAP: exported Merchant web renders guest gate or reports exact b
   try {
     await page.goto(origin + '/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
     try {
-      await page.getByText('تسجيل الدخول مطلوب').first().waitFor({ timeout: 12_000 });
+      await page.getByText('تسجيل الدخول مطلوب').first().waitFor({ timeout: bootstrapTimeoutMs });
     } catch (error) {
       const text = await page.locator('body').innerText({ timeout: 2_000 }).catch(() => '<body unavailable>');
       const state = await page.evaluate(() => ({

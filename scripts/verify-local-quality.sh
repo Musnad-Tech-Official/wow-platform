@@ -58,6 +58,7 @@ bash -n scripts/test-admin-live-dev-server.sh
 node --check scripts/capture-admin-batch01-screenshots.cjs
 node --check scripts/test-customer-web-deeplinks-playwright.cjs
 node --check scripts/test-merchant-live-auth-playwright.cjs
+bash -n scripts/test-merchant-live-dev-server.sh
 node --check scripts/test-stage4-offer-scope-staging.cjs
 node scripts/test-design-foundation.cjs
 bash scripts/verify-ui-v08.sh
@@ -73,10 +74,9 @@ if [[ "$mode" == web || "$mode" == all ]]; then
   pnpm --filter customer exec expo export -p web --output-dir "$temp_dir/customer-prod"
   WOW_CUSTOMER_WEB_EXPORT_DIR="$temp_dir/customer-prod" node scripts/test-customer-web-deeplinks-playwright.cjs
 
-  pnpm --filter merchant exec expo export -p web --dev --output-dir "$temp_dir/merchant-dev"
-  WOW_MERCHANT_WEB_EXPORT_DIR="$temp_dir/merchant-dev" node scripts/test-merchant-guest-playwright.cjs
-  WOW_MERCHANT_WEB_EXPORT_DIR="$temp_dir/merchant-dev" node scripts/test-merchant-batch-02-playwright.cjs
-  WOW_MERCHANT_WEB_EXPORT_DIR="$temp_dir/merchant-dev" node scripts/test-merchant-final-8-playwright.cjs
+  # Dev-preview screens require a live Metro module/HMR server; static --dev
+  # exports can start a blank page with "Requiring unknown module" exceptions.
+  bash scripts/test-merchant-live-dev-server.sh
 
   # Development-mode dynamic routes load Metro-managed modules: use the
   # real server for visual and authorization preview tests.
