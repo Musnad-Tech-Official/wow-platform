@@ -127,6 +127,53 @@ const final8Screens = [
   { id: 'MER-09', path: '/complaints/details', name: 'Complaint Details & Official Response', screenshot: 'MER-09_LIGHT_PHONE.png' },
 ];
 
+
+const previewHeadings = {
+  '/business/account': 'حساب النشاط',
+  '/business/branches': 'فروع النشاط',
+  '/business/branches/editor': 'بيانات الفرع',
+  '/business/subscription': 'الاشتراك والصلاحية',
+  '/business/team': 'الموظفون المفوضون',
+  '/business/team/editor': /إضافة موظف مفوض|تعديل صلاحيات الموظف/,
+  '/complaints': 'شكاوى النشاط',
+  '/complaints/details': 'تفاصيل الشكوى',
+  '/business/onboarding': 'لنبدأ بإضافة نشاطك التجاري',
+  '/business/onboarding/representative': 'حدّد ممثلك المفوض',
+  '/business/onboarding/branches': 'أضف فروع نشاطك',
+  '/business/onboarding/review': 'ملخص الطلب',
+  '/business/onboarding/status': 'حالة التأهيل',
+  '/': 'لوحة التاجر',
+  '/offers': 'إدارة العروض',
+  '/offers/details': 'تفاصيل العرض وحالته',
+};
+
+async function openPreview(page, url) {
+  // Live Metro and Clerk maintain active requests, so networkidle is not a
+  // readiness contract. Require HTTP success and rendered screen content.
+  const response = await page.goto(url.href, {
+    waitUntil: 'domcontentloaded', timeout: 30_000,
+  });
+  assert.equal(response?.status(), 200, 'Preview HTML must load: ' + url.pathname);
+  const heading = previewHeadings[url.pathname];
+  if (heading) {
+    await page.getByText(heading, { exact: typeof heading === 'string' })
+      .first().waitFor({ state: 'visible', timeout: 20_000 });
+  }
+  await page.waitForFunction(() => {
+    const body = document.body?.innerText?.trim() || '';
+    return body.length > 20 &&
+      !body.includes('تسجيل الدخول مطلوب') &&
+      !/Hydration failed|Uncaught Error|Requiring unknown module/.test(body);
+  }, undefined, { timeout: 20_000 });
+  assert.equal(await page.getByText('تسجيل الدخول مطلوب').count(), 0,
+    'Development preview must render the requested screen: ' + url.pathname);
+  // Font loading is independent of the development WebSocket lifecycle.
+  await page.evaluate(() => Promise.race([
+    document.fonts?.ready ?? Promise.resolve(),
+    new Promise(resolve => setTimeout(resolve, 1500)),
+  ]));
+}
+
 for (const screen of final8Screens) {
   test(`PLAYWRIGHT GUEST: ${screen.id} (${screen.path}) gates real unauthenticated access`, async () => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -176,7 +223,7 @@ for (const screen of final8Screens) {
 
     try {
       const pageUrl = new URL(screen.path + '?preview=1', origin);
-      await page.goto(pageUrl.href, { waitUntil: 'networkidle', timeout: 30_000 });
+      await openPreview(page, pageUrl);
       await page.waitForTimeout(1000); // Allow fonts and images to settle
 
       const screenshotPath = path.join(screenshotDir, screen.screenshot);
@@ -238,8 +285,7 @@ for (const screen of final8Screens) {
     const runtimeErrors = [];
     page.on('pageerror', (error) => runtimeErrors.push(error.message));
     try {
-      await page.goto(new URL(screen.path + '?preview=1', origin).href,
-        { waitUntil: 'networkidle', timeout: 30_000 });
+      await openPreview(page, new URL(screen.path + '?preview=1', origin));
       await page.waitForTimeout(300);
       const pathName = path.join(darkDiagnosticDir, screen.id + '_DARK_PHONE.png');
       await page.screenshot({ path: pathName, fullPage: false });
@@ -298,9 +344,7 @@ for (const [screenId, pathname] of previous13Screens) {
         }
       });
       try {
-        await page.goto(new URL(pathname + '?preview=1', origin).href, {
-          waitUntil: 'networkidle', timeout: 30_000,
-        });
+        await openPreview(page, new URL(pathname + '?preview=1', origin));
         await page.waitForTimeout(200);
         const textLength = await page.locator('body').evaluate((body) =>
           (body.innerText || body.textContent || '').trim().length
@@ -334,7 +378,7 @@ test('PLAYWRIGHT INTERACTION: complaint filters show only selected status', asyn
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
   const page = await context.newPage();
   try {
-    await page.goto(new URL('/complaints?preview=1', origin).href, { waitUntil: 'networkidle' });
+    await openPreview(page, new URL('/complaints?preview=1', origin));
     await page.getByRole('tab', { name: 'مغلقة' }).click();
     await page.getByText('CASE-008').waitFor();
     assert.equal(await page.getByText('CASE-018').count(), 0);
@@ -349,7 +393,7 @@ test('PLAYWRIGHT INTERACTION: delegated team active/former tabs remain separate'
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
   const page = await context.newPage();
   try {
-    await page.goto(new URL('/business/team?preview=1', origin).href, { waitUntil: 'networkidle' });
+    await openPreview(page, new URL('/business/team?preview=1', origin));
     await page.getByRole('tab', { name: /السابقون/ }).click();
     await page.getByText('موظف سابق').waitFor();
     await page.getByRole('tab', { name: /النشطون/ }).click();
@@ -363,7 +407,7 @@ test('PLAYWRIGHT INTERACTION: merchant reply requires explicit review before sen
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
   const page = await context.newPage();
   try {
-    await page.goto(new URL('/complaints/details?preview=1', origin).href, { waitUntil: 'networkidle' });
+    await openPreview(page, new URL('/complaints/details?preview=1', origin));
     await page.getByPlaceholder('رد موضوعي يستند إلى الوقائع المتاحة')
       .fill('أوضح تفاصيل العرض وسياسة السعر المعلن للإدارة.');
     await page.getByRole('button', { name: 'معاينة إرسال الرد' }).click();
@@ -380,7 +424,7 @@ test('PLAYWRIGHT RESPONSIVE: subscription card does not expand document horizont
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme });
     const page = await context.newPage();
     try {
-      await page.goto(new URL('/business/subscription?preview=1', origin).href, { waitUntil: 'networkidle' });
+      await openPreview(page, new URL('/business/subscription?preview=1', origin));
       const metrics = await page.evaluate(() => ({
         documentWidth: document.documentElement.scrollWidth,
         windowWidth: window.innerWidth,
@@ -397,8 +441,7 @@ test('PLAYWRIGHT INTERACTION: branch cancellation protects unsaved edits', async
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
   const page = await context.newPage();
   try {
-    await page.goto(new URL('/business/branches/editor?preview=1&mode=new', origin).href,
-      { waitUntil: 'networkidle' });
+    await openPreview(page, new URL('/business/branches/editor?preview=1&mode=new', origin));
     await page.getByPlaceholder('الفرع الرئيسي أو اسم الفرع').fill('فرع معاينة غير محفوظ');
     await page.getByRole('button', { name: 'إلغاء', exact: true }).click();
     await page.getByText('هل تريد إلغاء التغييرات غير المحفوظة؟').waitFor();
@@ -414,8 +457,7 @@ test('PLAYWRIGHT INTERACTION: staff permissions cancellation protects unsaved ed
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' });
   const page = await context.newPage();
   try {
-    await page.goto(new URL('/business/team/editor?preview=1&mode=new', origin).href,
-      { waitUntil: 'networkidle' });
+    await openPreview(page, new URL('/business/team/editor?preview=1&mode=new', origin));
     await page.getByPlaceholder('معرّف المستخدم المسجل (user_...)').fill('user_preview_example');
     await page.getByRole('button', { name: 'إلغاء', exact: true }).click();
     await page.getByText('إلغاء تعديل الصلاحيات؟').waitFor();
