@@ -1710,3 +1710,23 @@ test('W03.3 MER-02-03 branch mutations stay idle when signed out and invalidate 
   });
   assert(queryClient.getQueryState(branchKey).isInvalidated);
 });
+
+test('AUD-040: saved reads traverse more than 1000 equal-timestamp IDs by stable cursor',async()=>{
+ const timestamp='2026-10-31T00:00:00.123456+00:00';
+ const ids=Array.from({length:1001},(_,i)=>'a0000000-0000-4000-8000-'+String(1001-i).padStart(12,'0'));
+ for(const table of ['saved_offers','saved_businesses']){
+  let index=0,calls=0;
+  globalThis.fetch=async(url)=>{
+   const u=new URL(url);assert.ok(u.pathname.endsWith('/'+table));
+   assert.equal(u.searchParams.get('user_id'),'eq.user_a');
+   assert.equal(u.searchParams.get('limit'),'200');
+   assert.equal(u.searchParams.get('order'),'created_at.desc,id.desc');
+   if(index>0)assert.equal(u.searchParams.get('or'),'(created_at.lt.'+timestamp+',and(created_at.eq.'+timestamp+',id.lt.'+ids[index-1]+'))');
+   const batch=ids.slice(index,index+200).map(id=>({id,user_id:'user_a',created_at:timestamp,[table==='saved_offers'?'offer_id':'business_id']:id}));
+   index+=batch.length;calls++;
+   return response(batch);
+  };
+  const rows=await (table==='saved_offers'?api.getSavedOffers:api.getSavedBusinesses)(makeClient(),'user_a');
+  assert.deepEqual(rows.map(row=>row.id),ids);assert.equal(calls,6);
+ }
+});

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   Platform,
   Pressable,
@@ -17,6 +18,7 @@ import { FavoriteBusinessCard } from './FavoriteBusinessCard';
 import { FavoriteOfferCard } from './FavoriteOfferCard';
 import type { SavedBusinessItem, SavedOfferItem } from './favorites-display';
 import { useFavoritesDetails } from './use-favorites-details';
+import { groupFavoriteRows } from './favorite-rows';
 
 export type FavoritesTabId = 'offers' | 'businesses';
 
@@ -427,6 +429,9 @@ export function CustomerFavoritesTabScreen({
   // ==========================================
   const activeItemsCount = activeTab === 'offers' ? offersCount : businessesCount;
   const isTabEmpty = activeItemsCount === 0;
+  const favoriteRows = activeTab === 'offers'
+    ? groupFavoriteRows('offers', savedOffers, numColumns)
+    : groupFavoriteRows('businesses', savedBusinesses, numColumns);
 
   return (
     <View
@@ -502,24 +507,26 @@ export function CustomerFavoritesTabScreen({
         </View>
       </View>
 
-      {/* 2. Scrollable Body Content */}
-      <ScrollView
+      {/* 2. Virtualized scrollable grid; only mounted rows resolve public details. */}
+      <FlatList
+        key={activeTab}
+        data={isLoading && activeItemsCount === 0 || isError ? [] : favoriteRows}
+        keyExtractor={row => row.key}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
           paddingHorizontal: horizontalPadding,
           paddingTop: 16,
           paddingBottom: 32,
-          alignItems: 'center',
         }}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh}
+            tintColor={colors.primary} colors={[colors.primary]} />
         }
-      >
+        ListHeaderComponent={(
         <View
           {...rtlWebProps}
           style={{
@@ -631,9 +638,11 @@ export function CustomerFavoritesTabScreen({
               {activeTab === 'offers' ? 'العروض المحفوظة' : 'التجار المحفوظون'}
             </AppText>
           </View>
-
-          {/* 5. Main Content Area: Loading / Error / Empty / Grid */}
-          {isLoading && activeItemsCount === 0 ? (
+        </View>
+        )}
+        ListEmptyComponent={(
+          <View style={{width:'100%',maxWidth:contentMaxWidth,alignSelf:'center'}}>
+            {isLoading && activeItemsCount === 0 ? (
             /* Loading State */
             <View
               style={{
@@ -723,43 +732,24 @@ export function CustomerFavoritesTabScreen({
                 }}
               />
             </View>
-          ) : (
-            /* Responsive Grid of Saved Items */
-            <View
-              {...rtlWebProps}
-              style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: gridGap,
-                justifyContent: 'flex-start',
-                width: '100%',
-              }}
-            >
-              {activeTab === 'offers'
-                ? savedOffers.map((item) => (
-                    <FavoriteOfferCard
-                      key={item.id}
-                      item={item}
-                      cardWidth={cardWidth}
-                      onPress={handleOfferPress}
-                      onRemove={removeOffer}
-                      isRemoving={pendingOfferIds.has(item.offerId)}
-                    />
-                  ))
-                : savedBusinesses.map((item) => (
-                    <FavoriteBusinessCard
-                      key={item.id}
-                      item={item}
-                      cardWidth={cardWidth}
-                      onPress={handleBusinessPress}
-                      onRemove={removeBusiness}
-                      isRemoving={pendingBusinessIds.has(item.businessId)}
-                    />
-                  ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+          ) : null}
+          </View>
+        )}
+        renderItem={({item:row}) => (
+          <View {...rtlWebProps} style={{width:'100%',maxWidth:contentMaxWidth,alignSelf:'center',
+            flexDirection:'row',gap:gridGap,marginTop:gridGap,justifyContent:'flex-start'}}>
+            {row.kind === 'offers' ? row.items.map(item => (
+              <FavoriteOfferCard key={item.id} item={item} cardWidth={cardWidth}
+                onPress={handleOfferPress} onRemove={removeOffer}
+                isRemoving={pendingOfferIds.has(item.offerId)} />
+            )) : row.items.map(item => (
+              <FavoriteBusinessCard key={item.id} item={item} cardWidth={cardWidth}
+                onPress={handleBusinessPress} onRemove={removeBusiness}
+                isRemoving={pendingBusinessIds.has(item.businessId)} />
+            ))}
+          </View>
+        )}
+      />
     </View>
   );
 }

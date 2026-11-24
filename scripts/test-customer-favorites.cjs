@@ -541,3 +541,18 @@ test('15. Production execution: executeFavoriteToggle handles success, rejection
 });
 
 
+
+test('AUD-040: favorites grid virtualizes rows without dropping or repeating any item',()=>{
+ const source=fs.readFileSync(path.join(repoRoot,'apps/customer/src/features/favorites/favorite-rows.ts'),'utf8');
+ const h={};new Function('exports',ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(h);
+ const items=Array.from({length:1001},(_,i)=>({id:'favorite-'+i,offerId:'offer-'+i}));
+ for(const columns of [2,3]){
+  const rows=h.groupFavoriteRows('offers',items,columns);
+  assert.equal(rows.length,Math.ceil(1001/columns));assert.deepEqual(rows.flatMap(x=>x.items),items);
+  assert.equal(new Set(rows.map(x=>x.key)).size,rows.length);
+ }
+ assert.match(favoritesScreenSrc,/<FlatList/);
+ assert.match(favoritesScreenSrc,/initialNumToRender=\{4\}/);
+ assert.match(favoritesScreenSrc,/maxToRenderPerBatch=\{4\}/);
+ assert.match(favoritesScreenSrc,/windowSize=\{5\}/);
+});
