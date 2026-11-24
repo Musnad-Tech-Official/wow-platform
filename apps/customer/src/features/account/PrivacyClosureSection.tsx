@@ -133,8 +133,9 @@ export function PrivacyClosureSection({
             return (
               <Pressable
                 key={item.id}
-                disabled={!requestsEnabled}
-                onPress={() => setSelectedKind(item.id as PrivacyRequestKind)}
+                disabled={!requestsEnabled || selectedKind !== null}
+                accessibilityState={{ disabled: !requestsEnabled || selectedKind !== null }}
+                onPress={() => { if (requestsEnabled && selectedKind === null) setSelectedKind(item.id as PrivacyRequestKind); }}
                 accessibilityRole="button"
                 accessibilityLabel={item.title}
                 accessibilityHint={item.description}
