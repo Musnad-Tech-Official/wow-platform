@@ -43,7 +43,11 @@ const server=http.createServer((req,res)=>{
  if(f!==root&&!f.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}
  if(fs.existsSync(f)&&fs.statSync(f).isDirectory())f=path.join(f,'index.html');
  if(!fs.existsSync(f)&&!path.extname(f)&&fs.existsSync(f+'.html'))f+='.html';
- if(!fs.existsSync(f))f=path.join(root,'index.html');
+ if(!fs.existsSync(f)){
+  // Never serve HTML for missing JavaScript, fonts or other static assets.
+  if(path.extname(p)){res.writeHead(404);res.end('Not found');return;}
+  f=path.join(root,'index.html');
+ }
  res.setHeader('Content-Type',mime[path.extname(f)]||'application/octet-stream');
  fs.createReadStream(f).on('error',()=>{if(!res.headersSent)res.writeHead(500);res.end();}).pipe(res);
 });
@@ -421,8 +425,22 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300
         const ui=await context.newPage();
         // Bounded diagnostic categories only; no raw URLs, headers, bodies,
         // error strings, screenshots or rendered user data in public logs.
-        const diagnostic={pageErrors:0,failedRequests:0,httpErrors:{}};
-        ui.on('pageerror',()=>{diagnostic.pageErrors++;});
+        const diagnostic={pageErrors:0,errorKinds:{},failedRequests:0,httpErrors:{}};
+        ui.on('pageerror',error=>{
+          diagnostic.pageErrors++;
+          // Emit fixed categories only, never the actual exception or stack.
+          const message=String(error.message||'');
+          const kind=/accessToken option|Supabase Client.*auth|accessToken.*auth/i.test(message)?'supabase-auth-proxy':
+            /invalid hook call|rendered (more|fewer) hooks/i.test(message)?'react-hooks':
+            /maximum update depth|too many re-renders/i.test(message)?'react-render-loop':
+            /hydration|hydrating|server rendered HTML/i.test(message)?'hydration':
+            /unexpected token|failed to fetch dynamically imported module|loading chunk|MIME type/i.test(message)?'bundle-load':
+            /clerk/i.test(message)?'clerk-runtime':
+            /cannot read properties of (undefined|null)/i.test(message)?'null-property':
+            /is not a function/i.test(message)?'not-a-function':
+            ['TypeError','ReferenceError','SyntaxError','RangeError'].includes(error.name)?error.name:'other';
+          diagnostic.errorKinds[kind]=(diagnostic.errorKinds[kind]||0)+1;
+        });
         ui.on('requestfailed',()=>{diagnostic.failedRequests++;});
         ui.on('response',response=>{
           if(response.status()<400)return;
@@ -463,7 +481,14 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300
             const pathname=window.location.pathname;
             return ['/','/offers','/auth/recovery','/business/onboarding','/business/onboarding/status','/business/status'].includes(pathname)?pathname:'other';
           }).catch(()=> 'unavailable');
-          console.log('MERCHANT-LIVE-DIAGNOSTIC '+JSON.stringify({checkpoint,route,visible,...diagnostic}));
+          const documentState=await ui.evaluate(()=>({
+            ready:['loading','interactive','complete'].includes(document.readyState)?document.readyState:'other',
+            rootChildren:Math.min(document.getElementById('root')?.childElementCount??0,100),
+            clerkPresent:Boolean(window.Clerk),
+            clerkLoaded:Boolean(window.Clerk?.loaded),
+            activeSession:Boolean(window.Clerk?.session),
+          })).catch(()=>null);
+          console.log('MERCHANT-LIVE-DIAGNOSTIC '+JSON.stringify({checkpoint,route,visible,documentState,...diagnostic}));
           throw error;
         } finally { await ui.close(); }
       }
