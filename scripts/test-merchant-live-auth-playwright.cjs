@@ -419,13 +419,52 @@ test('real Clerk OTP and Supabase RLS use distinct live identities',{timeout:300
       if(i===0){
         fixture=await ensureFixture(session.token,id);
         const ui=await context.newPage();
+        // Bounded diagnostic categories only; no raw URLs, headers, bodies,
+        // error strings, screenshots or rendered user data in public logs.
+        const diagnostic={pageErrors:0,failedRequests:0,httpErrors:{}};
+        ui.on('pageerror',()=>{diagnostic.pageErrors++;});
+        ui.on('requestfailed',()=>{diagnostic.failedRequests++;});
+        ui.on('response',response=>{
+          if(response.status()<400)return;
+          const host=new URL(response.url()).hostname;
+          const source=host===domain?'clerk':host===new URL(supabase).hostname?'supabase':host==='127.0.0.1'?'local':'other';
+          const key=source+':'+response.status();
+          diagnostic.httpErrors[key]=(diagnostic.httpErrors[key]||0)+1;
+        });
+        let checkpoint='dashboard-navigation';
         try {
-          await ui.goto(origin()+'/',{waitUntil:'domcontentloaded'});
+          const response=await ui.goto(origin()+'/',{waitUntil:'domcontentloaded'});
+          assert.equal(response?.status(),200,'Merchant dashboard HTTP response');
+          checkpoint='dashboard-heading';
           await ui.getByText('لوحة التاجر',{exact:true}).first().waitFor({timeout:30000});
           assert.equal(await ui.getByText('تسجيل الدخول مطلوب').count(),0);
+          checkpoint='business-selector';
           await ui.getByText(E2E_NAME,{exact:true}).first().waitFor({timeout:30000});
-          await ui.goto(origin()+'/offers',{waitUntil:'domcontentloaded'});
+          checkpoint='offers-navigation';
+          const offersResponse=await ui.goto(origin()+'/offers',{waitUntil:'domcontentloaded'});
+          assert.equal(offersResponse?.status(),200,'Merchant offers HTTP response');
+          checkpoint='offers-heading';
           await ui.getByText('إدارة العروض',{exact:true}).first().waitFor({timeout:30000});
+        } catch(error) {
+          const labels={
+            login:'تسجيل الدخول مطلوب',
+            authLoading:'جارٍ التحقق من تسجيل الدخول...',
+            dashboard:'لوحة التاجر',
+            business:E2E_NAME,
+            businessError:'تعذّر تحميل الأنشطة المصرح بها',
+            dashboardError:'تعذر تحميل بعض بيانات النشاط. أعد المحاولة.',
+            offers:'إدارة العروض',
+          };
+          const visible={};
+          for(const [key,label] of Object.entries(labels)){
+            visible[key]=await ui.getByText(label,{exact:true}).first().isVisible().catch(()=>false);
+          }
+          const route=await ui.evaluate(()=>{
+            const pathname=window.location.pathname;
+            return ['/','/offers','/auth/recovery','/business/onboarding','/business/onboarding/status','/business/status'].includes(pathname)?pathname:'other';
+          }).catch(()=> 'unavailable');
+          console.log('MERCHANT-LIVE-DIAGNOSTIC '+JSON.stringify({checkpoint,route,visible,...diagnostic}));
+          throw error;
         } finally { await ui.close(); }
       }
     }
